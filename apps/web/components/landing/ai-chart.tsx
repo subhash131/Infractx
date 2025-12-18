@@ -29,7 +29,7 @@ const chartConfig = {
 
 export function AIChart() {
   return (
-    <ChartContainer config={chartConfig} className="w-40">
+    <ChartContainer config={chartConfig} className="w-48 ml-8">
       <BarChart accessibilityLayer data={chartData}>
         <Bar
           dataKey="desktop"

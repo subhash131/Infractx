@@ -18,29 +18,23 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@workspace/ui/components/tooltip";
+import { ProjectTooltip } from "./project-tooltip";
 
 const rightIcons = [
-  { name: "openai", icon: "/tech/openai.svg" },
-  { name: "langgraph", icon: "/tech/langgraph.svg" },
+  { name: "Openai", icon: "/tech/openai.svg" },
+  { name: "Langgraph", icon: "/tech/langgraph.svg" },
   { name: "Next.js", icon: "/tech/nextjs.svg" },
 ];
 const leftIcons = [
-  { name: "clerk", icon: "/tech/clerk.svg" },
-  { name: "gemini", icon: "/tech/gemini.svg" },
-  { name: "convex", icon: "/tech/convex.svg" },
+  { name: "Clerk", icon: "/tech/clerk.svg" },
+  { name: "Gemini", icon: "/tech/gemini.svg" },
+  { name: "Convex", icon: "/tech/convex.svg" },
 ];
 
 export const Intro = () => {
   return (
     <div className="pt-16 px-20 h-[calc(100vh-4rem)] flex flex-col items-center justify-center gap-4">
-      <div className="size-full flex items-center justify-end flex-col">
-        <div className="flex items-center justify-center gap-2">
-          <div className="relative size-4 rounded-full flex items-center justify-center">
-            <div className="absolute rounded-full bg-green-500 size-4 animate-ping opacity-75"></div>
-            <div className="absolute size-2 rounded-full bg-green-500"></div>
-          </div>
-          <Label className="py-3">We Build With Experience</Label>
-        </div>
+      <div className="size-full flex items-center justify-end flex-col relative">
         <div className="shrink-0 w-[50%] h-[90%] flex items-center justify-center relative">
           <TechIconsStack
             items={rightIcons}
@@ -54,15 +48,58 @@ export const Intro = () => {
           />
           <AIChatWindow />
         </div>
+        <ProjectTooltip
+          color="oklch(60% 0.118 184.704)"
+          content="AI Sales Agent"
+          className="rotate-6"
+          direction="right"
+        />
+        <ProjectTooltip
+          color="oklch(76.9% 0.188 70.08)"
+          content="AI Web Design Assistant"
+          className="-rotate-6 bottom-0 left-30"
+          direction="left"
+          labelContainerClassName="py-3"
+        />
+        <ProjectTooltip
+          color="oklch(62.3% 0.214 259.815)"
+          content="AI Automation"
+          className="rotate-10 top-16 left-50"
+          direction="left"
+          labelContainerClassName="py-3"
+        />
+        <ProjectTooltip
+          color="oklch(76.8% 0.233 130.85)"
+          content="AI Business Analyst"
+          className="-rotate-10 top-20 left-50"
+          direction="right"
+          labelContainerClassName="py-3"
+        />
       </div>
-      <div className="h-[70%] w-full flex items-center justify-start flex-col gap-4">
-        <Label className="text-5xl font-semibold text-center">
-          From a concept to working product in days
-        </Label>
-        <Label className="text-lg text-center">
-          The possibilities are endless with AI-powered applications. Build
-          yours today.
-        </Label>
+      <div className="h-[70%] w-full flex flex-col items-center justify-start gap-10">
+        <div className="flex items-center justify-start flex-col gap-4">
+          <Label className="text-5xl font-semibold text-center">
+            From a concept to working product in days
+          </Label>
+          <Label className="text-lg text-center">
+            The possibilities are endless with AI-powered applications. Build
+            yours today.
+          </Label>
+        </div>
+        <div className="w-full flex items-center justify-center flex-col">
+          <Button className="px-10 py-6 rounded-full shadow-2xl text-xl gap-3">
+            Schedule a Call
+            <div className="relative size-4 rounded-full flex items-center justify-center">
+              <div className="absolute rounded-full bg-green-500 size-4 animate-ping opacity-75"></div>
+              <div className="absolute size-2 rounded-full bg-green-500"></div>
+            </div>
+          </Button>
+          <div className="flex items-center justify-center gap-2">
+            <Label className="py-3">
+              We build with experience, not with vibes.
+            </Label>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -70,8 +107,9 @@ export const Intro = () => {
 
 type Message = {
   content: string;
-  sender: "user" | "ai";
+  sender?: "user" | "ai";
   showChart?: boolean;
+  showScheduleNowButton?: boolean;
 };
 
 const AIChatWindow = () => {
@@ -81,6 +119,7 @@ const AIChatWindow = () => {
       content: "Sure, Real-time charts coming up",
       sender: "ai",
       showChart: true,
+      showScheduleNowButton: false,
     },
   ]);
   const [inputValue, setInputValue] = React.useState<string>("");
@@ -92,20 +131,35 @@ const AIChatWindow = () => {
     }
   }, [messages]);
   return (
-    <div className="w-[80%] h-full bg- rounded-xl shadow-lg p-1 bg-accent">
+    <div className="w-[80%] h-full bg- rounded-xl shadow-lg p-2 bg-accent">
       <div className="size-full bg-background rounded-lg flex flex-col items-center justify-end p-2">
+        <div className="w-[80%] h-10 bg--50">
+          <Label className="text-lg font-semibold">AI Business Analyst</Label>
+        </div>
         <div
-          className="h-fit max-h-52 w-full flex flex-col items-center px-14 overflow-y-scroll hide-scrollbar p-2 gap-1"
+          className="h-52 max-h-52 w-full flex flex-col items-center px-14 overflow-y-scroll hide-scrollbar p-2 gap-1"
           ref={ref}
         >
           {messages.map((msg, index) => {
             if (msg.sender === "user") {
-              return <UserMessage key={index}>{msg.content}</UserMessage>;
+              return (
+                <UserMessage
+                  key={index}
+                  showChart={msg.showChart}
+                  content={msg.content}
+                  showScheduleNowButton={msg.showScheduleNowButton}
+                  sender={msg.sender}
+                />
+              );
             }
             return (
-              <AiMessage key={index} showChart={msg.showChart}>
-                {msg.content}
-              </AiMessage>
+              <AiMessage
+                key={index}
+                showChart={msg.showChart}
+                content={msg.content}
+                showScheduleNowButton={msg.showScheduleNowButton}
+                sender={msg.sender}
+              />
             );
           })}
         </div>
@@ -127,6 +181,11 @@ const AIChatWindow = () => {
                   content: inputValue,
                   sender: "user",
                 },
+                {
+                  content: "Talk with us",
+                  sender: "ai",
+                  showScheduleNowButton: true,
+                },
               ]);
               setInputValue("");
             }}
@@ -139,11 +198,11 @@ const AIChatWindow = () => {
   );
 };
 
-const UserMessage = ({ children }: { children: React.ReactNode }) => {
+const UserMessage = ({ content }: Message) => {
   return (
     <div className="w-full h-fit flex justify-end gap-1 items-center -rotate-1">
       <Badge variant={"secondary"} className="h-6">
-        {children}
+        {content}
       </Badge>
       <div className="border p-0.5 size-fit rounded-full">
         <HugeiconsIcon icon={UserIcon} size={16} />
@@ -152,12 +211,10 @@ const UserMessage = ({ children }: { children: React.ReactNode }) => {
   );
 };
 const AiMessage = ({
-  children,
+  content,
   showChart = false,
-}: {
-  children: React.ReactNode;
-  showChart?: boolean;
-}) => {
+  showScheduleNowButton,
+}: Message) => {
   return (
     <div className="w-full h-fit flex flex-col items-start gap-1">
       <div className="flex gap-1 rotate-1">
@@ -169,10 +226,15 @@ const AiMessage = ({
           />
         </div>
         <Badge variant={"secondary"} className="h-6">
-          {children}
+          {content}
         </Badge>
       </div>
       {showChart && <AIChart />}
+      {showScheduleNowButton && (
+        <Button variant={"link"} className="ml-6">
+          Schedule a call
+        </Button>
+      )}
     </div>
   );
 };
