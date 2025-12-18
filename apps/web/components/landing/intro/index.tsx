@@ -134,7 +134,7 @@ const AIChatWindow = () => {
     <div className="w-[80%] h-full bg- rounded-xl shadow-lg p-2 bg-accent">
       <div className="size-full bg-background rounded-lg flex flex-col items-center justify-end p-2">
         <div className="w-[80%] h-10 bg--50">
-          <Label className="text-lg font-semibold">AI Business Analyst</Label>
+          <Label className="text-lg font-semibold">AI SaaS</Label>
         </div>
         <div
           className="h-52 max-h-52 w-full flex flex-col items-center px-14 overflow-y-scroll hide-scrollbar p-2 gap-1"
