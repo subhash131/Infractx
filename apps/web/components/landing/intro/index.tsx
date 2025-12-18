@@ -201,7 +201,7 @@ const AIChatWindow = () => {
 const UserMessage = ({ content }: Message) => {
   return (
     <div className="w-full h-fit flex justify-end gap-1 items-center -rotate-1">
-      <Badge variant={"secondary"} className="h-6">
+      <Badge variant={"secondary"} className="h-6 text-wrap max-w-60">
         {content}
       </Badge>
       <div className="border p-0.5 size-fit rounded-full">
