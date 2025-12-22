@@ -1,7 +1,7 @@
 import { Geist, Geist_Mono, Ubuntu } from "next/font/google";
 
 import "@workspace/ui/globals.css";
-import { Providers } from "@/components/providers";
+import { Providers } from "@/modules/providers";
 import { Metadata } from "next";
 
 const ubuntu = Ubuntu({ variable: "--font-sans", weight: ["300", "400"] });

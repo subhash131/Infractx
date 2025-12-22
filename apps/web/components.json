@@ -12,8 +12,8 @@
   "iconLibrary": "hugeicons",
   "aliases": {
     "components": "@/components",
-    "hooks": "@/hooks",
-    "lib": "@/lib",
+    "hooks": "@workspace/ui/hooks",
+    "lib": "@workspace/ui/lib",
     "utils": "@workspace/ui/lib/utils",
     "ui": "@workspace/ui/components"
   },
