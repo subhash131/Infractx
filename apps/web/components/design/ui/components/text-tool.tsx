@@ -9,7 +9,7 @@ export const TextTool = () => {
     useCanvas();
   const [count, setCount] = useState(0);
 
-  const handleAddText = () => {
+  const handleAddText = (e: React.MouseEvent) => {
     if (!canvas) {
       console.log("Canvas not initialized");
       return;
@@ -32,6 +32,7 @@ export const TextTool = () => {
     addElement(text);
     canvas.setActiveObject(text);
     setSelectedElements([text]);
+    text.enterEditing();
     setCount((prev) => prev + 1);
   };
 
