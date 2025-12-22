@@ -12,6 +12,7 @@ interface CanvasState {
   showGrid: boolean;
   history: fabric.FabricObject[][];
   historyIndex: number;
+  devicePixelRatio: number;
 }
 
 interface CanvasActions {
@@ -29,6 +30,7 @@ interface CanvasActions {
   undo: () => void;
   redo: () => void;
   clearCanvas: () => void;
+  setDevicePixelRatio: (dpr: number) => void;
 }
 
 const useCanvas = create<CanvasState & CanvasActions>((set, get) => ({
@@ -42,6 +44,7 @@ const useCanvas = create<CanvasState & CanvasActions>((set, get) => ({
   showGrid: false,
   history: [],
   historyIndex: -1,
+  devicePixelRatio: 1,
 
   setCanvas: (canvas) => set({ canvas }),
 
@@ -116,6 +119,7 @@ const useCanvas = create<CanvasState & CanvasActions>((set, get) => ({
         historyIndex: -1,
       };
     }),
+  setDevicePixelRatio: (dpr) => set({ devicePixelRatio: dpr }),
 }));
 
 export default useCanvas;

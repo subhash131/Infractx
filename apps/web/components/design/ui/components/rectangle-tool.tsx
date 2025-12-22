@@ -1,3 +1,4 @@
+"use client";
 import React, { useState } from "react";
 import * as fabric from "fabric";
 import { RectangleHorizontal } from "lucide-react";
@@ -5,7 +6,8 @@ import { Button } from "@workspace/ui/components/button";
 import useCanvas from "../../store";
 
 export const RectangleTool = () => {
-  const { canvas, addElement } = useCanvas();
+  const { canvas, devicePixelRatio, addElement, setSelectedElements } =
+    useCanvas();
   const [count, setCount] = useState(0);
 
   const handleAddRectangle = () => {
@@ -15,8 +17,8 @@ export const RectangleTool = () => {
     }
 
     const rect = new fabric.Rect({
-      left: innerWidth / 2 + count * 10,
-      top: innerHeight / 3 + count * 10,
+      left: (innerWidth * devicePixelRatio) / 2 + count * 10,
+      top: (innerHeight * devicePixelRatio) / 3 + count * 10,
       width: 100,
       height: 100,
       fill: "#D9D9D9",
@@ -30,6 +32,8 @@ export const RectangleTool = () => {
 
     canvas.add(rect);
     addElement(rect);
+    canvas.setActiveObject(rect);
+    setSelectedElements([rect]);
     setCount((prev) => prev + 1);
   };
 
