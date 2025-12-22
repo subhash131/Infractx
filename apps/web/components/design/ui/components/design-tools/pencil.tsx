@@ -1,27 +1,27 @@
 import React, { useState } from "react";
 import * as fabric from "fabric";
-import { Circle } from "lucide-react";
+import { Pen } from "lucide-react";
 import { Button } from "@workspace/ui/components/button";
-import useCanvas from "../../store";
+import useCanvas from "../../../store";
 
-export const CircleTool = () => {
+export const PencilTool = () => {
   const { canvas, addElement, setSelectedElements, devicePixelRatio } =
     useCanvas();
   const [count, setCount] = useState(0);
 
-  const handleAddCircle = () => {
+  const handleAddPencil = () => {
     if (!canvas) {
       console.log("Canvas not initialized");
       return;
     }
 
-    const circle = new fabric.Circle({
+    // Create a simple path that looks like a pencil drawing
+    const path = new fabric.Path("M 0 0 Q 25 25 50 0 T 100 25 T 150 0", {
       left: (innerWidth * devicePixelRatio) / 2 + count * 10,
       top: (innerHeight * devicePixelRatio) / 3 + count * 10,
-      radius: 50,
-      stroke: "#010101",
-      fill: "#D9D9D9",
-      strokeWidth: 0.5,
+      stroke: "#000000",
+      strokeWidth: 2,
+      fill: "",
       cornerColor: "#4096ee",
       cornerSize: 8,
       cornerStrokeColor: "#4096ee",
@@ -29,22 +29,22 @@ export const CircleTool = () => {
       borderScaleFactor: 1.2,
     });
 
-    canvas.add(circle);
-    addElement(circle);
-    canvas.setActiveObject(circle);
-    setSelectedElements([circle]);
+    canvas.add(path);
+    addElement(path);
+    canvas.setActiveObject(path);
+    setSelectedElements([path]);
     setCount((prev) => prev + 1);
   };
 
   return (
     <Button
-      onClick={handleAddCircle}
+      onClick={handleAddPencil}
       variant="outline"
       size="sm"
       className="flex items-center gap-2"
     >
-      <Circle className="h-4 w-4" />
-      Circle
+      <Pen className="h-4 w-4" />
+      Pencil
     </Button>
   );
 };

@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import * as fabric from "fabric";
 import { Minus } from "lucide-react";
 import { Button } from "@workspace/ui/components/button";
-import useCanvas from "../../store";
+import useCanvas from "../../../store";
 
 export const LineTool = () => {
   const { canvas, addElement, setSelectedElements, devicePixelRatio } =
