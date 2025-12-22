@@ -1,50 +1,49 @@
 import React, { useState } from "react";
 import * as fabric from "fabric";
-import { Circle } from "lucide-react";
+import { Type } from "lucide-react";
 import { Button } from "@workspace/ui/components/button";
 import useCanvas from "../../store";
 
-export const CircleTool = () => {
+export const TextTool = () => {
   const { canvas, addElement, setSelectedElements, devicePixelRatio } =
     useCanvas();
   const [count, setCount] = useState(0);
 
-  const handleAddCircle = () => {
+  const handleAddText = () => {
     if (!canvas) {
       console.log("Canvas not initialized");
       return;
     }
 
-    const circle = new fabric.Circle({
+    const text = new fabric.IText("Text", {
       left: (innerWidth * devicePixelRatio) / 2 + count * 10,
       top: (innerHeight * devicePixelRatio) / 3 + count * 10,
-      radius: 50,
-      stroke: "#010101",
-      fill: "#D9D9D9",
-      strokeWidth: 0.5,
+      fontSize: 20,
+      fill: "#000000",
       cornerColor: "#4096ee",
       cornerSize: 8,
       cornerStrokeColor: "#4096ee",
       borderColor: "#4096ee",
       borderScaleFactor: 1.2,
+      padding: 8,
     });
 
-    canvas.add(circle);
-    addElement(circle);
-    canvas.setActiveObject(circle);
-    setSelectedElements([circle]);
+    canvas.add(text);
+    addElement(text);
+    canvas.setActiveObject(text);
+    setSelectedElements([text]);
     setCount((prev) => prev + 1);
   };
 
   return (
     <Button
-      onClick={handleAddCircle}
+      onClick={handleAddText}
       variant="outline"
       size="sm"
       className="flex items-center gap-2"
     >
-      <Circle className="h-4 w-4" />
-      Circle
+      <Type className="h-4 w-4" />
+      Text
     </Button>
   );
 };

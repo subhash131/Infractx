@@ -2,6 +2,8 @@ import React from "react";
 import { RectangleTool } from "./rectangle-tool";
 import { CircleTool } from "./circle-tool";
 import { LineTool } from "./line-tool";
+import { PencilTool } from "./pencil-tool";
+import { TextTool } from "./text-tool";
 
 export const DesignElementsBar = () => {
   return (
@@ -9,6 +11,8 @@ export const DesignElementsBar = () => {
       <RectangleTool />
       <CircleTool />
       <LineTool />
+      <PencilTool />
+      <TextTool />
     </div>
   );
 };

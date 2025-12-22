@@ -5,7 +5,8 @@ import { Button } from "@workspace/ui/components/button";
 import useCanvas from "../../store";
 
 export const LineTool = () => {
-  const { canvas, addElement } = useCanvas();
+  const { canvas, addElement, setSelectedElements, devicePixelRatio } =
+    useCanvas();
   const [count, setCount] = useState(0);
 
   const handleAddLine = () => {
@@ -14,21 +15,31 @@ export const LineTool = () => {
       return;
     }
 
-    const line = new fabric.Line([50, 50, 150, 150], {
-      stroke: "#000000",
-      strokeWidth: 1,
-      cornerColor: "#4096ee",
-      cornerSize: 8,
-      cornerStrokeColor: "#4096ee",
-      borderColor: "#4096ee",
-      borderScaleFactor: 1.2,
-      top: innerHeight / 3 + count * 10,
-      left: innerWidth / 2 + count * 10,
-      angle: 45,
-    });
+    const line = new fabric.Polyline(
+      [
+        { x: 50, y: 50 },
+        { x: 150, y: 150 },
+      ],
+      {
+        stroke: "#000000",
+        strokeWidth: 1,
+        strokeUniform: true,
+        fill: "",
+        cornerColor: "#4096ee",
+        cornerSize: 8,
+        cornerStrokeColor: "#4096ee",
+        borderColor: "#4096ee",
+        borderScaleFactor: 1.2,
+        left: (innerWidth * devicePixelRatio) / 2 + count * 10,
+        top: (innerHeight * devicePixelRatio) / 3 + count * 10,
+        angle: 45,
+      }
+    );
 
     canvas.add(line);
     addElement(line);
+    canvas.setActiveObject(line);
+    setSelectedElements([line]);
     setCount((prev) => prev + 1);
   };
 
