@@ -23,6 +23,7 @@ export const RectangleTool = () => {
       height: 100,
       fill: "#D9D9D9",
       strokeWidth: 1,
+      strokeUniform: true,
       cornerColor: "#4096ee",
       cornerSize: 8,
       cornerStrokeColor: "#4096ee",
