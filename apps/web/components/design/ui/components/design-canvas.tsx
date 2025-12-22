@@ -209,8 +209,17 @@ export const DesignCanvas = () => {
           const activeObject = initCanvas.getActiveObject();
           const activeObjects = initCanvas.getActiveObjects();
 
-          // Skip delete if in text editing mode
+          // Skip delete if in text editing mode or typing in an input field
           if (activeObject instanceof fabric.IText && activeObject.isEditing) {
+            return;
+          }
+
+          // Skip delete if user is typing in an HTML input/textarea
+          const activeElement = document.activeElement;
+          if (
+            activeElement instanceof HTMLInputElement ||
+            activeElement instanceof HTMLTextAreaElement
+          ) {
             return;
           }
 
@@ -250,6 +259,14 @@ export const DesignCanvas = () => {
         setSelectedElements([]);
       };
 
+      // Update selection when objects are modified (moved, resized, etc.)
+      const handleObjectModified = () => {
+        const activeObjects = initCanvas.getActiveObjects();
+        if (activeObjects.length > 0) {
+          setSelectedElements([...activeObjects]);
+        }
+      };
+
       // Add event listeners
       initCanvas.on("mouse:wheel", handleWheel);
       initCanvas.on("mouse:down", handleMouseDown);
@@ -258,6 +275,7 @@ export const DesignCanvas = () => {
       initCanvas.on("selection:created", handleSelectionCreated);
       initCanvas.on("selection:updated", handleSelectionUpdated);
       initCanvas.on("selection:cleared", handleSelectionCleared);
+      initCanvas.on("object:modified", handleObjectModified);
 
       // Native touch events
       const canvasEl = canvasRef.current;
@@ -282,6 +300,7 @@ export const DesignCanvas = () => {
         initCanvas.off("selection:created", handleSelectionCreated);
         initCanvas.off("selection:updated", handleSelectionUpdated);
         initCanvas.off("selection:cleared", handleSelectionCleared);
+        initCanvas.off("object:modified", handleObjectModified);
 
         canvasEl.removeEventListener("touchstart", handleTouchStart);
         canvasEl.removeEventListener("touchmove", handleTouchMove);
