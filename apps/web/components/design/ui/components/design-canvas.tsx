@@ -35,21 +35,37 @@ export const DesignCanvas = () => {
       setCanvas(initCanvas);
       initCanvas.renderAll();
 
-      // ======= MOUSE WHEEL ZOOM =======
+      // ======= MOUSE WHEEL: ZOOM with Ctrl/Cmd, PAN without =======
       const handleWheel = (opt: any) => {
         const e = opt.e;
         e.preventDefault();
         e.stopPropagation();
 
-        const delta = e.deltaY;
-        let zoom = initCanvas.getZoom();
-        zoom *= 0.999 ** delta;
+        const vpt = initCanvas.viewportTransform!;
 
-        if (zoom > 20) zoom = 20;
-        if (zoom < 0.1) zoom = 0.1;
+        // ZOOM: Ctrl/Cmd + Wheel
+        if (e.ctrlKey || e.metaKey) {
+          const delta = e.deltaY;
+          let zoom = initCanvas.getZoom();
+          zoom *= 0.999 ** delta;
 
-        initCanvas.zoomToPoint(new fabric.Point(e.offsetX, e.offsetY), zoom);
-        setZoom(zoom);
+          if (zoom > 20) zoom = 20;
+          if (zoom < 0.1) zoom = 0.1;
+
+          initCanvas.zoomToPoint(new fabric.Point(e.offsetX, e.offsetY), zoom);
+          setZoom(zoom);
+        }
+        // PAN: Plain wheel or trackpad scroll
+        else {
+          // Vertical scroll (up/down)
+          vpt[5] -= e.deltaY;
+
+          // Horizontal scroll (left/right) - works with trackpad shift+scroll or horizontal scroll
+          vpt[4] -= e.deltaX;
+
+          initCanvas.requestRenderAll();
+          setPan({ x: vpt[4], y: vpt[5] });
+        }
       };
 
       // ======= MOUSE DOWN =======
@@ -64,7 +80,7 @@ export const DesignCanvas = () => {
         }
       };
 
-      // ======= MOUSE MOVE =======
+      // ======= MOUSE MOVE (Drag Pan) =======
       const handleMouseMove = (opt: any) => {
         if (isPanning.current) {
           const e = opt.e;
@@ -93,7 +109,7 @@ export const DesignCanvas = () => {
         }
       };
 
-      // ======= NATIVE TOUCH EVENTS (Pinch Zoom + 2-Finger Pan) =======
+      // ======= TOUCH EVENTS (Mobile Pinch + Pan) =======
       const getTouchDistance = (touch1: Touch, touch2: Touch) => {
         const dx = touch1.clientX - touch2.clientX;
         const dy = touch1.clientY - touch2.clientY;
@@ -112,7 +128,6 @@ export const DesignCanvas = () => {
           e.preventDefault();
           const touch1 = e.touches[0];
           const touch2 = e.touches[1];
-
           if (!touch1 || !touch2) return;
 
           initialPinchDistance.current = getTouchDistance(touch1, touch2);
@@ -131,6 +146,7 @@ export const DesignCanvas = () => {
           const touch1 = e.touches[0];
           const touch2 = e.touches[1];
           if (!touch1 || !touch2) return;
+
           // Pinch Zoom
           const currentDistance = getTouchDistance(touch1, touch2);
           if (initialPinchDistance.current) {
@@ -196,7 +212,7 @@ export const DesignCanvas = () => {
       initCanvas.on("mouse:move", handleMouseMove);
       initCanvas.on("mouse:up", handleMouseUp);
 
-      // Native touch events on canvas element
+      // Native touch events
       const canvasEl = canvasRef.current;
       canvasEl.addEventListener("touchstart", handleTouchStart, {
         passive: false,
