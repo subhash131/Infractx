@@ -4,8 +4,17 @@ import useCanvas from "../../store";
 
 export const DesignCanvas = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const { canvas, setCanvas, setDevicePixelRatio, setZoom, setPan, mode } =
-    useCanvas();
+  const {
+    canvas,
+    setCanvas,
+    setDevicePixelRatio,
+    setZoom,
+    setPan,
+    mode,
+    selectedElements,
+    removeElement,
+    setSelectedElements,
+  } = useCanvas();
   const isPanning = useRef(false);
   const lastPos = useRef({ x: 0, y: 0 });
   const isSpacePressed = useRef(false);
@@ -195,6 +204,20 @@ export const DesignCanvas = () => {
             initCanvas.defaultCursor = "grab";
           }
         }
+
+        // Delete selected elements
+        if (e.code === "Delete" || e.code === "Backspace") {
+          const activeObjects = initCanvas.getActiveObjects();
+          if (activeObjects.length > 0) {
+            e.preventDefault();
+            activeObjects.forEach((element) => {
+              initCanvas.remove(element);
+              removeElement(element);
+            });
+            initCanvas.discardActiveObject();
+            initCanvas.renderAll();
+          }
+        }
       };
 
       const handleKeyUp = (e: KeyboardEvent) => {
@@ -206,11 +229,29 @@ export const DesignCanvas = () => {
         }
       };
 
+      // ======= SELECTION EVENTS =======
+      const handleSelectionCreated = (e: any) => {
+        const selected = e.selected || [];
+        setSelectedElements(selected);
+      };
+
+      const handleSelectionUpdated = (e: any) => {
+        const selected = e.selected || [];
+        setSelectedElements(selected);
+      };
+
+      const handleSelectionCleared = () => {
+        setSelectedElements([]);
+      };
+
       // Add event listeners
       initCanvas.on("mouse:wheel", handleWheel);
       initCanvas.on("mouse:down", handleMouseDown);
       initCanvas.on("mouse:move", handleMouseMove);
       initCanvas.on("mouse:up", handleMouseUp);
+      initCanvas.on("selection:created", handleSelectionCreated);
+      initCanvas.on("selection:updated", handleSelectionUpdated);
+      initCanvas.on("selection:cleared", handleSelectionCleared);
 
       // Native touch events
       const canvasEl = canvasRef.current;
@@ -232,6 +273,9 @@ export const DesignCanvas = () => {
         initCanvas.off("mouse:down", handleMouseDown);
         initCanvas.off("mouse:move", handleMouseMove);
         initCanvas.off("mouse:up", handleMouseUp);
+        initCanvas.off("selection:created", handleSelectionCreated);
+        initCanvas.off("selection:updated", handleSelectionUpdated);
+        initCanvas.off("selection:cleared", handleSelectionCleared);
 
         canvasEl.removeEventListener("touchstart", handleTouchStart);
         canvasEl.removeEventListener("touchmove", handleTouchMove);
