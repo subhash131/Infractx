@@ -17,8 +17,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AI MVP Solutions",
-  description: "Subhash",
+  title: "Figma AI",
+  description: "Project by subhash",
 };
 
 export default function RootLayout({
