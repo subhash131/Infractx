@@ -11,7 +11,6 @@ export const DesignCanvas = () => {
     setZoom,
     setPan,
     mode,
-    selectedElements,
     removeElement,
     setSelectedElements,
   } = useCanvas();
@@ -207,7 +206,14 @@ export const DesignCanvas = () => {
 
         // Delete selected elements
         if (e.code === "Delete" || e.code === "Backspace") {
+          const activeObject = initCanvas.getActiveObject();
           const activeObjects = initCanvas.getActiveObjects();
+
+          // Skip delete if in text editing mode
+          if (activeObject instanceof fabric.IText && activeObject.isEditing) {
+            return;
+          }
+
           if (activeObjects.length > 0) {
             e.preventDefault();
             activeObjects.forEach((element) => {
