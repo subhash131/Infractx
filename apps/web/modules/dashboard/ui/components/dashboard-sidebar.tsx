@@ -1,16 +1,6 @@
 "use client";
 import React from "react";
-import {
-  type LucideIcon,
-  CreditCardIcon,
-  InboxIcon,
-  LayoutDashboardIcon,
-  LibraryIcon,
-  Mic,
-  Moon,
-  PaletteIcon,
-  Sun,
-} from "lucide-react";
+import { type LucideIcon, CreditCardIcon, InboxIcon } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -28,6 +18,9 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { Separator } from "@workspace/ui/components/separator";
 import { useTheme } from "next-themes";
+import { SignOutButton } from "@clerk/nextjs";
+import { Logout01Icon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 
 type SidebarItem = {
   title: string;
@@ -136,7 +129,13 @@ const DashboardSidebar = () => {
       <Separator />
       <SidebarFooter>
         <SidebarMenu>
-          <SidebarMenuItem>User</SidebarMenuItem>
+          <SidebarMenuItem>
+            <SignOutButton redirectUrl="/sign-in">
+              <div className="flex items-center justify-center gap-2">
+                <HugeiconsIcon icon={Logout01Icon} /> Sign Out
+              </div>
+            </SignOutButton>
+          </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>
       <SidebarRail className="!cursor-col-resize" />
