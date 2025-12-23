@@ -1,15 +1,29 @@
 {
-  "name": "backend",
-  "version": "1.0.0",
-  "description": "This is convex realtime backend",
-  "main": "index.js",
+  "name": "@workspace/backend",
+  "type": "module",
   "scripts": {
     "dev": "convex dev",
     "setup": "convex dev --until-success"
   },
-  "author": "",
-  "license": "ISC",
+  "exports": {
+    "./convex": "./convex/*.js"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.9",
+    "@workspace/typescript-config": "workspace:*",
+    "typescript": "latest"
+  },
   "dependencies": {
-    "convex": "^1.31.2"
+    "@ai-sdk/google": "^2.0.45",
+    "@ai-sdk/groq": "^2.0.32",
+    "@ai-sdk/openai": "^2.0.80",
+    "@clerk/backend": "^2.26.0",
+    "@convex-dev/agent": "^0.3.2",
+    "@convex-dev/rag": "^0.6.1",
+    "ai": "^5.0.108",
+    "convex": "^1.30.0",
+    "convex-helpers": "^0.1.107",
+    "svix": "^1.82.0",
+    "zod": "^3.25.76"
   }
 }
