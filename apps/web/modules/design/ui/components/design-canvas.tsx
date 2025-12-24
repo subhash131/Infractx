@@ -11,11 +11,11 @@ import { debounce } from "lodash";
 export const DesignCanvas = ({ canvasId }: { canvasId: string }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  const canvasObjects = useQuery(api.canvasObjects.getCanvasObjects, {
+  const canvasObjects = useQuery(api.canvas.canvasObjects.getCanvasObjects, {
     canvasId: canvasId as Id<"canvases">,
   });
 
-  const removeElement = useMutation(api.canvasObjects.deleteObject);
+  const removeElement = useMutation(api.canvas.canvasObjects.deleteObject);
   const upsertCanvasObject = useUpsertCanvasObject();
 
   const {
