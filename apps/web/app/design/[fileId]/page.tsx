@@ -1,8 +1,15 @@
 import { DesignView } from "@/modules/design/ui/design-view";
-import React from "react";
 
-const Page = () => {
-  return <DesignView />;
+type PageProps = {
+  params: Promise<{
+    fileId: string;
+  }>;
+};
+
+const Page = async ({ params }: PageProps) => {
+  const canvasId = (await params).fileId;
+
+  return <DesignView canvasId={canvasId} />;
 };
 
 export default Page;

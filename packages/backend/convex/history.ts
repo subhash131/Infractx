@@ -91,18 +91,6 @@ export const redoChange = mutation({
     const historyEntry = await ctx.db.get(args.historyId);
     if (!historyEntry) throw new Error("History entry not found");
 
-    // Verify user can edit
-    const collaborator = await ctx.db
-      .query("collaborators")
-      .withIndex("by_canvas_user", (q) =>
-        q.eq("canvasId", historyEntry.canvasId).eq("userId", identity.subject)
-      )
-      .first();
-
-    if (!collaborator || collaborator.role === "viewer") {
-      throw new Error("Not authorized");
-    }
-
     if (historyEntry.action === "create" && historyEntry.newState) {
       // Recreate the object
       return await ctx.db.insert("canvasObjects", historyEntry.newState);

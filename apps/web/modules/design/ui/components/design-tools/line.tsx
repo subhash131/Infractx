@@ -1,13 +1,18 @@
-import React, { useState } from "react";
+"use client";
+import React from "react";
 import * as fabric from "fabric";
 import { Minus } from "lucide-react";
 import { Button } from "@workspace/ui/components/button";
 import useCanvas from "../../../store";
+import { Id } from "@workspace/backend/_generated/dataModel";
+import { TOOLS } from "../../constants";
+import { v4 as uuidv4 } from "uuid";
+import { useUpsertCanvasObject } from "../../hooks/use-upsert-canvas-object";
 
-export const LineTool = () => {
-  const { canvas, addElement, setSelectedElements, devicePixelRatio } =
-    useCanvas();
-  const [count, setCount] = useState(0);
+export const LineTool = ({ canvasId }: { canvasId: string }) => {
+  const { canvas } = useCanvas();
+
+  const upsert = useUpsertCanvasObject();
 
   const handleAddLine = () => {
     if (!canvas) {
@@ -29,18 +34,44 @@ export const LineTool = () => {
         cornerSize: 8,
         cornerStrokeColor: "#4096ee",
         borderColor: "#4096ee",
-        borderScaleFactor: 1.2,
-        left: (innerWidth * devicePixelRatio) / 2 + count * 10,
-        top: (innerHeight * devicePixelRatio) / 3 + count * 10,
+        borderScaleFactor: 1,
         angle: 45,
       }
     );
 
-    canvas.add(line);
-    addElement(line);
-    canvas.setActiveObject(line);
-    setSelectedElements([line]);
-    setCount((prev) => prev + 1);
+    const vpt = canvas.viewportTransform;
+    const zoom = canvas.getZoom();
+    const centerX = (canvas.width / 2 - vpt[4]) / zoom;
+    const centerY = (canvas.height / 2 - vpt[5]) / zoom;
+    line.set({
+      left: centerX + canvas._objects.length * 10,
+      top: centerY - line.height / 2 + canvas._objects.length * 10,
+    });
+
+    upsert({
+      canvasId: canvasId as Id<"canvases">,
+      type: TOOLS.LINE, // or TOOLS.POLYLINE depending on your constants
+      height: line.height,
+      left: line.left,
+      objectId: uuidv4(),
+      top: line.top,
+      width: line.width,
+      angle: line.angle,
+      fill: line.fill ? line.fill.toString() : "#000000",
+      opacity: line.opacity,
+      shadow: line.shadow ? line.shadow.toString() : undefined,
+      stroke: line.stroke ? line.stroke.toString() : undefined,
+      strokeWidth: line.strokeWidth,
+      scaleX: line.scaleX,
+      scaleY: line.scaleY,
+      cornerColor: line.cornerColor,
+      cornerSize: line.cornerSize,
+      cornerStrokeColor: line.cornerStrokeColor,
+      borderColor: line.borderColor,
+      borderScaleFactor: line.borderScaleFactor,
+      strokeUniform: line.strokeUniform,
+      points: line.points, // Polyline-specific property
+    });
   };
 
   return (

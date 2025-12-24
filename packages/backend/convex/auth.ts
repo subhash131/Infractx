@@ -1,7 +1,7 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { mutation } from "./_generated/server";
 
-// ✅ Secure session token generator (crypto-agnostic)
+// Secure session token generator (crypto-agnostic)
 const generateSessionToken = (): string => {
   return btoa(
     String(Date.now()) + Math.random().toString(36) + Math.random().toString(36)
@@ -12,7 +12,7 @@ const generateSessionToken = (): string => {
 
 // Password hash (upgrade to bcrypt in prod)
 const hashPassword = (password: string): string => {
-  return btoa(password + "fixed-salt-change-in-prod");
+  return btoa(password + process.env.PASSWORD_SALT);
 };
 
 const verifyPassword = (password: string, hash: string): boolean => {

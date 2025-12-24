@@ -11,18 +11,6 @@ export const createLayer = mutation({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
 
-    // Verify edit access
-    const collaborator = await ctx.db
-      .query("collaborators")
-      .withIndex("by_canvas_user", (q) =>
-        q.eq("canvasId", args.canvasId).eq("userId", identity.subject)
-      )
-      .first();
-
-    if (!collaborator || collaborator.role === "viewer") {
-      throw new Error("Not authorized");
-    }
-
     // Get max zIndex
     const maxZIndex = await ctx.db
       .query("layers")
@@ -74,18 +62,6 @@ export const updateLayer = mutation({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
 
-    // Verify edit access
-    const collaborator = await ctx.db
-      .query("collaborators")
-      .withIndex("by_canvas_user", (q) =>
-        q.eq("canvasId", layer.canvasId).eq("userId", identity.subject)
-      )
-      .first();
-
-    if (!collaborator || collaborator.role === "viewer") {
-      throw new Error("Not authorized");
-    }
-
     await ctx.db.patch(layerId, updates);
     return layerId;
   },
@@ -100,18 +76,6 @@ export const deleteLayer = mutation({
 
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
-
-    // Verify edit access
-    const collaborator = await ctx.db
-      .query("collaborators")
-      .withIndex("by_canvas_user", (q) =>
-        q.eq("canvasId", layer.canvasId).eq("userId", identity.subject)
-      )
-      .first();
-
-    if (!collaborator || collaborator.role === "viewer") {
-      throw new Error("Not authorized");
-    }
 
     // Delete all layer objects
     const layerObjects = await ctx.db
@@ -139,18 +103,6 @@ export const addObjectToLayer = mutation({
 
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
-
-    // Verify edit access
-    const collaborator = await ctx.db
-      .query("collaborators")
-      .withIndex("by_canvas_user", (q) =>
-        q.eq("canvasId", layer.canvasId).eq("userId", identity.subject)
-      )
-      .first();
-
-    if (!collaborator || collaborator.role === "viewer") {
-      throw new Error("Not authorized");
-    }
 
     // Remove from other layers first
     const existing = await ctx.db
@@ -184,18 +136,6 @@ export const removeObjectFromLayer = mutation({
 
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
-
-    // Verify edit access
-    const collaborator = await ctx.db
-      .query("collaborators")
-      .withIndex("by_canvas_user", (q) =>
-        q.eq("canvasId", layer.canvasId).eq("userId", identity.subject)
-      )
-      .first();
-
-    if (!collaborator || collaborator.role === "viewer") {
-      throw new Error("Not authorized");
-    }
 
     const layerObject = await ctx.db
       .query("layerObjects")

@@ -54,14 +54,6 @@ export const importCanvasFromJson = mutation({
       offsetY: 0,
     });
 
-    // Add owner as collaborator
-    await ctx.db.insert("collaborators", {
-      canvasId,
-      userId: identity.subject,
-      role: "owner",
-      addedAt: Date.now(),
-    });
-
     // Create objects
     const objectIdMap = new Map();
     if (objects && Array.isArray(objects)) {
@@ -108,20 +100,7 @@ export const searchCanvases = query({
       .withIndex("by_owner", (q) => q.eq("ownerId", identity.subject))
       .collect();
 
-    const collaborations = await ctx.db
-      .query("collaborators")
-      .filter((q) => q.eq(q.field("userId"), identity.subject))
-      .collect();
-
-    const sharedCanvases = [];
-    for (const collab of collaborations) {
-      const canvas = await ctx.db.get(collab.canvasId);
-      if (canvas && canvas.ownerId !== identity.subject) {
-        sharedCanvases.push(canvas);
-      }
-    }
-
-    const allCanvases = [...ownedCanvases, ...sharedCanvases];
+    const allCanvases = [...ownedCanvases];
     const searchTerm = args.query.toLowerCase();
 
     return allCanvases.filter(
@@ -149,18 +128,8 @@ export const getCanvasStats = query({
       .withIndex("by_canvas", (q) => q.eq("canvasId", args.canvasId))
       .collect();
 
-    const collaborators = await ctx.db
-      .query("collaborators")
-      .withIndex("by_canvas", (q) => q.eq("canvasId", args.canvasId))
-      .collect();
-
     const history = await ctx.db
       .query("canvasHistory")
-      .withIndex("by_canvas", (q) => q.eq("canvasId", args.canvasId))
-      .collect();
-
-    const comments = await ctx.db
-      .query("comments")
       .withIndex("by_canvas", (q) => q.eq("canvasId", args.canvasId))
       .collect();
 
@@ -173,9 +142,7 @@ export const getCanvasStats = query({
       totalObjects: objects.length,
       objectsByType,
       totalLayers: layers.length,
-      totalCollaborators: collaborators.length,
       totalChanges: history.length,
-      totalComments: comments.length,
       createdAt: canvas.createdAt,
       lastModified: canvas.updatedAt,
       dimensions: {
@@ -220,24 +187,6 @@ export const deleteMultipleCanvases = mutation({
 
       for (const item of history) {
         await ctx.db.delete(item._id);
-      }
-
-      const collaborators = await ctx.db
-        .query("collaborators")
-        .withIndex("by_canvas", (q) => q.eq("canvasId", canvasId))
-        .collect();
-
-      for (const collab of collaborators) {
-        await ctx.db.delete(collab._id);
-      }
-
-      const comments = await ctx.db
-        .query("comments")
-        .withIndex("by_canvas", (q) => q.eq("canvasId", canvasId))
-        .collect();
-
-      for (const comment of comments) {
-        await ctx.db.delete(comment._id);
       }
 
       await ctx.db.delete(canvasId);

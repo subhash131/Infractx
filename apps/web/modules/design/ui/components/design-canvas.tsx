@@ -1,18 +1,32 @@
 import React, { useEffect, useRef } from "react";
 import * as fabric from "fabric";
 import useCanvas from "../../store";
+import { CANVAS_HEIGHT, CANVAS_WIDTH, TOOLS } from "../constants";
+import { useMutation, useQuery } from "convex/react";
+import { api } from "@workspace/backend/_generated/api";
+import { Id } from "@workspace/backend/_generated/dataModel";
+import { useUpsertCanvasObject } from "../hooks/use-upsert-canvas-object";
+import { debounce } from "lodash";
 
-export const DesignCanvas = () => {
+export const DesignCanvas = ({ canvasId }: { canvasId: string }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  const canvasObjects = useQuery(api.canvasObjects.getCanvasObjects, {
+    canvasId: canvasId as Id<"canvases">,
+  });
+
+  const removeElement = useMutation(api.canvasObjects.deleteObject);
+  const upsertCanvasObject = useUpsertCanvasObject();
+
   const {
     canvas,
     setCanvas,
-    setDevicePixelRatio,
     setZoom,
     setPan,
     mode,
-    removeElement,
     setSelectedElements,
+    setActiveObject,
+    activeObject,
   } = useCanvas();
   const isPanning = useRef(false);
   const lastPos = useRef({ x: 0, y: 0 });
@@ -24,23 +38,35 @@ export const DesignCanvas = () => {
     if (canvasRef.current && !canvas) {
       console.log("Initializing canvas...");
 
-      const dpr = window.devicePixelRatio || 1;
-      setDevicePixelRatio(dpr);
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
 
-      canvasRef.current.style.width = window.innerWidth + "px";
-      canvasRef.current.style.height = window.innerHeight + "px";
+      const scaleX = viewportWidth / CANVAS_WIDTH;
+      const scaleY = viewportHeight / CANVAS_HEIGHT;
+      const scaleFactor = Math.min(scaleX, scaleY);
 
       const initCanvas = new fabric.Canvas(canvasRef.current, {
-        width: window.innerWidth * dpr,
-        height: window.innerHeight * dpr,
+        width: CANVAS_WIDTH,
+        height: CANVAS_HEIGHT,
         allowTouchScrolling: true,
         enableRetinaScaling: true,
         imageSmoothingEnabled: true,
         selectionBorderColor: "#4096ee",
         selectionLineWidth: 2,
+        preserveObjectStacking: true,
       });
 
+      initCanvas.setZoom(scaleFactor);
+      initCanvas.setDimensions(
+        {
+          width: viewportWidth,
+          height: viewportHeight,
+        },
+        { cssOnly: true }
+      );
+
       setCanvas(initCanvas);
+
       initCanvas.renderAll();
 
       // ======= MOUSE WHEEL: ZOOM with Ctrl/Cmd, PAN without =======
@@ -57,8 +83,11 @@ export const DesignCanvas = () => {
           let zoom = initCanvas.getZoom();
           zoom *= 0.999 ** delta;
 
-          if (zoom > 20) zoom = 20;
-          if (zoom < 0.1) zoom = 0.1;
+          const minZoom = scaleFactor * 0.1; // 10% of fit-to-screen
+          const maxZoom = scaleFactor * 20; // 20x of fit-to-screen
+
+          if (zoom > maxZoom) zoom = maxZoom;
+          if (zoom < minZoom) zoom = minZoom;
 
           initCanvas.zoomToPoint(new fabric.Point(e.offsetX, e.offsetY), zoom);
           setZoom(zoom);
@@ -227,7 +256,11 @@ export const DesignCanvas = () => {
             e.preventDefault();
             activeObjects.forEach((element) => {
               initCanvas.remove(element);
-              removeElement(element);
+              if (element.id) {
+                removeElement({
+                  id: element.id,
+                });
+              }
             });
             initCanvas.discardActiveObject();
             initCanvas.renderAll();
@@ -259,12 +292,72 @@ export const DesignCanvas = () => {
         setSelectedElements([]);
       };
 
-      // Update selection when objects are modified (moved, resized, etc.)
-      const handleObjectModified = () => {
-        const activeObjects = initCanvas.getActiveObjects();
-        if (activeObjects.length > 0) {
-          setSelectedElements([...activeObjects]);
+      const handleObjectModified = debounce(() => {
+        const activeObject = initCanvas.getActiveObject();
+        if (activeObject) {
+          setActiveObject(activeObject);
+          upsertCanvasObject({
+            _id: activeObject.id,
+            canvasId: canvasId as Id<"canvases">,
+            objectId: activeObject.id ?? "",
+            height: activeObject.height,
+            width: activeObject.width,
+            left: activeObject.left,
+            top: activeObject.top,
+            type: activeObject?.obj_type,
+            angle: activeObject.angle,
+            borderColor: activeObject.borderColor,
+            borderScaleFactor: activeObject.borderScaleFactor,
+            opacity: activeObject.opacity,
+            fill: activeObject.fill ? activeObject.fill?.toString() : undefined,
+            rx: activeObject.rx ? activeObject.rx : undefined,
+            ry: activeObject.ry ? activeObject.ry : undefined,
+            shadow: activeObject.shadow
+              ? activeObject.shadow.toString()
+              : undefined,
+            stroke: activeObject.stroke
+              ? activeObject.stroke.toString()
+              : undefined,
+            data: activeObject.data,
+            cornerColor: activeObject.cornerColor,
+            cornerSize: activeObject.cornerSize,
+            cornerStrokeColor: activeObject.cornerStrokeColor,
+            fontFamily: activeObject.fontFamily,
+            scaleX: activeObject.scaleX,
+            scaleY: activeObject.scaleY,
+            strokeUniform: activeObject.strokeUniform,
+            strokeWidth: activeObject.strokeWidth,
+            text: activeObject.text,
+            textAlign: activeObject.textAlign,
+            visible: activeObject.visible,
+            zIndex: activeObject.zIndex,
+            fontSize: activeObject.fontSize,
+            imageUrl: activeObject.imageUrl,
+            locked: activeObject.locked,
+            radius: activeObject.radius,
+          });
         }
+      });
+
+      const handleResize = () => {
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+
+        const scaleX = viewportWidth / CANVAS_WIDTH;
+        const scaleY = viewportHeight / CANVAS_HEIGHT;
+        const scaleFactor = Math.min(scaleX, scaleY);
+
+        initCanvas.setZoom(scaleFactor);
+        initCanvas.setDimensions(
+          {
+            width: viewportWidth,
+            height: viewportHeight,
+          },
+          { cssOnly: true }
+        );
+
+        initCanvas.renderAll();
+        setZoom(scaleFactor);
       };
 
       // Add event listeners
@@ -289,6 +382,7 @@ export const DesignCanvas = () => {
 
       window.addEventListener("keydown", handleKeyDown);
       window.addEventListener("keyup", handleKeyUp);
+      window.addEventListener("resize", handleResize);
 
       // Cleanup
       return () => {
@@ -308,10 +402,197 @@ export const DesignCanvas = () => {
 
         window.removeEventListener("keydown", handleKeyDown);
         window.removeEventListener("keyup", handleKeyUp);
+        window.removeEventListener("resize", handleResize);
         initCanvas.dispose();
       };
     }
   }, []);
+
+  // Load objects from database onto canvas
+  useEffect(() => {
+    if (!canvas || !canvasObjects) return;
+
+    console.log("Loading canvas objects from database...");
+
+    // Disable rendering during batch load
+    canvas.clear();
+    canvas.renderOnAddRemove = false;
+
+    canvasObjects.forEach((obj) => {
+      let fabricObject;
+
+      switch (obj.type) {
+        case TOOLS.RECT:
+          fabricObject = new fabric.Rect({
+            id: obj._id,
+            obj_type: obj.type,
+            left: obj.left,
+            top: obj.top,
+            width: obj.width,
+            height: obj.height,
+            angle: obj.angle,
+            scaleX: obj.scaleX,
+            scaleY: obj.scaleY,
+            fill: obj.fill,
+            stroke: obj.stroke,
+            strokeWidth: obj.strokeWidth,
+            opacity: obj.opacity,
+            rx: obj.rx,
+            ry: obj.ry,
+            shadow: obj.shadow,
+            cornerColor: obj.cornerColor,
+            cornerSize: obj.cornerSize,
+            cornerStrokeColor: obj.cornerStrokeColor,
+            borderColor: obj.borderColor,
+            borderScaleFactor: obj.borderScaleFactor,
+            strokeUniform: obj.strokeUniform,
+            ...(obj.data && obj.data),
+          });
+          break;
+
+        case TOOLS.CIRCLE:
+          fabricObject = new fabric.Circle({
+            id: obj._id,
+            obj_type: obj.type,
+            left: obj.left,
+            top: obj.top,
+            radius: 50,
+            width: obj.width,
+            height: obj.height,
+            angle: obj.angle,
+            scaleX: obj.scaleX,
+            scaleY: obj.scaleY,
+            fill: obj.fill,
+            stroke: obj.stroke,
+            strokeWidth: obj.strokeWidth,
+            opacity: obj.opacity,
+            cornerColor: obj.cornerColor,
+            cornerSize: obj.cornerSize,
+            cornerStrokeColor: obj.cornerStrokeColor,
+            borderColor: obj.borderColor,
+            borderScaleFactor: obj.borderScaleFactor,
+            strokeUniform: obj.strokeUniform,
+          });
+          break;
+
+        case "LINE":
+          fabricObject = new fabric.Polyline(obj.points || [], {
+            id: obj._id,
+            obj_type: obj.type,
+            left: obj.left,
+            top: obj.top,
+            angle: obj.angle,
+            scaleX: obj.scaleX,
+            scaleY: obj.scaleY,
+            fill: obj.fill,
+            stroke: obj.stroke,
+            strokeWidth: obj.strokeWidth,
+            opacity: obj.opacity,
+            cornerColor: obj.cornerColor,
+            cornerSize: obj.cornerSize,
+            cornerStrokeColor: obj.cornerStrokeColor,
+            borderColor: obj.borderColor,
+            borderScaleFactor: obj.borderScaleFactor,
+            strokeUniform: obj.strokeUniform,
+            ...(obj.data && obj.data),
+          });
+          break;
+
+        case "PENCIL":
+          fabricObject = new fabric.Path(
+            obj.data?.path || "", // SVG path string from data field
+            {
+              id: obj._id,
+              obj_type: obj.type,
+              left: obj.left,
+              top: obj.top,
+              angle: obj.angle,
+              scaleX: obj.scaleX,
+              scaleY: obj.scaleY,
+              fill: obj.fill,
+              stroke: obj.stroke,
+              strokeWidth: obj.strokeWidth,
+              opacity: obj.opacity,
+              ...(obj.data && obj.data),
+            }
+          );
+          break;
+
+        case "TEXT":
+          fabricObject = new fabric.IText(obj.text || "", {
+            id: obj._id,
+            obj_type: obj.type,
+            left: obj.left,
+            top: obj.top,
+            width: obj.width,
+            height: obj.height,
+            angle: obj.angle,
+            scaleX: obj.scaleX,
+            scaleY: obj.scaleY,
+            fill: obj.fill,
+            stroke: obj.stroke,
+            strokeWidth: obj.strokeWidth,
+            opacity: obj.opacity,
+            rx: obj.rx,
+            ry: obj.ry,
+            shadow: obj.shadow,
+            cornerColor: obj.cornerColor,
+            cornerSize: obj.cornerSize,
+            cornerStrokeColor: obj.cornerStrokeColor,
+            borderColor: obj.borderColor,
+            borderScaleFactor: obj.borderScaleFactor,
+            strokeUniform: obj.strokeUniform,
+            text: obj.text,
+            ...(obj.data && obj.data),
+          });
+          break;
+
+        default:
+          console.warn(`Unknown object type: ${obj.type}`);
+          return;
+      }
+
+      if (fabricObject) {
+        // Store database ID on the object for future reference
+        console.log({
+          id: fabricObject.id,
+          obj_type: fabricObject.type,
+          left: fabricObject.left,
+          top: fabricObject.top,
+          width: fabricObject.width,
+          height: fabricObject.height,
+          angle: fabricObject.angle,
+          scaleX: fabricObject.scaleX,
+          scaleY: fabricObject.scaleY,
+          fill: fabricObject.fill,
+          stroke: fabricObject.stroke,
+          strokeWidth: fabricObject.strokeWidth,
+          opacity: fabricObject.opacity,
+          rx: fabricObject.rx,
+          ry: fabricObject.ry,
+          shadow: fabricObject.shadow,
+          cornerColor: fabricObject.cornerColor,
+          cornerSize: fabricObject.cornerSize,
+          cornerStrokeColor: fabricObject.cornerStrokeColor,
+          borderColor: fabricObject.borderColor,
+          borderScaleFactor: fabricObject.borderScaleFactor,
+          strokeUniform: fabricObject.strokeUniform,
+          ...(obj.data && obj.data),
+        });
+        fabricObject.set({ id: obj._id });
+        canvas.add(fabricObject as fabric.FabricObject);
+        if (activeObject?.id === fabricObject.id) {
+          canvas.setActiveObject(fabricObject as fabric.FabricObject);
+        }
+      }
+    });
+
+    // Re-enable rendering and render once
+    canvas.renderOnAddRemove = true;
+    canvas.requestRenderAll();
+
+    console.log(`Loaded ${canvasObjects.length} objects`);
+  }, [canvas, canvasObjects]);
 
   return (
     <canvas

@@ -143,14 +143,6 @@ export const createCanvasFromTemplate = mutation({
       offsetY: 0,
     });
 
-    // Add owner as collaborator
-    await ctx.db.insert("collaborators", {
-      canvasId,
-      userId: identity.subject,
-      role: "owner",
-      addedAt: Date.now(),
-    });
-
     // Create objects from template
     if (canvasData.objects && Array.isArray(canvasData.objects)) {
       for (const obj of canvasData.objects) {

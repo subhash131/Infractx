@@ -4,9 +4,8 @@ import { Pen } from "lucide-react";
 import { Button } from "@workspace/ui/components/button";
 import useCanvas from "../../../store";
 
-export const PencilTool = () => {
-  const { canvas, addElement, setSelectedElements, devicePixelRatio } =
-    useCanvas();
+export const PencilTool = ({ canvasId }: { canvasId: string }) => {
+  const { canvas, setSelectedElements } = useCanvas();
   const [count, setCount] = useState(0);
 
   const handleAddPencil = () => {
@@ -15,10 +14,7 @@ export const PencilTool = () => {
       return;
     }
 
-    // Create a simple path that looks like a pencil drawing
     const path = new fabric.Path("M 0 0 Q 25 25 50 0 T 100 25 T 150 0", {
-      left: (innerWidth * devicePixelRatio) / 2 + count * 10,
-      top: (innerHeight * devicePixelRatio) / 3 + count * 10,
       stroke: "#000000",
       strokeWidth: 2,
       fill: "",
@@ -29,11 +25,20 @@ export const PencilTool = () => {
       borderScaleFactor: 1.2,
     });
 
+    const vpt = canvas.viewportTransform;
+    const zoom = canvas.getZoom();
+    const centerX = (canvas.width / 2 - vpt[4]) / zoom;
+    const centerY = (canvas.height / 2 - vpt[5]) / zoom;
+    path.set({
+      left: centerX - path.width / 2 + count * 10,
+      top: centerY - path.height / 2 + count * 10,
+    });
     canvas.add(path);
-    addElement(path);
-    canvas.setActiveObject(path);
-    setSelectedElements([path]);
-    setCount((prev) => prev + 1);
+
+    // addElement(path);
+    // canvas.setActiveObject(path);
+    // setSelectedElements([path]);
+    // setCount((prev) => prev + 1);
   };
 
   return (

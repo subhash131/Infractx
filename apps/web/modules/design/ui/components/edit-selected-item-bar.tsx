@@ -4,6 +4,8 @@ import React, { useEffect, useState } from "react";
 import useCanvas from "../../store";
 import { Input } from "@workspace/ui/components/input";
 import { Label } from "@workspace/ui/components/label";
+import { useMutation } from "convex/react";
+import { api } from "@workspace/backend/_generated/api";
 
 interface ElementProperties {
   left: number;
@@ -19,9 +21,9 @@ interface ElementProperties {
 
 export const EditSelectedItemBar = () => {
   const selectedElements = useCanvas((state) => state.selectedElements);
-  const updateElement = useCanvas((state) => state.updateElement);
-  const removeElement = useCanvas((state) => state.removeElement);
   const canvas = useCanvas((state) => state.canvas);
+
+  const updateCanvasObject = useMutation(api.canvasObjects.updateObject);
 
   const [properties, setProperties] = useState<ElementProperties>({
     left: 0,
@@ -145,20 +147,11 @@ export const EditSelectedItemBar = () => {
     }
 
     canvas?.renderAll();
-    // Force update in store to trigger re-renders
-    updateElement(element);
-  };
-
-  const handleDelete = () => {
-    selectedElements.forEach((element) => {
-      removeElement(element);
-      canvas?.remove(element);
-    });
-    canvas?.renderAll();
+    // // Force update in store to trigger re-renders
   };
 
   return (
-    <div className="w-80 h-full border-l bg-sidebar absolute right-0 z-99 overflow-y-auto p-4 flex flex-col gap-4">
+    <div className="w-44 h-full border-l bg-sidebar absolute right-0 z-99 overflow-y-auto p-4 flex flex-col gap-4">
       {!hasSelection ? (
         <div className="text-sm text-muted-foreground text-center py-8">
           Select an item to edit
