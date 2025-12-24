@@ -6,8 +6,8 @@ import { Button } from "@workspace/ui/components/button";
 import Link from "next/link";
 
 export const FilesView = () => {
-  const canvases = useQuery(api.canvases.getUserCanvases);
-  const create = useMutation(api.canvases.createCanvas);
+  const canvases = useQuery(api.canvas.canvases.getUserCanvases);
+  const create = useMutation(api.canvas.canvases.createCanvas);
   return (
     <div>
       FilesView

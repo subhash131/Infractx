@@ -52,8 +52,8 @@ export type CanvasObjectData = {
 };
 
 export const useUpsertCanvasObject = () => {
-  const createObject = useMutation(api.canvasObjects.createObject);
-  const updateObject = useMutation(api.canvasObjects.updateObject);
+  const createObject = useMutation(api.canvas.canvasObjects.createObject);
+  const updateObject = useMutation(api.canvas.canvasObjects.updateObject);
 
   const upsertObject = async (objectData: CanvasObjectData) => {
     const { _id, ...data } = objectData;

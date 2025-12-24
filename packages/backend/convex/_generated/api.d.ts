@@ -8,13 +8,12 @@
  * @module
  */
 
-import type * as auth from "../auth.js";
-import type * as authUtils from "../authUtils.js";
-import type * as canvasObjects from "../canvasObjects.js";
-import type * as canvases from "../canvases.js";
-import type * as history from "../history.js";
-import type * as layers from "../layers.js";
-import type * as templates from "../templates.js";
+import type * as auth_auth from "../auth/auth.js";
+import type * as canvas_canvasObjects from "../canvas/canvasObjects.js";
+import type * as canvas_canvases from "../canvas/canvases.js";
+import type * as canvas_history from "../canvas/history.js";
+import type * as canvas_layers from "../canvas/layers.js";
+import type * as canvas_templates from "../canvas/templates.js";
 import type * as utils from "../utils.js";
 
 import type {
@@ -24,13 +23,12 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
-  auth: typeof auth;
-  authUtils: typeof authUtils;
-  canvasObjects: typeof canvasObjects;
-  canvases: typeof canvases;
-  history: typeof history;
-  layers: typeof layers;
-  templates: typeof templates;
+  "auth/auth": typeof auth_auth;
+  "canvas/canvasObjects": typeof canvas_canvasObjects;
+  "canvas/canvases": typeof canvas_canvases;
+  "canvas/history": typeof canvas_history;
+  "canvas/layers": typeof canvas_layers;
+  "canvas/templates": typeof canvas_templates;
   utils: typeof utils;
 }>;
 
