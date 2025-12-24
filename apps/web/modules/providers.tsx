@@ -2,7 +2,11 @@
 
 import * as React from "react";
 import { ThemeProvider as NextThemesProvider } from "next-themes";
-import { ConvexReactClient } from "convex/react";
+import {
+  Authenticated,
+  ConvexReactClient,
+  Unauthenticated,
+} from "convex/react";
 import { ConvexProviderWithClerk } from "convex/react-clerk";
 import { ClerkProvider, useAuth } from "@clerk/nextjs";
 import { shadcn } from "@clerk/themes";
@@ -19,10 +23,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <NextThemesProvider
       attribute="class"
-      defaultTheme="dark"
-      enableSystem
-      disableTransitionOnChange
-      enableColorScheme
+      defaultTheme="light"
+      forcedTheme="light"
     >
       <ClerkProvider appearance={{ theme: shadcn }}>
         <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
@@ -32,3 +34,18 @@ export function Providers({ children }: { children: React.ReactNode }) {
     </NextThemesProvider>
   );
 }
+
+export const AuthenticatedProvider = ({
+  children,
+}: {
+  children: React.ReactNode;
+}) => {
+  return <Authenticated>{children}</Authenticated>;
+};
+export const UnauthenticatedProvider = ({
+  children,
+}: {
+  children: React.ReactNode;
+}) => {
+  return <Unauthenticated>{children}</Unauthenticated>;
+};

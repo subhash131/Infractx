@@ -5,46 +5,72 @@ import { mutation, query } from "./_generated/server";
 export const createObject = mutation({
   args: {
     canvasId: v.id("canvases"),
-    type: v.string(),
-    objectId: v.string(),
-    left: v.number(),
-    top: v.number(),
-    width: v.number(),
-    height: v.number(),
-    angle: v.optional(v.number()),
-    scaleX: v.optional(v.number()),
-    scaleY: v.optional(v.number()),
+    // Object properties
+    type: v.string(), // "rect", "circle", "triangle", "text", "image", "path", etc.
+    objectId: v.string(), // Unique ID within the canvas
+
+    // Position and dimensions
+    left: v.float64(),
+    top: v.float64(),
+    width: v.float64(),
+    height: v.float64(),
+    points: v.optional(
+      v.array(
+        v.object({
+          x: v.number(),
+          y: v.number(),
+        })
+      )
+    ),
+
+    // Rotation and scaling
+    angle: v.float64(),
+    scaleX: v.float64(),
+    scaleY: v.float64(),
+
+    // Styling
     fill: v.optional(v.string()),
     stroke: v.optional(v.string()),
-    strokeWidth: v.optional(v.number()),
-    opacity: v.optional(v.number()),
+    strokeWidth: v.float64(),
+    opacity: v.float64(),
+
+    // Text-specific properties
     text: v.optional(v.string()),
-    fontSize: v.optional(v.number()),
+    fontSize: v.optional(v.float64()),
     fontFamily: v.optional(v.string()),
     fontWeight: v.optional(v.string()),
     textAlign: v.optional(v.string()),
+    fontStyle: v.optional(v.string()),
+    underline: v.optional(v.boolean()),
+    linethrough: v.optional(v.boolean()),
+    overline: v.optional(v.boolean()),
+
+    // Image-specific properties
     imageUrl: v.optional(v.string()),
-    radius: v.optional(v.number()),
-    rx: v.optional(v.number()),
-    ry: v.optional(v.number()),
+
+    // Shape-specific properties
+    radius: v.optional(v.float64()),
+    rx: v.optional(v.float64()),
+    ry: v.optional(v.float64()),
+
+    // Advanced properties
     shadow: v.optional(v.string()),
-    data: v.optional(v.any()),
+    data: v.optional(v.any()), // Store arbitrary fabric.js object data
+    strokeUniform: v.optional(v.boolean()),
+    cornerColor: v.optional(v.string()),
+    cornerSize: v.optional(v.float64()),
+    cornerStrokeColor: v.optional(v.string()),
+    borderColor: v.optional(v.string()),
+    borderScaleFactor: v.optional(v.float64()),
+
+    // Metadata
+    zIndex: v.optional(v.number()),
+    locked: v.optional(v.boolean()),
+    visible: v.optional(v.boolean()),
   },
   async handler(ctx, args) {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
-
-    // Verify user has edit access
-    const collaborator = await ctx.db
-      .query("collaborators")
-      .withIndex("by_canvas_user", (q) =>
-        q.eq("canvasId", args.canvasId).eq("userId", identity.subject)
-      )
-      .first();
-
-    if (!collaborator || collaborator.role === "viewer") {
-      throw new Error("Not authorized");
-    }
 
     // Get max zIndex
     const maxZIndex = await ctx.db
@@ -84,6 +110,17 @@ export const createObject = mutation({
       visible: true,
       createdAt: Date.now(),
       updatedAt: Date.now(),
+      borderColor: args.borderColor,
+      borderScaleFactor: args.borderScaleFactor,
+      cornerColor: args.cornerColor,
+      cornerSize: args.cornerSize,
+      cornerStrokeColor: args.cornerStrokeColor,
+      strokeUniform: args.strokeUniform,
+      points: args.points,
+      fontStyle: args.fontStyle,
+      linethrough: args.linethrough,
+      overline: args.overline,
+      underline: args.underline,
     });
 
     // Log to history
@@ -114,47 +151,84 @@ export const getCanvasObjects = query({
 // Update canvas object
 export const updateObject = mutation({
   args: {
-    objectId: v.id("canvasObjects"),
-    left: v.optional(v.number()),
-    top: v.optional(v.number()),
-    width: v.optional(v.number()),
-    height: v.optional(v.number()),
-    angle: v.optional(v.number()),
-    scaleX: v.optional(v.number()),
-    scaleY: v.optional(v.number()),
+    // Object properties
+    _id: v.id("canvasObjects"),
+    type: v.string(), // "rect", "circle", "triangle", "text", "image", "path", etc.
+    objectId: v.string(), // Unique ID within the canvas
+
+    // Position and dimensions
+    left: v.float64(),
+    top: v.float64(),
+    width: v.float64(),
+    height: v.float64(),
+    points: v.optional(
+      v.array(
+        v.object({
+          x: v.number(),
+          y: v.number(),
+        })
+      )
+    ),
+
+    // Rotation and scaling
+    angle: v.float64(),
+    scaleX: v.float64(),
+    scaleY: v.float64(),
+
+    // Styling
     fill: v.optional(v.string()),
     stroke: v.optional(v.string()),
-    strokeWidth: v.optional(v.number()),
-    opacity: v.optional(v.number()),
+    strokeWidth: v.float64(),
+    opacity: v.float64(),
+
+    // Text-specific properties
     text: v.optional(v.string()),
+    fontSize: v.optional(v.float64()),
+    fontFamily: v.optional(v.string()),
+    fontWeight: v.optional(v.string()),
+    textAlign: v.optional(v.string()),
+    fontStyle: v.optional(v.string()),
+    underline: v.optional(v.boolean()),
+    linethrough: v.optional(v.boolean()),
+    overline: v.optional(v.boolean()),
+
+    // Image-specific properties
+    imageUrl: v.optional(v.string()),
+
+    // Shape-specific properties
+    radius: v.optional(v.float64()),
+    rx: v.optional(v.float64()),
+    ry: v.optional(v.float64()),
+
+    // Advanced properties
+    shadow: v.optional(v.string()),
+    data: v.optional(v.any()), // Store arbitrary fabric.js object data
+    strokeUniform: v.optional(v.boolean()),
+    cornerColor: v.optional(v.string()),
+    cornerSize: v.optional(v.float64()),
+    cornerStrokeColor: v.optional(v.string()),
+    borderColor: v.optional(v.string()),
+    borderScaleFactor: v.optional(v.float64()),
+
+    // Metadata
     zIndex: v.optional(v.number()),
     locked: v.optional(v.boolean()),
     visible: v.optional(v.boolean()),
-    data: v.optional(v.any()),
   },
   async handler(ctx, args) {
     const { objectId, ...updates } = args;
-    const object = await ctx.db.get(objectId);
+    const object = await ctx.db
+      .query("canvasObjects")
+      .withIndex("by_id", (q) => q.eq("_id", args._id))
+      .unique();
     if (!object) throw new Error("Object not found");
 
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
 
-    // Verify edit access
-    const collaborator = await ctx.db
-      .query("collaborators")
-      .withIndex("by_canvas_user", (q) =>
-        q.eq("canvasId", object.canvasId).eq("userId", identity.subject)
-      )
-      .first();
-
-    if (!collaborator || collaborator.role === "viewer") {
-      throw new Error("Not authorized");
-    }
-
     const previousState = { ...object };
 
-    await ctx.db.patch(objectId, {
+    await ctx.db.patch(args._id, {
       ...updates,
       updatedAt: Date.now(),
     });
@@ -170,31 +244,19 @@ export const updateObject = mutation({
       userId: identity.subject,
     });
 
-    return objectId;
+    return args._id;
   },
 });
 
 // Delete canvas object
 export const deleteObject = mutation({
-  args: { objectId: v.id("canvasObjects") },
+  args: { id: v.id("canvasObjects") },
   async handler(ctx, args) {
-    const object = await ctx.db.get(args.objectId);
+    const object = await ctx.db.get(args.id);
     if (!object) throw new Error("Object not found");
 
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
-
-    // Verify edit access
-    const collaborator = await ctx.db
-      .query("collaborators")
-      .withIndex("by_canvas_user", (q) =>
-        q.eq("canvasId", object.canvasId).eq("userId", identity.subject)
-      )
-      .first();
-
-    if (!collaborator || collaborator.role === "viewer") {
-      throw new Error("Not authorized");
-    }
 
     // Log to history
     await ctx.db.insert("canvasHistory", {
@@ -205,8 +267,7 @@ export const deleteObject = mutation({
       timestamp: Date.now(),
       userId: identity.subject,
     });
-
-    await ctx.db.delete(args.objectId);
+    await ctx.db.delete(args.id);
   },
 });
 
@@ -227,17 +288,6 @@ export const updateObjects = mutation({
     for (const update of args.updates) {
       const object = await ctx.db.get(update.id);
       if (!object) continue;
-
-      const collaborator = await ctx.db
-        .query("collaborators")
-        .withIndex("by_canvas_user", (q) =>
-          q.eq("canvasId", object.canvasId).eq("userId", identity.subject)
-        )
-        .first();
-
-      if (!collaborator || collaborator.role === "viewer") {
-        throw new Error("Not authorized");
-      }
 
       await ctx.db.patch(update.id, {
         ...update.changes,

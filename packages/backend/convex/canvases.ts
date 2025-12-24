@@ -27,15 +27,6 @@ export const createCanvas = mutation({
       offsetX: 0,
       offsetY: 0,
     });
-
-    // Add owner as collaborator
-    await ctx.db.insert("collaborators", {
-      canvasId,
-      userId: identity.subject,
-      role: "owner",
-      addedAt: Date.now(),
-    });
-
     return canvasId;
   },
 });
@@ -83,17 +74,6 @@ export const updateCanvas = mutation({
     // Verify ownership or editor access
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
-
-    const collaborator = await ctx.db
-      .query("collaborators")
-      .withIndex("by_canvas_user", (q) =>
-        q.eq("canvasId", canvasId).eq("userId", identity.subject)
-      )
-      .first();
-
-    if (!collaborator || collaborator.role === "viewer") {
-      throw new Error("Not authorized to edit this canvas");
-    }
 
     await ctx.db.patch(canvasId, {
       ...updates,
@@ -144,26 +124,6 @@ export const deleteCanvas = mutation({
 
     for (const item of history) {
       await ctx.db.delete(item._id);
-    }
-
-    // Delete collaborators
-    const collaborators = await ctx.db
-      .query("collaborators")
-      .withIndex("by_canvas", (q) => q.eq("canvasId", args.canvasId))
-      .collect();
-
-    for (const collab of collaborators) {
-      await ctx.db.delete(collab._id);
-    }
-
-    // Delete comments
-    const comments = await ctx.db
-      .query("comments")
-      .withIndex("by_canvas", (q) => q.eq("canvasId", args.canvasId))
-      .collect();
-
-    for (const comment of comments) {
-      await ctx.db.delete(comment._id);
     }
 
     // Delete the canvas

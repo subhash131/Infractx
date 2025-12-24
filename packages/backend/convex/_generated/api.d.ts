@@ -10,12 +10,10 @@
 
 import type * as auth from "../auth.js";
 import type * as authUtils from "../authUtils.js";
+import type * as canvasObjects from "../canvasObjects.js";
 import type * as canvases from "../canvases.js";
-import type * as collaborators from "../collaborators.js";
-import type * as comments from "../comments.js";
 import type * as history from "../history.js";
 import type * as layers from "../layers.js";
-import type * as objects from "../objects.js";
 import type * as templates from "../templates.js";
 import type * as utils from "../utils.js";
 
@@ -28,12 +26,10 @@ import type {
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   authUtils: typeof authUtils;
+  canvasObjects: typeof canvasObjects;
   canvases: typeof canvases;
-  collaborators: typeof collaborators;
-  comments: typeof comments;
   history: typeof history;
   layers: typeof layers;
-  objects: typeof objects;
   templates: typeof templates;
   utils: typeof utils;
 }>;

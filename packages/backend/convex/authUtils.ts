@@ -24,44 +24,6 @@ export async function getAuthenticatedUserId(
 }
 
 /**
- * Verify user has access to canvas with minimum role
- */
-export async function verifyCanvasAccess(
-  ctx: AuthContext,
-  canvasId: Id<"canvases">,
-  userId: string,
-  minRole: "owner" | "editor" | "viewer" = "editor"
-): Promise<void> {
-  const collaborator = await ctx.db
-    .query("collaborators")
-    .withIndex("by_canvas_user", (q) =>
-      q.eq("canvasId", canvasId).eq("userId", userId)
-    )
-    .first();
-
-  if (!collaborator) {
-    throw new Error("No access to this canvas");
-  }
-
-  const roleHierarchy: Record<string, number> = {
-    viewer: 0,
-    editor: 1,
-    owner: 2,
-  };
-
-  const collaboratorRole = collaborator.role;
-
-  if (
-    !collaboratorRole ||
-    !roleHierarchy[collaboratorRole] ||
-    !roleHierarchy[minRole] ||
-    roleHierarchy[collaboratorRole] < roleHierarchy[minRole]
-  ) {
-    throw new Error("Insufficient permissions");
-  }
-}
-
-/**
  * Verify user is canvas owner
  */
 export async function verifyCanvasOwner(
@@ -77,26 +39,4 @@ export async function verifyCanvasOwner(
   if (canvas.ownerId !== userId) {
     throw new Error("Only the owner can perform this action");
   }
-}
-
-/**
- * Verify user can edit canvas
- */
-export async function verifyCanvasEdit(
-  ctx: AuthContext,
-  canvasId: Id<"canvases">,
-  userId: string
-): Promise<void> {
-  await verifyCanvasAccess(ctx, canvasId, userId, "editor");
-}
-
-/**
- * Verify user can view canvas
- */
-export async function verifyCanvasView(
-  ctx: AuthContext,
-  canvasId: Id<"canvases">,
-  userId: string
-): Promise<void> {
-  await verifyCanvasAccess(ctx, canvasId, userId, "viewer");
 }

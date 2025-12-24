@@ -45,46 +45,63 @@ export default defineSchema({
   // Canvas objects store individual elements (rectangles, circles, text, images, etc.)
   canvasObjects: defineTable({
     canvasId: v.id("canvases"),
-
     // Object properties
     type: v.string(), // "rect", "circle", "triangle", "text", "image", "path", etc.
     objectId: v.string(), // Unique ID within the canvas
 
     // Position and dimensions
-    left: v.number(),
-    top: v.number(),
-    width: v.number(),
-    height: v.number(),
+    left: v.float64(),
+    top: v.float64(),
+    width: v.float64(),
+    height: v.float64(),
+    points: v.optional(
+      v.array(
+        v.object({
+          x: v.number(),
+          y: v.number(),
+        })
+      )
+    ),
 
     // Rotation and scaling
-    angle: v.number(),
-    scaleX: v.number(),
-    scaleY: v.number(),
+    angle: v.float64(),
+    scaleX: v.float64(),
+    scaleY: v.float64(),
 
     // Styling
     fill: v.optional(v.string()),
     stroke: v.optional(v.string()),
-    strokeWidth: v.number(),
-    opacity: v.number(),
+    strokeWidth: v.float64(),
+    opacity: v.float64(),
 
     // Text-specific properties
     text: v.optional(v.string()),
-    fontSize: v.optional(v.number()),
+    fontSize: v.optional(v.float64()),
     fontFamily: v.optional(v.string()),
     fontWeight: v.optional(v.string()),
     textAlign: v.optional(v.string()),
+    fontStyle: v.optional(v.string()),
+    underline: v.optional(v.boolean()),
+    linethrough: v.optional(v.boolean()),
+    overline: v.optional(v.boolean()),
 
     // Image-specific properties
     imageUrl: v.optional(v.string()),
 
     // Shape-specific properties
-    radius: v.optional(v.number()),
-    rx: v.optional(v.number()),
-    ry: v.optional(v.number()),
+    radius: v.optional(v.float64()),
+    rx: v.optional(v.float64()),
+    ry: v.optional(v.float64()),
 
     // Advanced properties
     shadow: v.optional(v.string()),
     data: v.optional(v.any()), // Store arbitrary fabric.js object data
+    strokeUniform: v.optional(v.boolean()),
+    cornerColor: v.optional(v.string()),
+    cornerSize: v.optional(v.float64()),
+    cornerStrokeColor: v.optional(v.string()),
+    borderColor: v.optional(v.string()),
+    borderScaleFactor: v.optional(v.float64()),
 
     // Metadata
     zIndex: v.number(),
@@ -127,29 +144,6 @@ export default defineSchema({
   })
     .index("by_canvas", ["canvasId"])
     .index("by_canvas_timestamp", ["canvasId", "timestamp"]),
-
-  // Collaborators for shared canvases
-  collaborators: defineTable({
-    canvasId: v.id("canvases"),
-    userId: v.string(),
-    role: v.string(), // "owner", "editor", "viewer"
-    addedAt: v.number(),
-  })
-    .index("by_canvas", ["canvasId"])
-    .index("by_canvas_user", ["canvasId", "userId"]),
-
-  // Comments and annotations
-  comments: defineTable({
-    canvasId: v.id("canvases"),
-    objectId: v.optional(v.string()),
-    userId: v.string(),
-    content: v.string(),
-    resolved: v.boolean(),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-  })
-    .index("by_canvas", ["canvasId"])
-    .index("by_object", ["objectId"]),
 
   // Design templates
   templates: defineTable({
