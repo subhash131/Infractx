@@ -1,16 +1,27 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
 import { DesignCanvas } from "./components/design-canvas";
 import { DesignToolsBar } from "./components/design-tools-bar";
 import { EditSelectedItemBar } from "./components/edit-selected-item-bar";
+import useCanvas from "../store";
+import { CanvasLayersList } from "./components/canvas-layers-list";
 
-export const DesignView = ({ canvasId }: { canvasId: string }) => {
+export const DesignView = ({ fileId }: { fileId: string }) => {
+  const { setActiveFileId } = useCanvas();
+  useEffect(() => {
+    if (!fileId) return;
+    setActiveFileId(fileId);
+    return () => {
+      setActiveFileId(null);
+    };
+  }, [fileId]);
   return (
     <div className="w-screen h-screen overflow-hidden flex items-center justify-center relative">
-      <DesignCanvas canvasId={canvasId} />
-      <DesignToolsBar canvasId={canvasId} />
+      <DesignCanvas />
+      <DesignToolsBar />
       <EditSelectedItemBar />
+      <CanvasLayersList />
     </div>
   );
 };

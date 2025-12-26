@@ -7,14 +7,22 @@ import useCanvas from "../../../store";
 import { Id } from "@workspace/backend/_generated/dataModel";
 import { TOOLS } from "../../constants";
 import { v4 as uuidv4 } from "uuid";
-import { useUpsertCanvasObject } from "../../hooks/use-upsert-canvas-object";
+import { useMutation, useQuery } from "convex/react";
+import { api } from "@workspace/backend/_generated/api";
 
-export const LineTool = ({ canvasId }: { canvasId: string }) => {
-  const { canvas } = useCanvas();
+export const LineTool = () => {
+  const { canvas, activeFileId } = useCanvas();
+  const createline = useMutation(api.design.layers.createObject);
+  const file = useQuery(
+    api.design.files.getFile,
+    activeFileId
+      ? {
+          fileId: activeFileId as Id<"files">,
+        }
+      : "skip"
+  );
 
-  const upsert = useUpsertCanvasObject();
-
-  const handleAddLine = () => {
+  const handleAddLine = async () => {
     if (!canvas) {
       console.log("Canvas not initialized");
       return;
@@ -29,7 +37,6 @@ export const LineTool = ({ canvasId }: { canvasId: string }) => {
         stroke: "#000000",
         strokeWidth: 1,
         strokeUniform: true,
-        fill: "",
         cornerColor: "#4096ee",
         cornerSize: 8,
         cornerStrokeColor: "#4096ee",
@@ -48,17 +55,22 @@ export const LineTool = ({ canvasId }: { canvasId: string }) => {
       top: centerY - line.height / 2 + canvas._objects.length * 10,
     });
 
-    upsert({
-      canvasId: canvasId as Id<"canvases">,
-      type: TOOLS.LINE, // or TOOLS.POLYLINE depending on your constants
+    canvas.add(line);
+
+    await createline({
+      pageId: file?.activePage as Id<"pages">,
+      type: "LINE",
       height: line.height,
       left: line.left,
+      radius: line.radius,
       objectId: uuidv4(),
       top: line.top,
       width: line.width,
       angle: line.angle,
-      fill: line.fill ? line.fill.toString() : "#000000",
+      fill: line.fill ? line.fill.toString() : undefined,
       opacity: line.opacity,
+      rx: line.rx,
+      ry: line.ry,
       shadow: line.shadow ? line.shadow.toString() : undefined,
       stroke: line.stroke ? line.stroke.toString() : undefined,
       strokeWidth: line.strokeWidth,
@@ -70,7 +82,8 @@ export const LineTool = ({ canvasId }: { canvasId: string }) => {
       borderColor: line.borderColor,
       borderScaleFactor: line.borderScaleFactor,
       strokeUniform: line.strokeUniform,
-      points: line.points, // Polyline-specific property
+      name: "Line",
+      points: line.points,
     });
   };
 

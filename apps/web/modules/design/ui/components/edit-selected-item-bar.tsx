@@ -23,7 +23,7 @@ export const EditSelectedItemBar = () => {
   const selectedElements = useCanvas((state) => state.selectedElements);
   const canvas = useCanvas((state) => state.canvas);
 
-  const updateCanvasObject = useMutation(api.canvas.canvasObjects.updateObject);
+  const updateCanvasObject = useMutation(api.design.layers.updateObject);
 
   const [properties, setProperties] = useState<ElementProperties>({
     left: 0,
