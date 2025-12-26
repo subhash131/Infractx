@@ -1,5 +1,6 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import { DESIGN_TOOLS_TYPE } from "./design/constants";
 
 export default defineSchema({
   // Users table for authentication
@@ -20,12 +21,33 @@ export default defineSchema({
     .index("by_user", ["userId"])
     .index("by_expiry", ["expiresAt"]),
 
-  // Canvas documents store the main canvas state
-  canvases: defineTable({
-    // Metadata
+  files: defineTable({
     name: v.string(),
     description: v.optional(v.string()),
     ownerId: v.string(),
+    organizationId: v.optional(v.string()), // TODO: add Organization
+    activePage: v.optional(v.id("pages")),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_owner", ["ownerId"])
+    .index("by_organization", ["organizationId"])
+    .index("by_owner_organization", ["ownerId", "organizationId"]),
+
+  pages: defineTable({
+    name: v.string(),
+    fileId: v.id("files"),
+    layersCount: v.number(),
+    bgColor: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_file", ["fileId"]),
+
+  // Canvas documents store the main canvas state
+  canvases: defineTable({
+    // Metadata
+    pageId: v.id("pages"),
+    name: v.string(),
     createdAt: v.number(),
     updatedAt: v.number(),
 
@@ -36,20 +58,24 @@ export default defineSchema({
 
     // Canvas state
     zoom: v.number(),
+    order: v.number(),
     offsetX: v.number(),
     offsetY: v.number(),
-  })
-    .index("by_owner", ["ownerId"])
-    .index("by_created", ["ownerId", "createdAt"]),
+  }).index("by_page", ["pageId"]),
 
   // Canvas objects store individual elements (rectangles, circles, text, images, etc.)
-  canvasObjects: defineTable({
-    canvasId: v.id("canvases"),
+  layers: defineTable({
     // Object properties
-    type: v.string(), // "rect", "circle", "triangle", "text", "image", "path", etc.
+    type: DESIGN_TOOLS_TYPE, // "rect", "circle", "triangle", "text", "image", "path", etc.
     objectId: v.string(), // Unique ID within the canvas
+    parentLayerId: v.optional(v.id("canvases")),
+    parentType: v.optional(v.union(v.literal("PAGE"), v.literal("CANVAS"))),
+
+    pageId: v.id("pages"),
+    name: v.string(),
 
     // Position and dimensions
+    padding: v.optional(v.number()),
     left: v.float64(),
     top: v.float64(),
     width: v.float64(),
@@ -104,33 +130,27 @@ export default defineSchema({
     borderScaleFactor: v.optional(v.float64()),
 
     // Metadata
-    zIndex: v.number(),
-    locked: v.boolean(),
-    visible: v.boolean(),
+    zIndex: v.optional(v.number()),
+    locked: v.optional(v.boolean()),
+    visible: v.optional(v.boolean()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
-    .index("by_canvas", ["canvasId"])
-    .index("by_canvas_zindex", ["canvasId", "zIndex"]),
+    .index("by_page", ["pageId"])
+    .index("by_page_zindex", ["pageId", "zIndex"]),
 
   // Layers for organizing canvas objects
-  layers: defineTable({
-    canvasId: v.id("canvases"),
-    name: v.string(),
-    visible: v.boolean(),
-    locked: v.boolean(),
-    opacity: v.number(),
-    zIndex: v.number(),
-    createdAt: v.number(),
-  }).index("by_canvas", ["canvasId"]),
-
-  // Layer objects - relationship between objects and layers
-  layerObjects: defineTable({
-    layerId: v.id("layers"),
-    objectId: v.id("canvasObjects"),
-  })
-    .index("by_layer", ["layerId"])
-    .index("by_object", ["objectId"]),
+  // layers: defineTable({
+  //   pageId: v.id("pages"),
+  //   name: v.string(),
+  //   parentLayerId: v.optional(v.string()),
+  //   visible: v.boolean(),
+  //   locked: v.boolean(),
+  //   opacity: v.number(),
+  //   zIndex: v.number(),
+  //   createdAt: v.number(),
+  //   type: v.union(v.literal("GROUP"), v.literal("FRAME"), v.literal("LAYER")),
+  // }).index("by_page", ["pageId"]),
 
   // Canvas history for undo/redo functionality
   canvasHistory: defineTable({
