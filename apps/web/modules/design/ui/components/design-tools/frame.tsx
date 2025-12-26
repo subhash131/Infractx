@@ -1,5 +1,5 @@
 "use client";
-import React from "react";
+import React, { useEffect } from "react";
 import * as fabric from "fabric";
 import { Square } from "lucide-react";
 import { Button } from "@workspace/ui/components/button";
@@ -16,7 +16,7 @@ export class Frame extends fabric.Group {
       ...options,
       subTargetCheck: true,
       interactive: true,
-      type: "frame",
+      obj_type: "frame",
     });
 
     // Add frame background
@@ -54,6 +54,36 @@ export class Frame extends fabric.Group {
     this.remove(child);
     this.setCoords();
     return this;
+  }
+
+  // Add this method to your Frame class
+  calculateOverlapPercentage(obj: fabric.FabricObject): number {
+    // Get bounding rectangles
+    const frameBounds = this.getBoundingRect();
+    const objBounds = obj.getBoundingRect();
+
+    // Calculate intersection area
+    const intersectLeft = Math.max(frameBounds.left, objBounds.left);
+    const intersectTop = Math.max(frameBounds.top, objBounds.top);
+    const intersectRight = Math.min(
+      frameBounds.left + frameBounds.width,
+      objBounds.left + objBounds.width
+    );
+    const intersectBottom = Math.min(
+      frameBounds.top + frameBounds.height,
+      objBounds.top + objBounds.height
+    );
+
+    // Check if there's actual intersection
+    if (intersectRight <= intersectLeft || intersectBottom <= intersectTop) {
+      return 0;
+    }
+
+    const intersectArea =
+      (intersectRight - intersectLeft) * (intersectBottom - intersectTop);
+    const objArea = objBounds.width * objBounds.height;
+
+    return (intersectArea / objArea) * 100;
   }
 
   // Align children horizontally
@@ -322,6 +352,56 @@ export const FrameTool = () => {
       name: "Frame",
     });
   };
+
+  useEffect(() => {
+    if (!canvas) return;
+
+    const handleObjectMoving = (e: any) => {
+      const movingObj = e.target;
+      if (!movingObj || movingObj instanceof Frame) return;
+
+      // Update coordinates before checking intersection
+      movingObj.setCoords();
+
+      // Find all frames on canvas
+      const frames = canvas
+        .getObjects()
+        .filter((obj) => obj instanceof Frame) as Frame[];
+
+      frames.forEach((frame) => {
+        frame.setCoords();
+        const overlapPercentage = frame.calculateOverlapPercentage(movingObj);
+
+        // If 70% or more of object is inside frame
+        if (overlapPercentage >= 70) {
+          // Check if object is not already in frame
+          if (!frame.contains(movingObj)) {
+            // Remove from canvas and add to frame
+            canvas.remove(movingObj);
+
+            // Convert coordinates to frame's local coordinate system
+            const frameCenter = frame.getCenterPoint();
+            const objCenter = movingObj.getCenterPoint();
+
+            movingObj.set({
+              left: objCenter.x - frameCenter.x,
+              top: objCenter.y - frameCenter.y,
+              parentLayerId: frame._id,
+            });
+
+            frame.addChild(movingObj);
+            canvas.requestRenderAll();
+          }
+        }
+      });
+    };
+
+    canvas.on("object:moving", handleObjectMoving);
+
+    return () => {
+      canvas.off("object:moving", handleObjectMoving);
+    };
+  }, [canvas]);
 
   return (
     <Button

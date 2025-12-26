@@ -7,7 +7,42 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "@workspace/backend/_generated/api";
 import { Id } from "@workspace/backend/_generated/dataModel";
 import { debounce } from "lodash";
-import { Frame } from "./design-tools/frame";
+
+const createFabricObject = (layer: any): fabric.FabricObject | null => {
+  let fabricObj: fabric.FabricObject | null = null;
+
+  const { type, ...obj } = layer;
+
+  switch (type) {
+    case "RECT":
+      fabricObj = new fabric.Rect({
+        ...obj,
+        obj_type: type,
+      } as fabric.TOptions<fabric.RectProps>);
+      break;
+    case "CIRCLE":
+      fabricObj = new fabric.Circle({
+        ...obj,
+        obj_type: type,
+      } as fabric.TOptions<fabric.RectProps>);
+      break;
+    case "LINE":
+      fabricObj = new fabric.Polyline(layer.points || [], {
+        ...obj,
+        obj_type: type,
+      } as fabric.TOptions<fabric.RectProps>);
+      break;
+
+    default:
+      break;
+  }
+
+  if (fabricObj) {
+    fabricObj.set({ _id: layer._id });
+  }
+
+  return fabricObj;
+};
 
 export const DesignCanvas = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -309,8 +344,22 @@ export const DesignCanvas = () => {
         const activeObject = initCanvas.getActiveObject();
         if (activeObject) {
           setActiveObject(activeObject);
+
+          // IMPORTANT: Normalize scale before saving
+          const finalWidth =
+            (activeObject.width || 0) * (activeObject.scaleX || 1);
+          const finalHeight =
+            (activeObject.height || 0) * (activeObject.scaleY || 1);
+
+          // Update the object to use normalized dimensions
+          activeObject.set({
+            width: finalWidth,
+            height: finalHeight,
+            scaleX: 1,
+            scaleY: 1,
+          });
+          activeObject.setCoords();
           const {
-            width,
             angle,
             borderColor,
             borderScaleFactor,
@@ -323,7 +372,6 @@ export const DesignCanvas = () => {
             fontSize,
             fontStyle,
             fontWeight,
-            height,
             imageUrl,
             left,
             linethrough,
@@ -335,8 +383,6 @@ export const DesignCanvas = () => {
             radius,
             rx,
             ry,
-            scaleX,
-            scaleY,
             shadow,
             stroke,
             strokeUniform,
@@ -345,10 +391,13 @@ export const DesignCanvas = () => {
             textAlign,
             top,
             underline,
+            parentLayerId,
           } = activeObject;
+
           updateObject({
             _id: activeObject._id as Id<"layers">,
-            width,
+            width: finalWidth,
+            height: finalHeight,
             angle,
             borderColor,
             borderScaleFactor,
@@ -361,7 +410,6 @@ export const DesignCanvas = () => {
             fontSize,
             fontStyle,
             fontWeight,
-            height,
             imageUrl,
             left,
             linethrough,
@@ -373,8 +421,8 @@ export const DesignCanvas = () => {
             radius,
             rx,
             ry,
-            scaleX,
-            scaleY,
+            scaleX: 1, // Always save as 1
+            scaleY: 1, // Always save as 1
             shadow: shadow?.toString(),
             stroke: stroke?.toString(),
             strokeUniform,
@@ -383,6 +431,7 @@ export const DesignCanvas = () => {
             textAlign,
             top,
             underline,
+            parentLayerId,
           });
         }
       });
@@ -462,43 +511,8 @@ export const DesignCanvas = () => {
     canvas.renderOnAddRemove = false;
     canvas.backgroundColor = page?.bgColor || "#d9d9d9";
 
-    layers?.map((layer) => {
-      let fabricObj: fabric.FabricObject | null = null;
-
-      switch (layer.type) {
-        case "RECT":
-          fabricObj = new fabric.Rect(
-            layer as fabric.TOptions<fabric.RectProps>
-          );
-          break;
-        case "FRAME":
-          const rect = new fabric.Rect({
-            width: 100,
-            height: 100,
-            _id: "jx79rb3k533ax3eqn64ydbepg57y0tva" as Id<"layers">,
-            left: 100,
-            right: 100,
-          });
-          fabricObj = new Frame([rect], {
-            ...layer,
-          } as fabric.TOptions<fabric.RectProps>);
-          break;
-        case "CIRCLE":
-          fabricObj = new fabric.Circle(
-            layer as fabric.TOptions<fabric.RectProps>
-          );
-          break;
-        case "LINE":
-          fabricObj = new fabric.Polyline(
-            layer.points || [],
-            layer as fabric.TOptions<fabric.RectProps>
-          );
-          console.log("line", { fabricObj, points: layer.points });
-          break;
-        default:
-          break;
-      }
-      fabricObj?.set({ _id: layer._id });
+    layers?.forEach((layer) => {
+      const fabricObj = createFabricObject(layer);
       if (fabricObj) {
         canvas.add(fabricObj);
         if (activeObject?._id === fabricObj._id) {
