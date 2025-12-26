@@ -1,23 +1,16 @@
+"use client";
 import React, { useEffect, useRef } from "react";
 import * as fabric from "fabric";
 import useCanvas from "../../store";
-import { CANVAS_HEIGHT, CANVAS_WIDTH, TOOLS } from "../constants";
+import { CANVAS_HEIGHT, CANVAS_WIDTH } from "../constants";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@workspace/backend/_generated/api";
 import { Id } from "@workspace/backend/_generated/dataModel";
-import { useUpsertCanvasObject } from "../hooks/use-upsert-canvas-object";
 import { debounce } from "lodash";
+import { Frame } from "./design-tools/frame";
 
-export const DesignCanvas = ({ canvasId }: { canvasId: string }) => {
+export const DesignCanvas = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-
-  const canvasObjects = useQuery(api.canvas.canvasObjects.getCanvasObjects, {
-    canvasId: canvasId as Id<"canvases">,
-  });
-
-  const removeElement = useMutation(api.canvas.canvasObjects.deleteObject);
-  const upsertCanvasObject = useUpsertCanvasObject();
-
   const {
     canvas,
     setCanvas,
@@ -27,7 +20,28 @@ export const DesignCanvas = ({ canvasId }: { canvasId: string }) => {
     setSelectedElements,
     setActiveObject,
     activeObject,
+    activeFileId,
   } = useCanvas();
+  const file = useQuery(
+    api.design.files.getFile,
+    activeFileId ? { fileId: activeFileId as Id<"files"> } : "skip"
+  );
+  const page = useQuery(
+    api.design.pages.getPageById,
+    file?.activePage ? { pageId: file.activePage } : "skip"
+  );
+  const layers = useQuery(
+    api.design.layers.getLayersByPage,
+    file?.activePage
+      ? {
+          pageId: file.activePage,
+        }
+      : "skip"
+  );
+
+  const removeElement = useMutation(api.design.layers.deleteObject);
+  const updateObject = useMutation(api.design.layers.updateObject);
+
   const isPanning = useRef(false);
   const lastPos = useRef({ x: 0, y: 0 });
   const isSpacePressed = useRef(false);
@@ -37,7 +51,6 @@ export const DesignCanvas = ({ canvasId }: { canvasId: string }) => {
   useEffect(() => {
     if (canvasRef.current && !canvas) {
       console.log("Initializing canvas...");
-
       const viewportWidth = window.innerWidth;
       const viewportHeight = window.innerHeight;
 
@@ -256,9 +269,9 @@ export const DesignCanvas = ({ canvasId }: { canvasId: string }) => {
             e.preventDefault();
             activeObjects.forEach((element) => {
               initCanvas.remove(element);
-              if (element.id) {
+              if (element._id) {
                 removeElement({
-                  id: element.id,
+                  id: element._id,
                 });
               }
             });
@@ -296,45 +309,80 @@ export const DesignCanvas = ({ canvasId }: { canvasId: string }) => {
         const activeObject = initCanvas.getActiveObject();
         if (activeObject) {
           setActiveObject(activeObject);
-          upsertCanvasObject({
-            _id: activeObject.id,
-            canvasId: canvasId as Id<"canvases">,
-            objectId: activeObject.id ?? "",
-            height: activeObject.height,
-            width: activeObject.width,
-            left: activeObject.left,
-            top: activeObject.top,
-            type: activeObject?.obj_type,
-            angle: activeObject.angle,
-            borderColor: activeObject.borderColor,
-            borderScaleFactor: activeObject.borderScaleFactor,
-            opacity: activeObject.opacity,
-            fill: activeObject.fill ? activeObject.fill?.toString() : undefined,
-            rx: activeObject.rx ? activeObject.rx : undefined,
-            ry: activeObject.ry ? activeObject.ry : undefined,
-            shadow: activeObject.shadow
-              ? activeObject.shadow.toString()
-              : undefined,
-            stroke: activeObject.stroke
-              ? activeObject.stroke.toString()
-              : undefined,
-            data: activeObject.data,
-            cornerColor: activeObject.cornerColor,
-            cornerSize: activeObject.cornerSize,
-            cornerStrokeColor: activeObject.cornerStrokeColor,
-            fontFamily: activeObject.fontFamily,
-            scaleX: activeObject.scaleX,
-            scaleY: activeObject.scaleY,
-            strokeUniform: activeObject.strokeUniform,
-            strokeWidth: activeObject.strokeWidth,
-            text: activeObject.text,
-            textAlign: activeObject.textAlign,
-            visible: activeObject.visible,
-            zIndex: activeObject.zIndex,
-            fontSize: activeObject.fontSize,
-            imageUrl: activeObject.imageUrl,
-            locked: activeObject.locked,
-            radius: activeObject.radius,
+          const {
+            width,
+            angle,
+            borderColor,
+            borderScaleFactor,
+            cornerColor,
+            cornerSize,
+            cornerStrokeColor,
+            data,
+            fill,
+            fontFamily,
+            fontSize,
+            fontStyle,
+            fontWeight,
+            height,
+            imageUrl,
+            left,
+            linethrough,
+            name,
+            opacity,
+            overline,
+            padding,
+            points,
+            radius,
+            rx,
+            ry,
+            scaleX,
+            scaleY,
+            shadow,
+            stroke,
+            strokeUniform,
+            strokeWidth,
+            text,
+            textAlign,
+            top,
+            underline,
+          } = activeObject;
+          updateObject({
+            _id: activeObject._id as Id<"layers">,
+            width,
+            angle,
+            borderColor,
+            borderScaleFactor,
+            cornerColor,
+            cornerSize,
+            cornerStrokeColor,
+            data,
+            fill: fill?.toString(),
+            fontFamily,
+            fontSize,
+            fontStyle,
+            fontWeight,
+            height,
+            imageUrl,
+            left,
+            linethrough,
+            name,
+            opacity,
+            overline,
+            padding,
+            points,
+            radius,
+            rx,
+            ry,
+            scaleX,
+            scaleY,
+            shadow: shadow?.toString(),
+            stroke: stroke?.toString(),
+            strokeUniform,
+            strokeWidth,
+            text,
+            textAlign,
+            top,
+            underline,
           });
         }
       });
@@ -408,191 +456,60 @@ export const DesignCanvas = ({ canvasId }: { canvasId: string }) => {
     }
   }, []);
 
-  // Load objects from database onto canvas
   useEffect(() => {
-    if (!canvas || !canvasObjects) return;
-
-    console.log("Loading canvas objects from database...");
-
-    // Disable rendering during batch load
+    if (!canvas || !canvasRef.current) return;
     canvas.clear();
     canvas.renderOnAddRemove = false;
+    canvas.backgroundColor = page?.bgColor || "#d9d9d9";
 
-    canvasObjects.forEach((obj) => {
-      let fabricObject;
+    layers?.map((layer) => {
+      let fabricObj: fabric.FabricObject | null = null;
 
-      switch (obj.type) {
-        case TOOLS.RECT:
-          fabricObject = new fabric.Rect({
-            id: obj._id,
-            obj_type: obj.type,
-            left: obj.left,
-            top: obj.top,
-            width: obj.width,
-            height: obj.height,
-            angle: obj.angle,
-            scaleX: obj.scaleX,
-            scaleY: obj.scaleY,
-            fill: obj.fill,
-            stroke: obj.stroke,
-            strokeWidth: obj.strokeWidth,
-            opacity: obj.opacity,
-            rx: obj.rx,
-            ry: obj.ry,
-            shadow: obj.shadow,
-            cornerColor: obj.cornerColor,
-            cornerSize: obj.cornerSize,
-            cornerStrokeColor: obj.cornerStrokeColor,
-            borderColor: obj.borderColor,
-            borderScaleFactor: obj.borderScaleFactor,
-            strokeUniform: obj.strokeUniform,
-            ...(obj.data && obj.data),
-          });
-          break;
-
-        case TOOLS.CIRCLE:
-          fabricObject = new fabric.Circle({
-            id: obj._id,
-            obj_type: obj.type,
-            left: obj.left,
-            top: obj.top,
-            radius: 50,
-            width: obj.width,
-            height: obj.height,
-            angle: obj.angle,
-            scaleX: obj.scaleX,
-            scaleY: obj.scaleY,
-            fill: obj.fill,
-            stroke: obj.stroke,
-            strokeWidth: obj.strokeWidth,
-            opacity: obj.opacity,
-            cornerColor: obj.cornerColor,
-            cornerSize: obj.cornerSize,
-            cornerStrokeColor: obj.cornerStrokeColor,
-            borderColor: obj.borderColor,
-            borderScaleFactor: obj.borderScaleFactor,
-            strokeUniform: obj.strokeUniform,
-          });
-          break;
-
-        case "LINE":
-          fabricObject = new fabric.Polyline(obj.points || [], {
-            id: obj._id,
-            obj_type: obj.type,
-            left: obj.left,
-            top: obj.top,
-            angle: obj.angle,
-            scaleX: obj.scaleX,
-            scaleY: obj.scaleY,
-            fill: obj.fill,
-            stroke: obj.stroke,
-            strokeWidth: obj.strokeWidth,
-            opacity: obj.opacity,
-            cornerColor: obj.cornerColor,
-            cornerSize: obj.cornerSize,
-            cornerStrokeColor: obj.cornerStrokeColor,
-            borderColor: obj.borderColor,
-            borderScaleFactor: obj.borderScaleFactor,
-            strokeUniform: obj.strokeUniform,
-            ...(obj.data && obj.data),
-          });
-          break;
-
-        case "PENCIL":
-          fabricObject = new fabric.Path(
-            obj.data?.path || "", // SVG path string from data field
-            {
-              id: obj._id,
-              obj_type: obj.type,
-              left: obj.left,
-              top: obj.top,
-              angle: obj.angle,
-              scaleX: obj.scaleX,
-              scaleY: obj.scaleY,
-              fill: obj.fill,
-              stroke: obj.stroke,
-              strokeWidth: obj.strokeWidth,
-              opacity: obj.opacity,
-              ...(obj.data && obj.data),
-            }
+      switch (layer.type) {
+        case "RECT":
+          fabricObj = new fabric.Rect(
+            layer as fabric.TOptions<fabric.RectProps>
           );
           break;
-
-        case "TEXT":
-          fabricObject = new fabric.IText(obj.text || "", {
-            id: obj._id,
-            obj_type: obj.type,
-            left: obj.left,
-            top: obj.top,
-            width: obj.width,
-            height: obj.height,
-            angle: obj.angle,
-            scaleX: obj.scaleX,
-            scaleY: obj.scaleY,
-            fill: obj.fill,
-            stroke: obj.stroke,
-            strokeWidth: obj.strokeWidth,
-            opacity: obj.opacity,
-            rx: obj.rx,
-            ry: obj.ry,
-            shadow: obj.shadow,
-            cornerColor: obj.cornerColor,
-            cornerSize: obj.cornerSize,
-            cornerStrokeColor: obj.cornerStrokeColor,
-            borderColor: obj.borderColor,
-            borderScaleFactor: obj.borderScaleFactor,
-            strokeUniform: obj.strokeUniform,
-            text: obj.text,
-            ...(obj.data && obj.data),
+        case "FRAME":
+          const rect = new fabric.Rect({
+            width: 100,
+            height: 100,
+            _id: "jx79rb3k533ax3eqn64ydbepg57y0tva" as Id<"layers">,
+            left: 100,
+            right: 100,
           });
+          fabricObj = new Frame([rect], {
+            ...layer,
+          } as fabric.TOptions<fabric.RectProps>);
           break;
-
+        case "CIRCLE":
+          fabricObj = new fabric.Circle(
+            layer as fabric.TOptions<fabric.RectProps>
+          );
+          break;
+        case "LINE":
+          fabricObj = new fabric.Polyline(
+            layer.points || [],
+            layer as fabric.TOptions<fabric.RectProps>
+          );
+          console.log("line", { fabricObj, points: layer.points });
+          break;
         default:
-          console.warn(`Unknown object type: ${obj.type}`);
-          return;
+          break;
       }
-
-      if (fabricObject) {
-        // Store database ID on the object for future reference
-        console.log({
-          id: fabricObject.id,
-          obj_type: fabricObject.type,
-          left: fabricObject.left,
-          top: fabricObject.top,
-          width: fabricObject.width,
-          height: fabricObject.height,
-          angle: fabricObject.angle,
-          scaleX: fabricObject.scaleX,
-          scaleY: fabricObject.scaleY,
-          fill: fabricObject.fill,
-          stroke: fabricObject.stroke,
-          strokeWidth: fabricObject.strokeWidth,
-          opacity: fabricObject.opacity,
-          rx: fabricObject.rx,
-          ry: fabricObject.ry,
-          shadow: fabricObject.shadow,
-          cornerColor: fabricObject.cornerColor,
-          cornerSize: fabricObject.cornerSize,
-          cornerStrokeColor: fabricObject.cornerStrokeColor,
-          borderColor: fabricObject.borderColor,
-          borderScaleFactor: fabricObject.borderScaleFactor,
-          strokeUniform: fabricObject.strokeUniform,
-          ...(obj.data && obj.data),
-        });
-        fabricObject.set({ id: obj._id });
-        canvas.add(fabricObject as fabric.FabricObject);
-        if (activeObject?.id === fabricObject.id) {
-          canvas.setActiveObject(fabricObject as fabric.FabricObject);
+      fabricObj?.set({ _id: layer._id });
+      if (fabricObj) {
+        canvas.add(fabricObj);
+        if (activeObject?._id === fabricObj._id) {
+          canvas.setActiveObject(fabricObj as fabric.FabricObject);
         }
       }
     });
 
-    // Re-enable rendering and render once
     canvas.renderOnAddRemove = true;
     canvas.requestRenderAll();
-
-    console.log(`Loaded ${canvasObjects.length} objects`);
-  }, [canvas, canvasObjects]);
+  }, [layers]);
 
   return (
     <canvas

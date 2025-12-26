@@ -7,9 +7,9 @@ type PageProps = {
 };
 
 const Page = async ({ params }: PageProps) => {
-  const canvasId = (await params).fileId;
+  const fileId = (await params).fileId;
 
-  return <DesignView canvasId={canvasId} />;
+  return <DesignView fileId={fileId} />;
 };
 
 export default Page;

@@ -4,7 +4,7 @@ import { CanvasTool } from "./modules/design/ui/constants";
 
 declare module "fabric" {
   interface FabricObject {
-    id?: Id<"canvasObjects">;
+    _id?: Id<"layers">;
     rx?: number;
     ry?: number;
     data?: any;
@@ -20,9 +20,14 @@ declare module "fabric" {
     radius?: number;
     obj_type?: CanvasTool;
     points?: { x: number; y: number }[];
+    fontStyle: string;
+    linethrough: boolean;
+    name: string;
+    overline: boolean;
+    underline: boolean;
   }
   interface SerializedObjectProps {
-    id?: Id<"canvasObjects">;
+    _id?: Id<"layers">;
     rx?: number;
     ry?: number;
     data?: any;
@@ -38,5 +43,10 @@ declare module "fabric" {
     radius?: number;
     obj_type?: CanvasTool;
     points?: { x: number; y: number }[];
+    fontStyle: string;
+    linethrough: string;
+    name: string;
+    overline: boolean;
+    underline: boolean;
   }
 }

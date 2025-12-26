@@ -4,15 +4,9 @@ import * as fabric from "fabric";
 import { Type } from "lucide-react";
 import { Button } from "@workspace/ui/components/button";
 import useCanvas from "../../../store";
-import { Id } from "@workspace/backend/_generated/dataModel";
-import { TOOLS } from "../../constants";
-import { v4 as uuidv4 } from "uuid";
-import { useUpsertCanvasObject } from "../../hooks/use-upsert-canvas-object";
 
-export const TextTool = ({ canvasId }: { canvasId: string }) => {
+export const TextTool = () => {
   const { canvas } = useCanvas();
-
-  const upsert = useUpsertCanvasObject();
 
   const handleAddText = (e: React.MouseEvent) => {
     if (!canvas) {
@@ -40,44 +34,6 @@ export const TextTool = ({ canvasId }: { canvasId: string }) => {
     text.set({
       left: centerX - text.width / 2 + canvas._objects.length * 10,
       top: centerY - text.height / 2 + canvas._objects.length * 10,
-    });
-
-    upsert({
-      canvasId: canvasId as Id<"canvases">,
-      type: TOOLS.TEXT, // or TOOLS.ITEXT
-      objectId: uuidv4(),
-      // Position and dimensions
-      left: text.left,
-      top: text.top,
-      width: text.width,
-      height: text.height,
-      angle: text.angle,
-      scaleX: text.scaleX,
-      scaleY: text.scaleY,
-      // Text-specific properties
-      text: text.text,
-      fontSize: text.fontSize,
-      fontFamily: text.fontFamily,
-      fontWeight: text.fontWeight ? text.fontWeight.toString() : undefined,
-      fontStyle: text.fontStyle,
-      textAlign: text.textAlign,
-      underline: text.underline,
-      linethrough: text.linethrough,
-      overline: text.overline,
-      // Styling
-      fill: text.fill ? text.fill.toString() : undefined,
-      stroke: text.stroke ? text.stroke.toString() : undefined,
-      strokeWidth: text.strokeWidth,
-      opacity: text.opacity,
-      shadow: text.shadow ? text.shadow.toString() : undefined,
-      // Control styling
-      cornerColor: text.cornerColor,
-      cornerSize: text.cornerSize,
-      cornerStrokeColor: text.cornerStrokeColor,
-      borderColor: text.borderColor,
-      borderScaleFactor: text.borderScaleFactor,
-      strokeUniform: text.strokeUniform,
-      padding: text.padding,
     });
   };
 

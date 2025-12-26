@@ -3,26 +3,31 @@ import * as fabric from "fabric";
 import { Circle } from "lucide-react";
 import { Button } from "@workspace/ui/components/button";
 import useCanvas from "../../../store";
-import { useUpsertCanvasObject } from "../../hooks/use-upsert-canvas-object";
-import { TOOLS } from "../../constants";
 import { Id } from "@workspace/backend/_generated/dataModel";
 import { v4 as uuidv4 } from "uuid";
+import { useMutation, useQuery } from "convex/react";
+import { api } from "@workspace/backend/_generated/api";
 
-export const CircleTool = ({ canvasId }: { canvasId: string }) => {
-  const { canvas } = useCanvas();
-  const upsert = useUpsertCanvasObject();
+export const CircleTool = () => {
+  const { canvas, activeFileId } = useCanvas();
+  const createCircle = useMutation(api.design.layers.createObject);
+  const file = useQuery(
+    api.design.files.getFile,
+    activeFileId
+      ? {
+          fileId: activeFileId as Id<"files">,
+        }
+      : "skip"
+  );
 
-  const handleAddCircle = () => {
-    if (!canvas) {
-      console.log("Canvas not initialized");
-      return;
-    }
+  const handleAddCircle = async () => {
+    if (!canvas) return;
 
-    const radius = 50;
+    const radius = 200;
     const circle = new fabric.Circle({
       radius,
       stroke: "#010101",
-      fill: "#D9D9D9",
+      fill: "#f0f0f0",
       strokeWidth: 0.5,
       cornerColor: "#4096ee",
       cornerSize: 8,
@@ -41,16 +46,16 @@ export const CircleTool = ({ canvasId }: { canvasId: string }) => {
       top: centerY - radius + canvas._objects.length * 10,
     });
 
-    upsert({
-      canvasId: canvasId as Id<"canvases">,
-      type: TOOLS.CIRCLE,
+    await createCircle({
+      pageId: file?.activePage as Id<"pages">,
+      type: "CIRCLE",
       height: circle.height,
       left: circle.left,
+      radius: circle.radius,
       objectId: uuidv4(),
       top: circle.top,
       width: circle.width,
       angle: circle.angle,
-      radius: circle.radius,
       fill: circle.fill ? circle.fill.toString() : undefined,
       opacity: circle.opacity,
       rx: circle.rx,
@@ -66,6 +71,7 @@ export const CircleTool = ({ canvasId }: { canvasId: string }) => {
       borderColor: circle.borderColor,
       borderScaleFactor: circle.borderScaleFactor,
       strokeUniform: circle.strokeUniform,
+      name: "Circle",
     });
   };
 

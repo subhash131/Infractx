@@ -6,27 +6,29 @@ import { Button } from "@workspace/ui/components/button";
 import Link from "next/link";
 
 export const FilesView = () => {
-  const canvases = useQuery(api.canvas.canvases.getUserCanvases);
-  const create = useMutation(api.canvas.canvases.createCanvas);
+  const files = useQuery(api.design.files.getUserFiles, {
+    organizationId: "123",
+  });
+  const create = useMutation(api.design.files.createFile);
   return (
     <div>
       FilesView
       <Button
         onClick={() => {
           create({
-            height: 100,
-            width: 100,
-            name: "subhash",
+            name: "demo",
+            description: "test",
+            organizationId: "123",
           });
         }}
       >
         Create
       </Button>
       <div className="flex flex-col gap-2 p-4">
-        {canvases?.map((canvas) => {
+        {files?.map((file) => {
           return (
-            <Link href={`/design/${canvas._id}`} key={canvas._id}>
-              {canvas.name}
+            <Link href={`/design/${file._id}`} key={file._id}>
+              {file.name}
             </Link>
           );
         })}

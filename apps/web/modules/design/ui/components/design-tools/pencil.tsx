@@ -4,9 +4,8 @@ import { Pen } from "lucide-react";
 import { Button } from "@workspace/ui/components/button";
 import useCanvas from "../../../store";
 
-export const PencilTool = ({ canvasId }: { canvasId: string }) => {
+export const PencilTool = () => {
   const { canvas, setSelectedElements } = useCanvas();
-  const [count, setCount] = useState(0);
 
   const handleAddPencil = () => {
     if (!canvas) {
@@ -30,8 +29,8 @@ export const PencilTool = ({ canvasId }: { canvasId: string }) => {
     const centerX = (canvas.width / 2 - vpt[4]) / zoom;
     const centerY = (canvas.height / 2 - vpt[5]) / zoom;
     path.set({
-      left: centerX - path.width / 2 + count * 10,
-      top: centerY - path.height / 2 + count * 10,
+      left: centerX - path.width / 2 + canvas._objects.length * 10,
+      top: centerY - path.height / 2 + canvas._objects.length * 10,
     });
     canvas.add(path);
 
