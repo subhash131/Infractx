@@ -131,6 +131,7 @@ export const createObject = mutation({
 export const updateObject = mutation({
   args: {
     _id: v.id("layers"),
+    parentLayerId: v.optional(v.id("layers")),
     name: v.optional(v.string()),
 
     // Position and dimensions

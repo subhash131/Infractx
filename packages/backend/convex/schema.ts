@@ -68,7 +68,7 @@ export default defineSchema({
     // Object properties
     type: DESIGN_TOOLS_TYPE, // "rect", "circle", "triangle", "text", "image", "path", etc.
     objectId: v.string(), // Unique ID within the canvas
-    parentLayerId: v.optional(v.id("canvases")),
+    parentLayerId: v.optional(v.id("layers")),
     parentType: v.optional(v.union(v.literal("PAGE"), v.literal("CANVAS"))),
 
     pageId: v.id("pages"),

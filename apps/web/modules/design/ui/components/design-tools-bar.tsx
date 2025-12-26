@@ -7,13 +7,11 @@ import { TextTool } from "./design-tools/text";
 import { AiChat02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@workspace/ui/components/button";
-import { FrameTool } from "./design-tools/frame";
 
 export const DesignToolsBar = () => {
   return (
     <div className="w-fit mx-auto border bg-sidebar absolute bottom-10 z-99 flex gap-2 p-2.5 rounded-full">
       <div className="size-full flex gap-2 items-center">
-        <FrameTool />
         <RectangleTool />
         <CircleTool />
         <LineTool />

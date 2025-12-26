@@ -5,6 +5,7 @@ import { CanvasTool } from "./modules/design/ui/constants";
 declare module "fabric" {
   interface FabricObject {
     _id?: Id<"layers">;
+    parentLayerId?: Id<"layers">;
     rx?: number;
     ry?: number;
     data?: any;
@@ -28,6 +29,7 @@ declare module "fabric" {
   }
   interface SerializedObjectProps {
     _id?: Id<"layers">;
+    parentLayerId?: Id<"layers">;
     rx?: number;
     ry?: number;
     data?: any;
