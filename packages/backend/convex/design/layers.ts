@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "../_generated/server";
 import { DESIGN_TOOLS_TYPE } from "./constants";
+import { Doc, Id } from "../_generated/dataModel";
 
 // Create a canvas object
 export const createObject = mutation({
@@ -210,7 +211,25 @@ export const getLayersByPage = query({
       .withIndex("by_page", (q) => q.eq("pageId", args.pageId))
       .collect();
 
-    return layers;
+    // Build a tree structure
+    const buildTree = (
+      parentId: string | null | undefined
+    ): Doc<"layers">[] => {
+      return layers
+        .filter((layer) => {
+          // Handle both null and undefined as root layers
+          if (parentId === null || parentId === undefined) {
+            return !layer.parentLayerId; // Matches null, undefined, or missing
+          }
+          return layer.parentLayerId === parentId;
+        })
+        .map((layer) => ({
+          ...layer,
+          children: buildTree(layer._id),
+        }));
+    };
+
+    return buildTree(null);
   },
 });
 

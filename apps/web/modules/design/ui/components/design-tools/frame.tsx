@@ -16,7 +16,10 @@ export class Frame extends fabric.Group {
       ...options,
       subTargetCheck: true,
       interactive: true,
-      obj_type: "frame",
+      obj_type: "FRAME",
+      layoutManager: new fabric.LayoutManager(new fabric.FixedLayout()),
+      originX: "left",
+      originY: "top",
     });
 
     // Add frame background
@@ -244,41 +247,6 @@ export class Frame extends fabric.Group {
 
     this.setCoords();
   }
-
-  // Resize frame to fit all children
-  fitToChildren(padding: number = 20) {
-    const children = this._objects.slice(1); // Skip background
-    if (children.length === 0) return;
-
-    let minX = Infinity,
-      minY = Infinity;
-    let maxX = -Infinity,
-      maxY = -Infinity;
-
-    children.forEach((child) => {
-      const childLeft = child.left!;
-      const childTop = child.top!;
-      const childWidth = child.width! * (child.scaleX || 1);
-      const childHeight = child.height! * (child.scaleY || 1);
-
-      minX = Math.min(minX, childLeft);
-      minY = Math.min(minY, childTop);
-      maxX = Math.max(maxX, childLeft + childWidth);
-      maxY = Math.max(maxY, childTop + childHeight);
-    });
-
-    const newWidth = maxX - minX + padding * 2;
-    const newHeight = maxY - minY + padding * 2;
-
-    const background = this._objects[0] as fabric.Rect;
-    background.set({
-      width: newWidth,
-      height: newHeight,
-    });
-
-    this.clipPath = background as fabric.BaseFabricObject;
-    this.setCoords();
-  }
 }
 
 export const FrameTool = () => {
@@ -383,11 +351,11 @@ export const FrameTool = () => {
             const frameCenter = frame.getCenterPoint();
             const objCenter = movingObj.getCenterPoint();
 
-            movingObj.set({
-              left: objCenter.x - frameCenter.x,
-              top: objCenter.y - frameCenter.y,
-              parentLayerId: frame._id,
-            });
+            // movingObj.set({
+            //   left: objCenter.x - frameCenter.x,
+            //   top: objCenter.y - frameCenter.y,
+            //   parentLayerId: frame._id,
+            // });
 
             frame.addChild(movingObj);
             canvas.requestRenderAll();
