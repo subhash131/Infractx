@@ -347,19 +347,23 @@ export const FrameTool = () => {
             // Remove from canvas and add to frame
             canvas.remove(movingObj);
 
-            // Convert coordinates to frame's local coordinate system
-            const frameCenter = frame.getCenterPoint();
-            const objCenter = movingObj.getCenterPoint();
-
-            // movingObj.set({
-            //   left: objCenter.x - frameCenter.x,
-            //   top: objCenter.y - frameCenter.y,
-            //   parentLayerId: frame._id,
-            // });
+            movingObj.set({
+              parentLayerId: frame._id,
+            });
 
             frame.addChild(movingObj);
-            canvas.requestRenderAll();
+            canvas.setActiveObject(movingObj);
           }
+        }
+        if (overlapPercentage <= 30 && frame.contains(movingObj)) {
+          // If object moves out of frame (less than 30% overlap), remove from frame
+          frame.removeChild(movingObj);
+          movingObj.set({
+            left: movingObj.left + frame.left,
+            top: movingObj.top + frame.top,
+            parentLayerId: undefined,
+          });
+          canvas.add(movingObj);
         }
       });
     };

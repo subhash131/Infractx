@@ -340,6 +340,11 @@ export const DesignCanvas = () => {
             return;
           }
 
+          if (activeObject?._id)
+            removeElement({
+              id: activeObject._id,
+            });
+
           e.preventDefault();
 
           initCanvas.discardActiveObject();
