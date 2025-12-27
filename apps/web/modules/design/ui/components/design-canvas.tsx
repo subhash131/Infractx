@@ -7,24 +7,27 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "@workspace/backend/_generated/api";
 import { Id } from "@workspace/backend/_generated/dataModel";
 import { debounce } from "lodash";
+import { Frame } from "./design-tools/frame";
 
 const createFabricObject = (layer: any): fabric.FabricObject | null => {
   let fabricObj: fabric.FabricObject | null = null;
 
-  const { type, ...obj } = layer;
+  const { type, fontWeight, ...obj } = layer;
 
   switch (type) {
     case "RECT":
       fabricObj = new fabric.Rect({
         ...obj,
         obj_type: type,
+        absolutePositioned: false,
       } as fabric.TOptions<fabric.RectProps>);
+
       break;
     case "CIRCLE":
       fabricObj = new fabric.Circle({
         ...obj,
         obj_type: type,
-      } as fabric.TOptions<fabric.RectProps>);
+      } as fabric.TOptions<fabric.CircleProps>);
       break;
     case "LINE":
       fabricObj = new fabric.Polyline(layer.points || [], {
@@ -32,7 +35,45 @@ const createFabricObject = (layer: any): fabric.FabricObject | null => {
         obj_type: type,
       } as fabric.TOptions<fabric.RectProps>);
       break;
+    case "TEXT":
+      fabricObj = new fabric.IText("TEXT", {
+        ...obj,
+        obj_type: type,
+      }) as fabric.FabricObject<Partial<fabric.FabricObjectProps>>;
+      break;
+    case "FRAME": {
+      const childObjects: fabric.FabricObject[] = [];
+      const childPositions: Array<{
+        obj: fabric.FabricObject;
+        left: number;
+        top: number;
+      }> = [];
 
+      if (layer.children && layer.children.length > 0) {
+        layer.children.forEach((childLayer: any) => {
+          const childObj = createFabricObject(childLayer);
+          if (childObj) {
+            // Store for later application
+            childPositions.push({
+              obj: childObj,
+              left: childObj.left,
+              top: childObj.top,
+            });
+
+            childObjects.push(childObj);
+          }
+        });
+      }
+
+      fabricObj = new Frame(childObjects, {
+        ...obj,
+        obj_type: type,
+      } as fabric.TOptions<fabric.RectProps>);
+
+      // Store positions for later
+      (fabricObj as any)._pendingChildPositions = childPositions;
+      break;
+    }
     default:
       break;
   }
@@ -284,7 +325,6 @@ export const DesignCanvas = () => {
         // Delete selected elements
         if (e.code === "Delete" || e.code === "Backspace") {
           const activeObject = initCanvas.getActiveObject();
-          const activeObjects = initCanvas.getActiveObjects();
 
           // Skip delete if in text editing mode or typing in an input field
           if (activeObject instanceof fabric.IText && activeObject.isEditing) {
@@ -300,19 +340,10 @@ export const DesignCanvas = () => {
             return;
           }
 
-          if (activeObjects.length > 0) {
-            e.preventDefault();
-            activeObjects.forEach((element) => {
-              initCanvas.remove(element);
-              if (element._id) {
-                removeElement({
-                  id: element._id,
-                });
-              }
-            });
-            initCanvas.discardActiveObject();
-            initCanvas.renderAll();
-          }
+          e.preventDefault();
+
+          initCanvas.discardActiveObject();
+          initCanvas.renderAll();
         }
       };
 
@@ -341,24 +372,22 @@ export const DesignCanvas = () => {
       };
 
       const handleObjectModified = debounce(() => {
-        const activeObject = initCanvas.getActiveObject();
-        if (activeObject) {
-          setActiveObject(activeObject);
+        const activeObj = initCanvas.getActiveObject();
+        if (activeObj) {
+          setActiveObject(activeObj);
 
           // IMPORTANT: Normalize scale before saving
-          const finalWidth =
-            (activeObject.width || 0) * (activeObject.scaleX || 1);
-          const finalHeight =
-            (activeObject.height || 0) * (activeObject.scaleY || 1);
+          const finalWidth = (activeObj.width || 0) * (activeObj.scaleX || 1);
+          const finalHeight = (activeObj.height || 0) * (activeObj.scaleY || 1);
 
           // Update the object to use normalized dimensions
-          activeObject.set({
+          activeObj.set({
             width: finalWidth,
             height: finalHeight,
             scaleX: 1,
             scaleY: 1,
           });
-          activeObject.setCoords();
+          activeObj.setCoords();
           const {
             angle,
             borderColor,
@@ -392,47 +421,48 @@ export const DesignCanvas = () => {
             top,
             underline,
             parentLayerId,
-          } = activeObject;
+          } = activeObj;
 
-          updateObject({
-            _id: activeObject._id as Id<"layers">,
-            width: finalWidth,
-            height: finalHeight,
-            angle,
-            borderColor,
-            borderScaleFactor,
-            cornerColor,
-            cornerSize,
-            cornerStrokeColor,
-            data,
-            fill: fill?.toString(),
-            fontFamily,
-            fontSize,
-            fontStyle,
-            fontWeight,
-            imageUrl,
-            left,
-            linethrough,
-            name,
-            opacity,
-            overline,
-            padding,
-            points,
-            radius,
-            rx,
-            ry,
-            scaleX: 1, // Always save as 1
-            scaleY: 1, // Always save as 1
-            shadow: shadow?.toString(),
-            stroke: stroke?.toString(),
-            strokeUniform,
-            strokeWidth,
-            text,
-            textAlign,
-            top,
-            underline,
-            parentLayerId,
-          });
+          if (activeObj?._id)
+            updateObject({
+              _id: activeObj._id as Id<"layers">,
+              width: finalWidth,
+              height: finalHeight,
+              angle,
+              borderColor,
+              borderScaleFactor,
+              cornerColor,
+              cornerSize,
+              cornerStrokeColor,
+              data,
+              fill: fill?.toString(),
+              fontFamily,
+              fontSize,
+              fontStyle,
+              fontWeight,
+              imageUrl,
+              left,
+              linethrough,
+              name,
+              opacity,
+              overline,
+              padding,
+              points,
+              radius,
+              rx,
+              ry,
+              scaleX: 1, // Always save as 1
+              scaleY: 1, // Always save as 1
+              shadow: shadow?.toString(),
+              stroke: stroke?.toString(),
+              strokeUniform,
+              strokeWidth,
+              text,
+              textAlign,
+              top,
+              underline,
+              parentLayerId,
+            });
         }
       });
 
@@ -513,8 +543,27 @@ export const DesignCanvas = () => {
 
     layers?.forEach((layer) => {
       const fabricObj = createFabricObject(layer);
+
       if (fabricObj) {
         canvas.add(fabricObj);
+
+        // Apply child positions AFTER adding to canvas
+        if ((fabricObj as any)._pendingChildPositions) {
+          (fabricObj as any)._pendingChildPositions.forEach(
+            ({ obj, left, top }: any) => {
+              obj.set({
+                left,
+                top,
+              });
+              obj.setCoords();
+              if (activeObject?._id === obj._id) {
+                canvas.setActiveObject(obj as fabric.FabricObject);
+              }
+            }
+          );
+          delete (fabricObj as any)._pendingChildPositions;
+        }
+
         if (activeObject?._id === fabricObj._id) {
           canvas.setActiveObject(fabricObj as fabric.FabricObject);
         }
