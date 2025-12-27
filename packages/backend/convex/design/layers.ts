@@ -195,7 +195,10 @@ export const updateObject = mutation({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
 
-    const objectId = await ctx.db.patch(args._id, args);
+    const objectId = await ctx.db.patch(args._id, {
+      ...args,
+      parentLayerId: args.parentLayerId ? args.parentLayerId : undefined,
+    });
 
     return objectId;
   },
