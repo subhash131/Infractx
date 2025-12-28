@@ -37,7 +37,7 @@ export class Frame extends fabric.Group {
     });
 
     this.add(background);
-    this.sendObjectBackwards(background);
+    this.sendObjectToBack(background);
     this.width = background.width;
     this.height = background.height;
 
