@@ -1,4 +1,4 @@
-import { DesignView } from "@/modules/design/ui/design-view";
+import { DesignView } from "@/modules/design/ui/views/design-view";
 
 type PageProps = {
   params: Promise<{

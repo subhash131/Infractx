@@ -1,11 +1,12 @@
 "use client";
 
 import React, { useEffect } from "react";
-import { DesignCanvas } from "./components/design-canvas";
-import { DesignToolsBar } from "./components/design-tools-bar";
-import { EditSelectedItemBar } from "./components/edit-selected-item-bar";
-import useCanvas from "../store";
-import { CanvasLayersList } from "./components/canvas-layers-list";
+import { DesignCanvas } from "../components/design-canvas";
+import { DesignToolsBar } from "../components/design-tools-bar";
+import { EditSelectedItemBar } from "../components/edit-selected-item-bar";
+import useCanvas from "../../store";
+import { CanvasLayersList } from "../components/canvas-layers-list";
+import { ChatWindow } from "../components/chat-window";
 
 export const DesignView = ({ fileId }: { fileId: string }) => {
   const { setActiveFileId } = useCanvas();
@@ -22,6 +23,7 @@ export const DesignView = ({ fileId }: { fileId: string }) => {
       <DesignToolsBar />
       <EditSelectedItemBar />
       <CanvasLayersList />
+      <ChatWindow />
     </div>
   );
 };
