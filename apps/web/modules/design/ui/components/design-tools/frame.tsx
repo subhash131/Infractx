@@ -5,7 +5,6 @@ import { Square } from "lucide-react";
 import { Button } from "@workspace/ui/components/button";
 import useCanvas from "../../../store";
 import { Id } from "@workspace/backend/_generated/dataModel";
-import { v4 as uuidv4 } from "uuid";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@workspace/backend/_generated/api";
 
@@ -265,6 +264,11 @@ export const FrameTool = () => {
   const handleAddFrame = async () => {
     if (!canvas) return;
 
+    const frames = canvas._objects.filter((obj) => obj.obj_type === "FRAME");
+    const rightmostEdge = Math.max(
+      ...frames.map((frame) => frame.left + frame.width)
+    );
+
     // Create a new frame
     const frame = new Frame([], {
       width: 800,
@@ -287,8 +291,8 @@ export const FrameTool = () => {
     const centerY = (canvas.height! / 2 - vpt![5]) / zoom;
 
     frame.set({
-      left: centerX - 400 + canvas._objects.length * 10,
-      top: centerY - 300 + canvas._objects.length * 10,
+      left: rightmostEdge + 10,
+      top: centerY - 300,
     });
 
     canvas.add(frame);
@@ -301,7 +305,6 @@ export const FrameTool = () => {
       type: "FRAME",
       height: 600,
       left: frame.left!,
-      objectId: uuidv4(),
       top: frame.top!,
       width: 800,
       angle: 0,
@@ -311,10 +314,6 @@ export const FrameTool = () => {
       strokeWidth: 2,
       scaleX: 1,
       scaleY: 1,
-      cornerColor: "#4096ee",
-      cornerSize: 8,
-      cornerStrokeColor: "#4096ee",
-      borderColor: "#4096ee",
       borderScaleFactor: 1,
       strokeUniform: true,
       name: "Frame",

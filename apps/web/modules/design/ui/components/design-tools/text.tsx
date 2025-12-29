@@ -7,7 +7,6 @@ import useCanvas from "../../../store";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@workspace/backend/_generated/api";
 import { Id } from "@workspace/backend/_generated/dataModel";
-import { v4 as uuidv4 } from "uuid";
 
 export const TextTool = () => {
   const { canvas, activeFileId } = useCanvas();
@@ -53,7 +52,6 @@ export const TextTool = () => {
       type: "TEXT",
       height: text.height,
       left: text.left,
-      objectId: uuidv4(),
       top: text.top,
       width: text.width,
       angle: text.angle,
@@ -66,10 +64,6 @@ export const TextTool = () => {
       strokeWidth: text.strokeWidth,
       scaleX: text.scaleX,
       scaleY: text.scaleY,
-      cornerColor: text.cornerColor,
-      cornerSize: text.cornerSize,
-      cornerStrokeColor: text.cornerStrokeColor,
-      borderColor: text.borderColor,
       borderScaleFactor: text.borderScaleFactor,
       strokeUniform: text.strokeUniform,
       name: "Text",

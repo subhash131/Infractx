@@ -67,7 +67,6 @@ export default defineSchema({
   layers: defineTable({
     // Object properties
     type: DESIGN_TOOLS_TYPE, // "rect", "circle", "triangle", "text", "image", "path", etc.
-    objectId: v.string(), // Unique ID within the canvas
     parentLayerId: v.optional(v.id("layers")),
     parentType: v.optional(v.union(v.literal("PAGE"), v.literal("CANVAS"))),
 
@@ -137,34 +136,8 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_page", ["pageId"])
-    .index("by_page_zindex", ["pageId", "zIndex"]),
-
-  // Layers for organizing canvas objects
-  // layers: defineTable({
-  //   pageId: v.id("pages"),
-  //   name: v.string(),
-  //   parentLayerId: v.optional(v.string()),
-  //   visible: v.boolean(),
-  //   locked: v.boolean(),
-  //   opacity: v.number(),
-  //   zIndex: v.number(),
-  //   createdAt: v.number(),
-  //   type: v.union(v.literal("GROUP"), v.literal("FRAME"), v.literal("LAYER")),
-  // }).index("by_page", ["pageId"]),
-
-  // Canvas history for undo/redo functionality
-  canvasHistory: defineTable({
-    canvasId: v.id("canvases"),
-    action: v.string(), // "create", "update", "delete", "move", etc.
-    objectId: v.optional(v.string()),
-    previousState: v.optional(v.any()),
-    newState: v.optional(v.any()),
-    timestamp: v.number(),
-    userId: v.string(),
-  })
-    .index("by_canvas", ["canvasId"])
-    .index("by_canvas_timestamp", ["canvasId", "timestamp"]),
-
+    .index("by_page_zindex", ["pageId", "zIndex"])
+    .index("by_type", ["type"]),
   // Design templates
   templates: defineTable({
     name: v.string(),
