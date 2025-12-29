@@ -4,7 +4,6 @@ import { Circle } from "lucide-react";
 import { Button } from "@workspace/ui/components/button";
 import useCanvas from "../../../store";
 import { Id } from "@workspace/backend/_generated/dataModel";
-import { v4 as uuidv4 } from "uuid";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@workspace/backend/_generated/api";
 
@@ -52,7 +51,6 @@ export const CircleTool = () => {
       height: circle.height,
       left: circle.left,
       radius: circle.radius,
-      objectId: uuidv4(),
       top: circle.top,
       width: circle.width,
       angle: circle.angle,
@@ -65,10 +63,6 @@ export const CircleTool = () => {
       strokeWidth: circle.strokeWidth,
       scaleX: circle.scaleX,
       scaleY: circle.scaleY,
-      cornerColor: circle.cornerColor,
-      cornerSize: circle.cornerSize,
-      cornerStrokeColor: circle.cornerStrokeColor,
-      borderColor: circle.borderColor,
       borderScaleFactor: circle.borderScaleFactor,
       strokeUniform: circle.strokeUniform,
       name: "Circle",

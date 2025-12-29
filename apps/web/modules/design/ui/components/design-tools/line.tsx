@@ -6,7 +6,6 @@ import { Button } from "@workspace/ui/components/button";
 import useCanvas from "../../../store";
 import { Id } from "@workspace/backend/_generated/dataModel";
 import { TOOLS } from "../../constants";
-import { v4 as uuidv4 } from "uuid";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@workspace/backend/_generated/api";
 
@@ -63,7 +62,6 @@ export const LineTool = () => {
       height: line.height,
       left: line.left,
       radius: line.radius,
-      objectId: uuidv4(),
       top: line.top,
       width: line.width,
       angle: line.angle,
@@ -76,10 +74,6 @@ export const LineTool = () => {
       strokeWidth: line.strokeWidth,
       scaleX: line.scaleX,
       scaleY: line.scaleY,
-      cornerColor: line.cornerColor,
-      cornerSize: line.cornerSize,
-      cornerStrokeColor: line.cornerStrokeColor,
-      borderColor: line.borderColor,
       borderScaleFactor: line.borderScaleFactor,
       strokeUniform: line.strokeUniform,
       name: "Line",

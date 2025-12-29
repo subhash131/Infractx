@@ -2,6 +2,8 @@ import { v } from "convex/values";
 import { mutation, query } from "../_generated/server";
 import { DESIGN_TOOLS_TYPE } from "./constants";
 import { Doc, Id } from "../_generated/dataModel";
+import { getNextFramePosition } from "./utils";
+import { api } from "../_generated/api";
 
 // Create a canvas object
 export const createObject = mutation({
@@ -9,7 +11,6 @@ export const createObject = mutation({
     pageId: v.id("pages"),
     // Object properties
     type: DESIGN_TOOLS_TYPE,
-    objectId: v.string(), // Unique ID within the canvas
     name: v.optional(v.string()),
 
     // Position and dimensions
@@ -61,13 +62,11 @@ export const createObject = mutation({
     shadow: v.optional(v.string()),
     data: v.optional(v.any()), // Store arbitrary fabric.js object data
     strokeUniform: v.optional(v.boolean()),
-    cornerColor: v.optional(v.string()),
-    cornerSize: v.optional(v.float64()),
-    cornerStrokeColor: v.optional(v.string()),
-    borderColor: v.optional(v.string()),
+    parentLayerId: v.optional(v.id("layers")),
     borderScaleFactor: v.optional(v.float64()),
+    frameTop: v.optional(v.float64()),
   },
-  async handler(ctx, args) {
+  async handler(ctx, args): Promise<Id<"layers">> {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
 
@@ -80,12 +79,22 @@ export const createObject = mutation({
         Math.max(...objs.map((o) => (o?.zIndex ? o.zIndex : -1)), -1)
       );
 
-    const objectId = await ctx.db.insert("layers", {
+    let frameLeft: number = args.left;
+    if (args.type === "FRAME") {
+      console.log("before ::", frameLeft);
+      const existingFrames = await ctx.runQuery(
+        api.design.layers.getLayersByType,
+        { pageId: args.pageId as Id<"pages">, type: "FRAME" }
+      );
+      frameLeft = getNextFramePosition(existingFrames).left;
+      console.log("after ::", frameLeft);
+    }
+
+    const layerId = await ctx.db.insert("layers", {
       pageId: args.pageId,
       type: args.type,
-      objectId: args.objectId,
-      left: args.left,
-      top: args.top,
+      top: args.type === "FRAME" ? args.frameTop || args.top : args.top,
+      left: frameLeft,
       width: args.width,
       height: args.height,
       angle: args.angle ?? 0,
@@ -111,11 +120,11 @@ export const createObject = mutation({
       visible: true,
       createdAt: Date.now(),
       updatedAt: Date.now(),
-      borderColor: args.borderColor,
+      borderColor: "#4096ee",
       borderScaleFactor: args.borderScaleFactor,
-      cornerColor: args.cornerColor,
-      cornerSize: args.cornerSize,
-      cornerStrokeColor: args.cornerStrokeColor,
+      cornerColor: "#4096ee",
+      cornerSize: 8,
+      cornerStrokeColor: "#4096ee",
       strokeUniform: args.strokeUniform,
       points: args.points,
       fontStyle: args.fontStyle,
@@ -124,9 +133,10 @@ export const createObject = mutation({
       underline: args.underline,
       padding: args.padding,
       name: args.name || "Undefined",
+      parentLayerId: args.parentLayerId,
     });
 
-    return objectId;
+    return layerId;
   },
 });
 export const updateObject = mutation({
@@ -185,22 +195,18 @@ export const updateObject = mutation({
     shadow: v.optional(v.string()),
     data: v.optional(v.any()), // Store arbitrary fabric.js object data
     strokeUniform: v.optional(v.boolean()),
-    cornerColor: v.optional(v.string()),
-    cornerSize: v.optional(v.float64()),
-    cornerStrokeColor: v.optional(v.string()),
-    borderColor: v.optional(v.string()),
     borderScaleFactor: v.optional(v.float64()),
   },
   async handler(ctx, args) {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
 
-    const objectId = await ctx.db.patch(args._id, {
+    const layerId = await ctx.db.patch(args._id, {
       ...args,
       parentLayerId: args.parentLayerId ? args.parentLayerId : undefined,
     });
 
-    return objectId;
+    return layerId;
   },
 });
 
@@ -246,5 +252,30 @@ export const deleteObject = mutation({
     if (!identity) throw new Error("Not authenticated");
 
     await ctx.db.delete(args.id);
+  },
+});
+export const getLayersByType = query({
+  args: {
+    pageId: v.id("pages"),
+    type: DESIGN_TOOLS_TYPE,
+  },
+  handler: async (ctx, args) => {
+    const layers = await ctx.db
+      .query("layers")
+      .withIndex("by_type", (q) => q.eq("type", args.type))
+      .collect();
+
+    return layers;
+  },
+});
+
+export const getLayerById = query({
+  args: { frameId: v.id("layers") },
+  handler: async (ctx, args) => {
+    const frame = await ctx.db
+      .query("layers")
+      .withIndex("by_id", (q) => q.eq("_id", args.frameId))
+      .unique();
+    return frame;
   },
 });

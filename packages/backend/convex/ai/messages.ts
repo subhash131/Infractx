@@ -1,49 +1,53 @@
 import { v } from "convex/values";
-import { action, query } from "../_generated/server";
-import { components } from "../_generated/api";
-import { paginationOptsValidator } from "convex/server";
-import { saveMessage } from "@convex-dev/agent";
+import { action } from "../_generated/server";
 import { designAgent } from "./designAgent";
+import { addFrame } from "./tools/addFrame";
+import { addRectangle } from "./tools/addRectangle";
 
 export const create = action({
   args: {
     prompt: v.string(),
-    threadId: v.string(),
-    contactSessionId: v.id("contactSessions"),
+    threadId: v.optional(v.string()),
+    frame: v.optional(
+      v.object({
+        width: v.number(),
+        height: v.number(),
+        name: v.string(),
+        _id: v.id("layers"),
+      })
+    ),
+    pageId: v.string(),
+    viewPort: v.object({ top: v.number(), left: v.number() }),
   },
   handler: async (ctx, args) => {
-    const shouldTriggerAgent = true;
-
-    if (shouldTriggerAgent) {
-      await designAgent.generateText(
-        ctx,
-        { threadId: args.threadId },
-        {
-          prompt: args.prompt,
-          //   tools: { resolveConversation, escalateConversation, search },
-        }
-      );
-    } else {
-      await saveMessage(ctx, components.agent, {
-        threadId: args.threadId,
-        prompt: args.prompt,
-      });
+    // Create thread if it doesn't exist
+    const { pageId, prompt, viewPort, frame } = args;
+    let threadId = args.threadId;
+    if (!threadId) {
+      const res = await designAgent.createThread(ctx);
+      threadId = res.threadId;
     }
-  },
-});
 
-export const getMany = query({
-  args: {
-    threadId: v.string(),
-    contactSessionId: v.id("contactSessions"),
-    paginationOpts: paginationOptsValidator,
-  },
-  handler: async (ctx, args) => {
-    const paginated = await designAgent.listMessages(ctx, {
-      threadId: args.threadId,
-      paginationOpts: args.paginationOpts,
+    await designAgent.saveMessage(ctx, {
+      threadId,
+      message: {
+        role: "user",
+        content: prompt,
+      },
     });
 
-    return paginated;
+    // Generate AI response
+    await designAgent.generateText(
+      { ...ctx, pageId, threadId, viewPort, frame },
+      { threadId },
+      {
+        prompt:
+          `${args.prompt}` + frame?._id &&
+          `FYI: frame width is ${frame?.width} and height is ${frame?.height}`,
+        tools: { addRectangle },
+      }
+    );
+
+    return { threadId };
   },
 });

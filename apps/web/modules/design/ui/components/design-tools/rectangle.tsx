@@ -5,7 +5,6 @@ import { RectangleHorizontal } from "lucide-react";
 import { Button } from "@workspace/ui/components/button";
 import useCanvas from "../../../store";
 import { Id } from "@workspace/backend/_generated/dataModel";
-import { v4 as uuidv4 } from "uuid";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@workspace/backend/_generated/api";
 
@@ -52,7 +51,6 @@ export const RectangleTool = () => {
       type: "RECT",
       height: rect.height,
       left: rect.left,
-      objectId: uuidv4(),
       top: rect.top,
       width: rect.width,
       angle: rect.angle,
@@ -65,10 +63,6 @@ export const RectangleTool = () => {
       strokeWidth: rect.strokeWidth,
       scaleX: rect.scaleX,
       scaleY: rect.scaleY,
-      cornerColor: rect.cornerColor,
-      cornerSize: rect.cornerSize,
-      cornerStrokeColor: rect.cornerStrokeColor,
-      borderColor: rect.borderColor,
       borderScaleFactor: rect.borderScaleFactor,
       strokeUniform: rect.strokeUniform,
       name: "Rectangle",
