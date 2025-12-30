@@ -10,17 +10,20 @@
 
 import type * as ai_designAgent from "../ai/designAgent.js";
 import type * as ai_messages from "../ai/messages.js";
-import type * as ai_tools_addFrame from "../ai/tools/addFrame.js";
-import type * as ai_tools_addFrameExample from "../ai/tools/addFrameExample.js";
-import type * as ai_tools_addRectangle from "../ai/tools/addRectangle.js";
-import type * as ai_workflows_index from "../ai/workflows/index.js";
+import type * as ai_nodes_intentAnalyzer from "../ai/nodes/intentAnalyzer.js";
+import type * as ai_olddesignAgent from "../ai/olddesignAgent.js";
+import type * as ai_oldtools_addFrame from "../ai/oldtools/addFrame.js";
+import type * as ai_oldtools_addFrameExample from "../ai/oldtools/addFrameExample.js";
+import type * as ai_oldtools_addRectangle from "../ai/oldtools/addRectangle.js";
 import type * as auth_auth from "../auth/auth.js";
+import type * as chat from "../chat.js";
 import type * as design_canvases from "../design/canvases.js";
 import type * as design_constants from "../design/constants.js";
 import type * as design_files from "../design/files.js";
 import type * as design_layers from "../design/layers.js";
 import type * as design_pages from "../design/pages.js";
 import type * as design_utils from "../design/utils.js";
+import type * as http from "../http.js";
 
 import type {
   ApiFromModules,
@@ -31,17 +34,20 @@ import type {
 declare const fullApi: ApiFromModules<{
   "ai/designAgent": typeof ai_designAgent;
   "ai/messages": typeof ai_messages;
-  "ai/tools/addFrame": typeof ai_tools_addFrame;
-  "ai/tools/addFrameExample": typeof ai_tools_addFrameExample;
-  "ai/tools/addRectangle": typeof ai_tools_addRectangle;
-  "ai/workflows/index": typeof ai_workflows_index;
+  "ai/nodes/intentAnalyzer": typeof ai_nodes_intentAnalyzer;
+  "ai/olddesignAgent": typeof ai_olddesignAgent;
+  "ai/oldtools/addFrame": typeof ai_oldtools_addFrame;
+  "ai/oldtools/addFrameExample": typeof ai_oldtools_addFrameExample;
+  "ai/oldtools/addRectangle": typeof ai_oldtools_addRectangle;
   "auth/auth": typeof auth_auth;
+  chat: typeof chat;
   "design/canvases": typeof design_canvases;
   "design/constants": typeof design_constants;
   "design/files": typeof design_files;
   "design/layers": typeof design_layers;
   "design/pages": typeof design_pages;
   "design/utils": typeof design_utils;
+  http: typeof http;
 }>;
 
 /**
@@ -3706,6 +3712,41 @@ export declare const components: {
           pageStatus?: "SplitRecommended" | "SplitRequired" | null;
           splitCursor?: string | null;
         }
+      >;
+    };
+  };
+  persistentTextStreaming: {
+    lib: {
+      addChunk: FunctionReference<
+        "mutation",
+        "internal",
+        { final: boolean; streamId: string; text: string },
+        any
+      >;
+      createStream: FunctionReference<"mutation", "internal", {}, any>;
+      getStreamStatus: FunctionReference<
+        "query",
+        "internal",
+        { streamId: string },
+        "pending" | "streaming" | "done" | "error" | "timeout"
+      >;
+      getStreamText: FunctionReference<
+        "query",
+        "internal",
+        { streamId: string },
+        {
+          status: "pending" | "streaming" | "done" | "error" | "timeout";
+          text: string;
+        }
+      >;
+      setStreamStatus: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          status: "pending" | "streaming" | "done" | "error" | "timeout";
+          streamId: string;
+        },
+        any
       >;
     };
   };

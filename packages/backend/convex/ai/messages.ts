@@ -1,8 +1,15 @@
+"use node";
 import { v } from "convex/values";
 import { action } from "../_generated/server";
 import { designAgent } from "./designAgent";
-import { addFrame } from "./tools/addFrame";
-import { addRectangle } from "./tools/addRectangle";
+import { compressUIMessageChunks, DeltaStreamer } from "@convex-dev/agent";
+import { components } from "../_generated/api";
+
+import { PersistentTextStreaming } from "@convex-dev/persistent-text-streaming";
+
+const persistentTextStreaming = new PersistentTextStreaming(
+  components.persistentTextStreaming
+);
 
 export const create = action({
   args: {
@@ -20,34 +27,57 @@ export const create = action({
     viewPort: v.object({ top: v.number(), left: v.number() }),
   },
   handler: async (ctx, args) => {
-    // Create thread if it doesn't exist
-    const { pageId, prompt, viewPort, frame } = args;
-    let threadId = args.threadId;
-    if (!threadId) {
-      const res = await designAgent.createThread(ctx);
-      threadId = res.threadId;
-    }
-
-    await designAgent.saveMessage(ctx, {
-      threadId,
-      message: {
-        role: "user",
-        content: prompt,
-      },
-    });
-
-    // Generate AI response
-    await designAgent.generateText(
-      { ...ctx, pageId, threadId, viewPort, frame },
-      { threadId },
+    const streamer = new DeltaStreamer(
+      components.agent,
+      ctx,
       {
-        prompt:
-          `${args.prompt}` + frame?._id &&
-          `FYI: frame width is ${frame?.width} and height is ${frame?.height}`,
-        tools: { addRectangle },
+        throttleMs: 100, // Provide a callback for when the stream is aborted
+        onAsyncAbort: async (reason: string) => {
+          console.error("Stream aborted:", reason);
+        },
+        // Pass undefined if you don't have an external abort signal
+        abortSignal: undefined,
+        // Use the provided compression utility or null
+        compress: compressUIMessageChunks,
+      },
+      {
+        threadId: args.threadId ?? "default_thread",
+        format: "TextStreamPart",
+        order: Date.now(),
+        stepOrder: 0,
+        userId: undefined,
       }
     );
 
-    return { threadId };
+    const res = await designAgent.stream(
+      {
+        convexState: ctx,
+        userInput: "What is the capital of France?",
+        decision: "",
+        result: "",
+        messages: [],
+      },
+      { streamMode: "updates", subgraphs: true }
+    );
+
+    for await (const [chunks] of await designAgent.stream(
+      {
+        convexState: ctx,
+        userInput: "What is the capital of France?",
+        decision: "",
+        result: "",
+        messages: [],
+      },
+      { streamMode: "updates", subgraphs: true }
+    )) {
+      console.log(chunks);
+      chunks.forEach((chunk) => {
+        console.log(chunk);
+
+        // void streamer.consumeStream(chunk);
+      });
+    }
+
+    return { streamId: await streamer.getStreamId() };
   },
 });

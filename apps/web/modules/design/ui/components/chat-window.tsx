@@ -4,6 +4,9 @@ import { ChatHeader } from "./chat-components/chat-header";
 import { ChatBody } from "./chat-components/chat-body";
 import { ChatFooter } from "./chat-components/chat-footer";
 import { cn } from "@workspace/ui/lib/utils";
+import { useStream } from "@convex-dev/persistent-text-streaming/react";
+import { StreamId } from "@convex-dev/persistent-text-streaming";
+import { api } from "@workspace/backend/_generated/api";
 
 export const ChatWindow = () => {
   const [position, setPosition] = useState({
@@ -12,6 +15,19 @@ export const ChatWindow = () => {
   });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+
+  const convexApiUrl = "https://scintillating-corgi-821.convex.cloud";
+  const convexSiteUrl = "https://scintillating-corgi-821.convex.site";
+  const { text, status } = useStream(
+    api.chat.getStreamBody,
+    new URL(`${convexSiteUrl}/chat-stream`),
+    true, // Drive the stream if the message is actively streaming
+    "j975mecqh7bhm96tmd1sn38qk17y8wem" as StreamId
+  );
+
+  console.log({
+    text,
+  });
 
   const handleMouseDown = (e: React.MouseEvent) => {
     setIsDragging(true);
