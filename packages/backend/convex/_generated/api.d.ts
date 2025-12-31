@@ -10,10 +10,11 @@
 
 import type * as ai_designAgent from "../ai/designAgent.js";
 import type * as ai_messages from "../ai/messages.js";
-import type * as ai_tools_addFrame from "../ai/tools/addFrame.js";
-import type * as ai_tools_addFrameExample from "../ai/tools/addFrameExample.js";
-import type * as ai_tools_addRectangle from "../ai/tools/addRectangle.js";
-import type * as ai_workflows_index from "../ai/workflows/index.js";
+import type * as ai_nodes_index from "../ai/nodes/index.js";
+import type * as ai_olddesignAgent from "../ai/olddesignAgent.js";
+import type * as ai_oldtools_addFrame from "../ai/oldtools/addFrame.js";
+import type * as ai_oldtools_addFrameExample from "../ai/oldtools/addFrameExample.js";
+import type * as ai_oldtools_addRectangle from "../ai/oldtools/addRectangle.js";
 import type * as auth_auth from "../auth/auth.js";
 import type * as design_canvases from "../design/canvases.js";
 import type * as design_constants from "../design/constants.js";
@@ -31,10 +32,11 @@ import type {
 declare const fullApi: ApiFromModules<{
   "ai/designAgent": typeof ai_designAgent;
   "ai/messages": typeof ai_messages;
-  "ai/tools/addFrame": typeof ai_tools_addFrame;
-  "ai/tools/addFrameExample": typeof ai_tools_addFrameExample;
-  "ai/tools/addRectangle": typeof ai_tools_addRectangle;
-  "ai/workflows/index": typeof ai_workflows_index;
+  "ai/nodes/index": typeof ai_nodes_index;
+  "ai/olddesignAgent": typeof ai_olddesignAgent;
+  "ai/oldtools/addFrame": typeof ai_oldtools_addFrame;
+  "ai/oldtools/addFrameExample": typeof ai_oldtools_addFrameExample;
+  "ai/oldtools/addRectangle": typeof ai_oldtools_addRectangle;
   "auth/auth": typeof auth_auth;
   "design/canvases": typeof design_canvases;
   "design/constants": typeof design_constants;
