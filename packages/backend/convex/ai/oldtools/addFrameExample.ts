@@ -1,6 +1,6 @@
 import { createTool } from "@convex-dev/agent";
 import z from "zod";
-import { AgentCtx, designAgent } from "../designAgent";
+import { AgentCtx, designAgent } from "../olddesignAgent";
 import { api } from "../../_generated/api";
 import { Id } from "../../_generated/dataModel";
 

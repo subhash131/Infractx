@@ -16,12 +16,14 @@ import type * as ai_oldtools_addFrame from "../ai/oldtools/addFrame.js";
 import type * as ai_oldtools_addFrameExample from "../ai/oldtools/addFrameExample.js";
 import type * as ai_oldtools_addRectangle from "../ai/oldtools/addRectangle.js";
 import type * as auth_auth from "../auth/auth.js";
+import type * as chat from "../chat.js";
 import type * as design_canvases from "../design/canvases.js";
 import type * as design_constants from "../design/constants.js";
 import type * as design_files from "../design/files.js";
 import type * as design_layers from "../design/layers.js";
 import type * as design_pages from "../design/pages.js";
 import type * as design_utils from "../design/utils.js";
+import type * as http from "../http.js";
 
 import type {
   ApiFromModules,
@@ -38,12 +40,14 @@ declare const fullApi: ApiFromModules<{
   "ai/oldtools/addFrameExample": typeof ai_oldtools_addFrameExample;
   "ai/oldtools/addRectangle": typeof ai_oldtools_addRectangle;
   "auth/auth": typeof auth_auth;
+  chat: typeof chat;
   "design/canvases": typeof design_canvases;
   "design/constants": typeof design_constants;
   "design/files": typeof design_files;
   "design/layers": typeof design_layers;
   "design/pages": typeof design_pages;
   "design/utils": typeof design_utils;
+  http: typeof http;
 }>;
 
 /**
@@ -3708,6 +3712,41 @@ export declare const components: {
           pageStatus?: "SplitRecommended" | "SplitRequired" | null;
           splitCursor?: string | null;
         }
+      >;
+    };
+  };
+  persistentTextStreaming: {
+    lib: {
+      addChunk: FunctionReference<
+        "mutation",
+        "internal",
+        { final: boolean; streamId: string; text: string },
+        any
+      >;
+      createStream: FunctionReference<"mutation", "internal", {}, any>;
+      getStreamStatus: FunctionReference<
+        "query",
+        "internal",
+        { streamId: string },
+        "pending" | "streaming" | "done" | "error" | "timeout"
+      >;
+      getStreamText: FunctionReference<
+        "query",
+        "internal",
+        { streamId: string },
+        {
+          status: "pending" | "streaming" | "done" | "error" | "timeout";
+          text: string;
+        }
+      >;
+      setStreamStatus: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          status: "pending" | "streaming" | "done" | "error" | "timeout";
+          streamId: string;
+        },
+        any
       >;
     };
   };
