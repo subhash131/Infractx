@@ -1,5 +1,6 @@
 import { httpRouter } from "convex/server";
 import { httpAction } from "./_generated/server";
+import { streamChat } from "./chat";
 
 const http = httpRouter();
 
@@ -24,35 +25,7 @@ http.route({
 http.route({
   path: "/chat-stream",
   method: "POST",
-  handler: httpAction(async (ctx, request) => {
-    const { readable, writable } = new TransformStream();
-    const writer = writable.getWriter();
-    const textEncoder = new TextEncoder();
-    const identity = await ctx.auth.getUserIdentity();
-
-    const streamContent = async () => {
-      const message =
-        "This is a hardcoded stream. No database used! This is a hardcoded stream. No database used! This is a hardcoded stream. No database used!";
-
-      const parts = message.split(" ");
-      for (const part of parts) {
-        await writer.write(textEncoder.encode(part + " "));
-        await new Promise((resolve) => setTimeout(resolve, 100));
-      }
-
-      await writer.close();
-    };
-
-    void streamContent();
-
-    return new Response(readable, {
-      status: 200,
-      headers: {
-        "Content-Type": "text/plain; charset=utf-8",
-        "Access-Control-Allow-Origin": "*",
-      },
-    });
-  }),
+  handler: streamChat,
 });
 
 export default http;

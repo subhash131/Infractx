@@ -8,51 +8,9 @@ import { useStream } from "@convex-dev/persistent-text-streaming/react";
 import { StreamId } from "@convex-dev/persistent-text-streaming";
 import { api } from "@workspace/backend/_generated/api";
 import { useAuth } from "@clerk/nextjs";
+import { useMutation } from "convex/react";
 
 const convexSiteUrl = "https://scintillating-corgi-821.convex.site";
-
-async function* readJsonStream(stream: ReadableStream<Uint8Array>) {
-  const reader = stream.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
-
-  try {
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-
-      let idx;
-      while ((idx = buffer.indexOf("\n")) !== -1) {
-        const line = buffer.slice(0, idx).trim();
-        buffer = buffer.slice(idx + 1);
-        if (line) {
-          try {
-            yield JSON.parse(line);
-          } catch {
-            yield line;
-          }
-        }
-      }
-    }
-    if (buffer.trim()) {
-      try {
-        yield JSON.parse(buffer.trim());
-      } catch {
-        yield buffer.trim();
-      }
-    }
-  } finally {
-    reader.releaseLock();
-  }
-}
-
-const response = await fetch(`${convexSiteUrl}/chat-stream`, {
-  method: "POST",
-});
-for await (const obj of readJsonStream(response.body!)) {
-  console.log("got object", obj);
-}
 
 export const ChatWindow = () => {
   const [position, setPosition] = useState({
@@ -60,8 +18,12 @@ export const ChatWindow = () => {
     y: innerHeight * 0.25,
   });
   const [isDragging, setIsDragging] = useState(false);
+  const [streamId, setStreamId] = useState<StreamId>(
+    "j975mecqh7bhm96tmd1sn38qk17y8wem" as StreamId
+  );
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [authToken, setAuthToken] = useState<string | null>(null);
+  const createMessageStream = useMutation(api.chat.createStream);
 
   const auth = useAuth();
 
@@ -69,13 +31,10 @@ export const ChatWindow = () => {
     api.chat.getStreamBody,
     new URL(`${convexSiteUrl}/chat-stream`),
     authToken ? true : false, // Drive the stream if the message is actively streaming
-    undefined, // StreamId
+    streamId, // StreamId
     { authToken }
   );
-
-  console.log({
-    text,
-  });
+  console.log({ text, status });
 
   useEffect(() => {
     if (!auth) return;

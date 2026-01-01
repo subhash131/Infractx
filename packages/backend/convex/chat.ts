@@ -1,55 +1,45 @@
-import {
-  PersistentTextStreaming,
-  StreamWriter,
-} from "@convex-dev/persistent-text-streaming";
+import { PersistentTextStreaming } from "@convex-dev/persistent-text-streaming";
 import { StreamId } from "@convex-dev/persistent-text-streaming";
 import { components } from "./_generated/api";
-import { httpAction, query } from "./_generated/server";
-import { GenericActionCtx } from "convex/server";
+import { httpAction, mutation, query } from "./_generated/server";
 import { StreamIdValidator } from "@convex-dev/persistent-text-streaming";
+import { ConvexError } from "convex/values";
 
 const persistentTextStreaming = new PersistentTextStreaming(
   components.persistentTextStreaming
 );
 
 export const streamChat = httpAction(async (ctx, request) => {
-  const body = (await request.json()) as {
-    streamId: string;
-    conversationId: string;
-    userMessage: string;
-  };
+  const { readable, writable } = new TransformStream();
+  const writer = writable.getWriter();
+  const textEncoder = new TextEncoder();
+  const identity = await ctx.auth.getUserIdentity();
 
-  const generateChat: StreamWriter<GenericActionCtx<any>> = async (
-    ctx,
-    request,
-    streamId,
-    chunkAppender
-  ) => {
-    try {
-      const message = "Hello! How can I help you today?";
+  const body = (await request.json()) as { streamId: string };
 
-      // Stream the response character by character
-      for (let i = 0; i < message.length; i++) {
-        await chunkAppender(message[i]);
-        await new Promise((resolve) => setTimeout(resolve, 50));
-      }
-    } catch (error) {
-      console.error("Chat generation error:", error);
-      await chunkAppender("Sorry, an error occurred.");
+  const streamContent = async () => {
+    console.log({ request: body.streamId });
+    const message =
+      "This is a hardcoded stream. No database used! This is a hardcoded stream. No database used! This is a hardcoded stream. No database used!";
+
+    const parts = message.split(" ");
+    for (const part of parts) {
+      await writer.write(textEncoder.encode(part + " "));
+      await new Promise((resolve) => setTimeout(resolve, 100));
     }
+
+    await writer.close();
   };
 
-  const response = await persistentTextStreaming.stream(
-    ctx,
-    request,
-    body.streamId as StreamId,
-    generateChat
-  );
+  void streamContent();
 
-  // Set CORS headers
-  response.headers.set("Access-Control-Allow-Origin", "*");
-  response.headers.set("Vary", "Origin");
-  return response;
+  return new Response(readable, {
+    status: 200,
+    headers: {
+      "Content-Type": "text/plain; charset=utf-8",
+      "Access-Control-Allow-Origin": "*",
+    },
+  });
 });
 
 /**
@@ -66,5 +56,20 @@ export const getStreamBody = query({
       ctx,
       args.streamId as StreamId
     );
+  },
+});
+
+export const createStream = mutation({
+  args: {},
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError({
+        code: "UNAUTHORIZED",
+        message: "User not authenticated",
+      });
+    }
+    const streamId = await persistentTextStreaming.createStream(ctx);
+    return streamId;
   },
 });
