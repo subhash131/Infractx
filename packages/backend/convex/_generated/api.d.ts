@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as ai_conversations from "../ai/conversations.js";
 import type * as ai_designAgent from "../ai/designAgent.js";
 import type * as ai_messages from "../ai/messages.js";
 import type * as ai_nodes_index from "../ai/nodes/index.js";
@@ -16,15 +17,14 @@ import type * as ai_olddesignAgent from "../ai/olddesignAgent.js";
 import type * as ai_oldtools_addFrame from "../ai/oldtools/addFrame.js";
 import type * as ai_oldtools_addFrameExample from "../ai/oldtools/addFrameExample.js";
 import type * as ai_oldtools_addRectangle from "../ai/oldtools/addRectangle.js";
+import type * as ai_workflowAction from "../ai/workflowAction.js";
 import type * as auth_auth from "../auth/auth.js";
-import type * as chat from "../chat.js";
 import type * as design_canvases from "../design/canvases.js";
 import type * as design_constants from "../design/constants.js";
 import type * as design_files from "../design/files.js";
 import type * as design_layers from "../design/layers.js";
 import type * as design_pages from "../design/pages.js";
 import type * as design_utils from "../design/utils.js";
-import type * as http from "../http.js";
 
 import type {
   ApiFromModules,
@@ -33,6 +33,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  "ai/conversations": typeof ai_conversations;
   "ai/designAgent": typeof ai_designAgent;
   "ai/messages": typeof ai_messages;
   "ai/nodes/index": typeof ai_nodes_index;
@@ -41,15 +42,14 @@ declare const fullApi: ApiFromModules<{
   "ai/oldtools/addFrame": typeof ai_oldtools_addFrame;
   "ai/oldtools/addFrameExample": typeof ai_oldtools_addFrameExample;
   "ai/oldtools/addRectangle": typeof ai_oldtools_addRectangle;
+  "ai/workflowAction": typeof ai_workflowAction;
   "auth/auth": typeof auth_auth;
-  chat: typeof chat;
   "design/canvases": typeof design_canvases;
   "design/constants": typeof design_constants;
   "design/files": typeof design_files;
   "design/layers": typeof design_layers;
   "design/pages": typeof design_pages;
   "design/utils": typeof design_utils;
-  http: typeof http;
 }>;
 
 /**

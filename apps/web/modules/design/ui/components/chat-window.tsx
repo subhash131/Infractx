@@ -8,9 +8,8 @@ import { useStream } from "@convex-dev/persistent-text-streaming/react";
 import { StreamId } from "@convex-dev/persistent-text-streaming";
 import { api } from "@workspace/backend/_generated/api";
 import { useAuth } from "@clerk/nextjs";
-import { useMutation } from "convex/react";
-
-const convexSiteUrl = "https://scintillating-corgi-821.convex.site";
+import { useMutation, useQuery } from "convex/react";
+import { Id } from "@workspace/backend/_generated/dataModel";
 
 export const ChatWindow = () => {
   const [position, setPosition] = useState({
@@ -18,34 +17,13 @@ export const ChatWindow = () => {
     y: innerHeight * 0.25,
   });
   const [isDragging, setIsDragging] = useState(false);
-  const [streamId, setStreamId] = useState<StreamId>(
-    "j975mecqh7bhm96tmd1sn38qk17y8wem" as StreamId
-  );
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-  const [authToken, setAuthToken] = useState<string | null>(null);
-  const createMessageStream = useMutation(api.chat.createStream);
-
-  const auth = useAuth();
-
-  const { text, status } = useStream(
-    api.chat.getStreamBody,
-    new URL(`${convexSiteUrl}/chat-stream`),
-    authToken ? true : false, // Drive the stream if the message is actively streaming
-    streamId, // StreamId
-    { authToken }
+  const [conversationId, setConversationId] = useState(
+    "mh7cwasedxxgevvy8gqeq6pqrx7yfghk"
   );
-  console.log({ text, status });
-
-  useEffect(() => {
-    if (!auth) return;
-
-    (async () => {
-      const token = await auth.getToken({
-        template: "convex",
-      });
-      setAuthToken(() => (token ? token : null));
-    })();
-  }, [auth]);
+  const messages = useQuery(api.ai.messages.listMessages, {
+    conversationId: conversationId as Id<"conversations">,
+  });
 
   const handleMouseDown = (e: React.MouseEvent) => {
     setIsDragging(true);
@@ -113,8 +91,8 @@ export const ChatWindow = () => {
       }}
     >
       <ChatHeader onMouseDown={handleMouseDown} />
-      <ChatBody />
-      <ChatFooter />
+      <ChatBody messages={messages ?? []} />
+      <ChatFooter conversationId={conversationId} />
     </div>
   );
 };

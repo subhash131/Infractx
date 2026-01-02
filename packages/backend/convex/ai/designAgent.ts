@@ -1,35 +1,93 @@
+//workflow.ts
 "use node";
 
 import { StateGraph, END, START, Annotation } from "@langchain/langgraph";
 import { ChatGroq } from "@langchain/groq";
-import {
-  HumanMessage,
-  SystemMessage,
-  BaseMessage,
-} from "@langchain/core/messages";
+import { BaseMessage } from "@langchain/core/messages";
 import { GenericActionCtx } from "convex/server";
-import { DataModel, Id } from "../_generated/dataModel";
+import { DataModel } from "../_generated/dataModel";
 import {
+  addDashboard,
+  addNavbar,
   analyzeInput,
-  finalOutput,
+  generic,
+  outputRouter,
   shapeTools,
+  subToolRouter,
   toolRouter,
   uiTools,
+  validateOutput,
 } from "./nodes";
 
-//Agent State Schema
+// ============================================
+// AGENT STATE SCHEMA
+// ============================================
 const WorkflowState = Annotation.Root({
   userInput: Annotation<string>({
-    reducer: (x, y) => y ?? x,
+    reducer: (x, y) => y ?? x ?? "",
+    default: () => "",
   }),
   decision: Annotation<string>({
-    reducer: (x, y) => y ?? x,
+    reducer: (x, y) => y ?? x ?? "",
+    default: () => "",
   }),
   result: Annotation<string>({
-    reducer: (x, y) => y ?? x,
+    reducer: (x, y) => y ?? x ?? "",
+    default: () => "",
   }),
   messages: Annotation<BaseMessage[]>({
-    reducer: (x, y) => x.concat(y),
+    reducer: (x, y) => {
+      try {
+        // Ensure both are arrays
+        const current = Array.isArray(x) ? x : [];
+        const updates = Array.isArray(y) ? y : [];
+
+        console.log(
+          `[REDUCER] messages - current length: ${current.length}, updates length: ${updates.length}`
+        );
+
+        return [...current, ...updates];
+      } catch (error) {
+        console.error(`[REDUCER ERROR] messages:`, error);
+        return [];
+      }
+    },
+    default: () => [],
+  }),
+  retryCount: Annotation<number>({
+    reducer: (x, y) => {
+      try {
+        // If y is explicitly provided, use it (for reset scenarios)
+        if (y !== undefined && y !== null) {
+          return y;
+        }
+        // Otherwise increment
+        const current = typeof x === "number" ? x : 0;
+        return current + 1;
+      } catch (error) {
+        console.error(`[REDUCER ERROR] retryCount:`, error);
+        return 0;
+      }
+    },
+    default: () => 0,
+  }),
+  errors: Annotation<string[]>({
+    reducer: (x, y) => {
+      try {
+        const current = Array.isArray(x) ? x : [];
+        const updates = Array.isArray(y) ? y : [];
+
+        console.log(
+          `[REDUCER] errors - current length: ${current.length}, updates length: ${updates.length}`
+        );
+
+        return [...current, ...updates];
+      } catch (error) {
+        console.error(`[REDUCER ERROR] errors:`, error);
+        return [];
+      }
+    },
+    default: () => [],
   }),
   convexState: Annotation<GenericActionCtx<DataModel>>({
     reducer: (x, y) => y ?? x,
@@ -44,25 +102,49 @@ export const groqModel = new ChatGroq({
   temperature: 0.7,
 });
 
+// ============================================
+// CREATE WORKFLOW GRAPH
+// ============================================
 export function createWorkflow() {
   const workflow = new StateGraph(WorkflowState)
+    // Add all nodes
     .addNode("analyze", analyzeInput)
-    .addNode("tool_router", toolRouter)
+    .addNode("generic", generic)
     .addNode("ui_tools", uiTools)
+    .addNode("add_dashboard", addDashboard)
+    .addNode("add_navbar", addNavbar)
     .addNode("shape_tools", shapeTools)
-    .addNode("output", finalOutput)
+    .addNode("validate_output", validateOutput)
+
+    // Start → Analyze
     .addEdge(START, "analyze")
-    .addConditionalEdges(
-      "analyze", // Source node
-      toolRouter, // Router function
-      {
-        shape_tools: "shape_tools", // If yes, go to yes_branch
-        uiTools: "ui_tools", // If no, go to no_branch
-      }
-    )
-    .addEdge("shape_tools", "output")
-    .addEdge("ui_tools", "output")
-    .addEdge("output", END);
+
+    // Analyze → Tool category routing
+    .addConditionalEdges("analyze", toolRouter, {
+      shape_tools: "shape_tools",
+      ui_tools: "ui_tools",
+      generic: "generic",
+    })
+
+    // Generic → END (no validation needed)
+    .addEdge("generic", END)
+
+    // UI Tools → Sub-routing to specific UI components
+    .addConditionalEdges("ui_tools", subToolRouter, {
+      dashboard: "add_dashboard",
+      navbar: "add_navbar",
+    })
+
+    // All tool outputs → Validation
+    .addEdge("add_dashboard", "validate_output")
+    .addEdge("add_navbar", "validate_output")
+    .addEdge("shape_tools", "validate_output")
+
+    // Validation → Retry or End
+    .addConditionalEdges("validate_output", outputRouter, {
+      redo: "analyze",
+      end: END,
+    });
 
   return workflow.compile();
 }
