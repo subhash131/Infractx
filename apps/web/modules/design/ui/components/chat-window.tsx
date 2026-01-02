@@ -4,12 +4,9 @@ import { ChatHeader } from "./chat-components/chat-header";
 import { ChatBody } from "./chat-components/chat-body";
 import { ChatFooter } from "./chat-components/chat-footer";
 import { cn } from "@workspace/ui/lib/utils";
-import { useStream } from "@convex-dev/persistent-text-streaming/react";
-import { StreamId } from "@convex-dev/persistent-text-streaming";
 import { api } from "@workspace/backend/_generated/api";
-import { useAuth } from "@clerk/nextjs";
-import { useMutation, useQuery } from "convex/react";
 import { Id } from "@workspace/backend/_generated/dataModel";
+import { useQuery } from "convex/react";
 
 export const ChatWindow = () => {
   const [position, setPosition] = useState({
@@ -19,7 +16,7 @@ export const ChatWindow = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [conversationId, setConversationId] = useState(
-    "mh7cwasedxxgevvy8gqeq6pqrx7yfghk"
+    "mh78e9t21y3bven4937p7s0eyn7yeac8"
   );
   const messages = useQuery(api.ai.messages.listMessages, {
     conversationId: conversationId as Id<"conversations">,

@@ -2,28 +2,42 @@
 "use node";
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { groqModel, WorkflowStateType } from "../designAgent";
+import { api } from "../../_generated/api";
 
 // ============================================
 // ANALYZE INPUT - Main Router
 // ============================================
 export const analyzeInput = async (state: WorkflowStateType) => {
+  const systemPrompt =
+    "You are a router. Analyze if the user wants to have a general conversation (Greeting, FAQ, etc.) or use shape_tools (Frame, Rectangle, Circle) or ui_tools (Navbar, buttons, landing page, dashboard). " +
+    "Reply with ONLY one word: 'generic', 'shape_tools' or 'ui_tools'. Nothing else.";
   const messages = [
-    new SystemMessage(
-      "You are a router. Analyze if the user wants to have a general conversation (Greeting, FAQ, etc.) or use shape_tools (Frame, Rectangle, Circle) or ui_tools (Navbar, buttons, landing page, dashboard). " +
-        "Reply with ONLY one word: 'generic', 'shape_tools' or 'ui_tools'. Nothing else."
-    ),
+    new SystemMessage(systemPrompt),
     new HumanMessage(state.userInput),
   ];
 
   const response = await groqModel.invoke(messages);
   const decision = response.content.toString().toLowerCase().trim();
 
-  console.log(`[analyzeInput] Decision:`, decision);
-  console.log(`[analyzeInput] Returning ${messages.length + 1} messages`);
+  let messageId = state.messageId;
+  if (!messageId) {
+    messageId = await state.convexState.runMutation(
+      api.ai.messages.insertMessage,
+      {
+        conversationId: state.conversationId,
+        content: JSON.stringify({
+          stage: "analyzing",
+          message: `Analyzed user intent ${decision}`,
+        }),
+        role: "AI",
+      }
+    );
+  }
 
   return {
     decision,
     messages: [...messages, response],
+    messageId,
   };
 };
 
@@ -38,17 +52,23 @@ export const toolRouter = async (state: WorkflowStateType) => {
 // GENERIC NODE - Handles conversations
 // ============================================
 export const generic = async (state: WorkflowStateType) => {
+  const systemPrompt =
+    "You are a helpful assistant. Respond to the user's message in a friendly and helpful way.";
   const messages = [
-    new SystemMessage(
-      "You are a helpful assistant. Respond to the user's message in a friendly and helpful way."
-    ),
+    new SystemMessage(systemPrompt),
     new HumanMessage(state.userInput),
   ];
 
   const response = await groqModel.invoke(messages);
 
-  console.log(`[generic] Response generated`);
-  console.log(`[generic] Returning ${messages.length + 1} messages`);
+  await state.convexState.runMutation(api.ai.messages.updateMessage, {
+    messageId: state.messageId,
+    content: JSON.stringify({
+      stage: "GENERIC",
+      message: `${response.content.toString()}`,
+    }),
+    role: "AI",
+  });
 
   return {
     result: "generic_response",
@@ -60,20 +80,27 @@ export const generic = async (state: WorkflowStateType) => {
 // SHAPE TOOLS NODE - Detects shape type
 // ============================================
 export const shapeTools = async (state: WorkflowStateType) => {
+  const systemPrompt =
+    "Analyze the user's request and identify which shape they want to create. " +
+    "Reply with ONLY one word: 'rectangle', 'circle', or 'frame'. Nothing else. " +
+    "Examples: 'add rectangle' → rectangle, 'create circle' → circle, 'make a frame' → frame";
   const messages = [
-    new SystemMessage(
-      "Analyze the user's request and identify which shape they want to create. " +
-        "Reply with ONLY one word: 'rectangle', 'circle', or 'frame'. Nothing else. " +
-        "Examples: 'add rectangle' → rectangle, 'create circle' → circle, 'make a frame' → frame"
-    ),
+    new SystemMessage(systemPrompt),
     new HumanMessage(state.userInput),
   ];
 
   const response = await groqModel.invoke(messages);
   const result = response.content.toString().toLowerCase().trim();
 
-  console.log(`[shapeTools] Detected shape: ${result}`);
-  console.log(`[shapeTools] Returning ${messages.length + 1} messages`);
+  //TODO : implement actual logic
+  await state.convexState.runMutation(api.ai.messages.updateMessage, {
+    messageId: state.messageId,
+    content: JSON.stringify({
+      stage: "tool_execution",
+      message: `executing shape_tools: ${result}`,
+    }),
+    role: "AI",
+  });
 
   return {
     result,
@@ -97,8 +124,14 @@ export const uiTools = async (state: WorkflowStateType) => {
   const response = await groqModel.invoke(messages);
   const decision = response.content.toString().toLowerCase().trim();
 
-  console.log(`[uiTools] UI component detected: ${decision}`);
-  console.log(`[uiTools] Returning ${messages.length + 1} messages`);
+  await state.convexState.runMutation(api.ai.messages.updateMessage, {
+    messageId: state.messageId,
+    content: JSON.stringify({
+      stage: "ui_tools_routing",
+      message: `executing ui_tools: ${decision}`,
+    }),
+    role: "AI",
+  });
 
   return {
     decision,
@@ -117,7 +150,14 @@ export const subToolRouter = async (state: WorkflowStateType) => {
 // ADD DASHBOARD NODE
 // ============================================
 export const addDashboard = async (state: WorkflowStateType) => {
-  console.log(`[addDashboard] Processing dashboard request`);
+  await state.convexState.runMutation(api.ai.messages.updateMessage, {
+    messageId: state.messageId,
+    content: JSON.stringify({
+      stage: "tool_execution",
+      message: `adding dashboard: `,
+    }),
+    role: "AI",
+  });
 
   return {
     result: "dashboard",
@@ -128,7 +168,14 @@ export const addDashboard = async (state: WorkflowStateType) => {
 // ADD NAVBAR NODE
 // ============================================
 export const addNavbar = async (state: WorkflowStateType) => {
-  console.log(`[addNavbar] Processing navbar request`);
+  await state.convexState.runMutation(api.ai.messages.updateMessage, {
+    messageId: state.messageId,
+    content: JSON.stringify({
+      stage: "tool_execution",
+      message: `adding Navbar: `,
+    }),
+    role: "AI",
+  });
 
   return {
     result: "navbar",
@@ -167,11 +214,6 @@ export const validateOutput = async (state: WorkflowStateType) => {
   const response = await groqModel.invoke(messages);
   const validationResult = response.content.toString().toLowerCase().trim();
 
-  console.log(
-    `[validateOutput] Validation: ${validationResult}, Retry count: ${state.retryCount}`
-  );
-  console.log(`[validateOutput] Returning ${messages.length + 1} messages`);
-
   const isValid = validationResult === "valid";
 
   if (!isValid) {
@@ -181,8 +223,18 @@ export const validateOutput = async (state: WorkflowStateType) => {
       ],
       decision: "invalid",
       messages: [...messages, response],
+      retryCount: state.retryCount + 1,
     };
   }
+
+  await state.convexState.runMutation(api.ai.messages.updateMessage, {
+    messageId: state.messageId,
+    content: JSON.stringify({
+      stage: "done",
+      message: `Task complete`,
+    }),
+    role: "AI",
+  });
 
   return {
     decision: "valid",
@@ -206,9 +258,14 @@ export const outputRouter = async (state: WorkflowStateType) => {
 
   // If invalid and under retry limit, redo
   if (state.decision === "invalid" && state.retryCount < MAX_RETRIES) {
-    console.log(
-      `[outputRouter] Retrying... Attempt ${state.retryCount + 1}/${MAX_RETRIES}`
-    );
+    await state.convexState.runMutation(api.ai.messages.updateMessage, {
+      messageId: state.messageId,
+      content: JSON.stringify({
+        stage: "validation",
+        message: `Failed... Retrying... Attempt ${state.retryCount + 1}/${MAX_RETRIES}`,
+      }),
+      role: "AI",
+    });
     return "redo";
   }
 
@@ -216,5 +273,13 @@ export const outputRouter = async (state: WorkflowStateType) => {
   console.log(
     `[outputRouter] Max retries reached (${MAX_RETRIES}), forcing end`
   );
+  await state.convexState.runMutation(api.ai.messages.updateMessage, {
+    messageId: state.messageId,
+    content: JSON.stringify({
+      stage: "done",
+      message: `Failed... Max retries reached (${MAX_RETRIES}), forcing end`,
+    }),
+    role: "AI",
+  });
   return "end";
 };

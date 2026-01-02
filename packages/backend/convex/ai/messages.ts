@@ -4,29 +4,59 @@ import { mutation, query } from "../_generated/server";
 export const insertMessage = mutation({
   args: {
     conversationId: v.id("conversations"),
-    prompt: v.string(),
+    content: v.string(),
     context: v.optional(v.array(v.any())),
     role: v.union(v.literal("USER"), v.literal("AI"), v.literal("SYSTEM")),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
-    const { conversationId, prompt, role, context } = args;
+    const { conversationId, content, role, context } = args;
     if (!identity) {
-      return new ConvexError({
+      throw new ConvexError({
         code: "UNAUTHORIZED",
         message: "User not authenticated",
       });
     }
-    const res = await ctx.db.insert("messages", {
+    const id = await ctx.db.insert("messages", {
       conversationId,
       message: {
-        content: prompt,
+        content,
         role,
         context,
       },
     });
 
-    return res;
+    return id;
+  },
+});
+export const updateMessage = mutation({
+  args: {
+    messageId: v.id("messages"),
+    content: v.string(),
+    role: v.union(v.literal("USER"), v.literal("AI"), v.literal("SYSTEM")),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    const { messageId, content, role } = args;
+    if (!identity) {
+      throw new ConvexError({
+        code: "UNAUTHORIZED",
+        message: "User not authenticated",
+      });
+    }
+    const existingMessage = await ctx.db
+      .query("messages")
+      .withIndex("by_id", (q) => q.eq("_id", messageId))
+      .unique();
+
+    const id = await ctx.db.patch(messageId, {
+      message: {
+        content: `${existingMessage?.message.content}| ${content}`,
+        role,
+      },
+    });
+
+    return id;
   },
 });
 
