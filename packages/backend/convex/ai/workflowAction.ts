@@ -27,7 +27,7 @@ export const create = action({
 
     await ctx.runMutation(api.ai.messages.insertMessage, {
       conversationId,
-      prompt,
+      content: prompt,
       role: "USER",
     });
     const workflow = createWorkflow();
@@ -48,12 +48,12 @@ export const create = action({
           throw new Error(`Unknown role: ${msg.message.role}`);
       }
     });
-    const res = await workflow.invoke({
+    await workflow.invoke({
       convexState: ctx,
       messages: [],
       userInput: prompt,
+      conversationId,
     });
-    return res.messages;
   },
 });
 

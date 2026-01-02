@@ -1,11 +1,10 @@
-//workflow.ts
 "use node";
 
 import { StateGraph, END, START, Annotation } from "@langchain/langgraph";
 import { ChatGroq } from "@langchain/groq";
 import { BaseMessage } from "@langchain/core/messages";
 import { GenericActionCtx } from "convex/server";
-import { DataModel } from "../_generated/dataModel";
+import { DataModel, Id } from "../_generated/dataModel";
 import {
   addDashboard,
   addNavbar,
@@ -23,6 +22,12 @@ import {
 // AGENT STATE SCHEMA
 // ============================================
 const WorkflowState = Annotation.Root({
+  messageId: Annotation<Id<"messages">>({
+    reducer: (x) => x,
+  }),
+  conversationId: Annotation<Id<"conversations">>({
+    reducer: (x) => x,
+  }),
   userInput: Annotation<string>({
     reducer: (x, y) => y ?? x ?? "",
     default: () => "",

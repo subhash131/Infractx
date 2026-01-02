@@ -27,15 +27,21 @@ export const ChatFooter = ({ conversationId }: { conversationId: string }) => {
     });
     setPrompt("");
   };
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === " " || e.code === "Space") {
+      e.stopPropagation();
+    }
+  };
   return (
     <form
       className="w-full shrink-0 bg-white border-t p-1"
       onSubmit={handleSubmit}
+      onKeyDown={handleKeyDown}
     >
       <div className="w-full flex justify-between">
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant={"ghost"}>
+            <Button variant={"ghost"} type="button">
               <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} />
             </Button>
           </TooltipTrigger>
@@ -44,14 +50,14 @@ export const ChatFooter = ({ conversationId }: { conversationId: string }) => {
         <div className="flex flex-1 overflow-x-scroll text-xs items-center gap-1 hide-scrollbar">
           <div className="flex items-center gap-0.5 bg-accent py-0.5 px-2 rounded-2xl">
             <p>hello</p>
-            <Button variant="ghost" className="p-0 h-fit" type="submit">
+            <Button variant="ghost" className="p-0 h-fit" type="button">
               <HugeiconsIcon icon={Cancel01Icon} size={12} />
             </Button>
           </div>
         </div>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant={"ghost"}>
+            <Button variant={"ghost"} type="submit">
               <HugeiconsIcon icon={SentIcon} strokeWidth={2} />
             </Button>
           </TooltipTrigger>
@@ -59,11 +65,18 @@ export const ChatFooter = ({ conversationId }: { conversationId: string }) => {
         </Tooltip>
       </div>
       <Textarea
-        className="focus-visible:ring-0 p-1 h-10 max-h-10"
+        className="p-1 h-10 max-h-10"
         placeholder="Describe your thoughts..."
         rows={2}
         value={prompt}
         onChange={(e) => setPrompt(e.target.value)}
+        autoFocus
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !e.ctrlKey && !e.shiftKey) {
+            e.preventDefault();
+            e.currentTarget.form?.requestSubmit();
+          }
+        }}
       />
     </form>
   );

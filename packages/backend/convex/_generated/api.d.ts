@@ -12,7 +12,6 @@ import type * as ai_conversations from "../ai/conversations.js";
 import type * as ai_designAgent from "../ai/designAgent.js";
 import type * as ai_messages from "../ai/messages.js";
 import type * as ai_nodes_index from "../ai/nodes/index.js";
-import type * as ai_nodes_intentAnalyzer from "../ai/nodes/intentAnalyzer.js";
 import type * as ai_olddesignAgent from "../ai/olddesignAgent.js";
 import type * as ai_oldtools_addFrame from "../ai/oldtools/addFrame.js";
 import type * as ai_oldtools_addFrameExample from "../ai/oldtools/addFrameExample.js";
@@ -37,7 +36,6 @@ declare const fullApi: ApiFromModules<{
   "ai/designAgent": typeof ai_designAgent;
   "ai/messages": typeof ai_messages;
   "ai/nodes/index": typeof ai_nodes_index;
-  "ai/nodes/intentAnalyzer": typeof ai_nodes_intentAnalyzer;
   "ai/olddesignAgent": typeof ai_olddesignAgent;
   "ai/oldtools/addFrame": typeof ai_oldtools_addFrame;
   "ai/oldtools/addFrameExample": typeof ai_oldtools_addFrameExample;
