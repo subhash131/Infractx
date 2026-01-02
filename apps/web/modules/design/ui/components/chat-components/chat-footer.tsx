@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { Textarea } from "@workspace/ui/components/textarea";
 import { Button } from "@workspace/ui/components/button";
 import {
@@ -12,10 +12,26 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@workspace/ui/components/tooltip";
+import { useAction } from "convex/react";
+import { api } from "@workspace/backend/_generated/api";
+import { Id } from "@workspace/backend/_generated/dataModel";
 
-export const ChatFooter = () => {
+export const ChatFooter = ({ conversationId }: { conversationId: string }) => {
+  const sendMessage = useAction(api.ai.workflowAction.create);
+  const [prompt, setPrompt] = useState("");
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    sendMessage({
+      conversationId: conversationId as Id<"conversations">,
+      prompt,
+    });
+    setPrompt("");
+  };
   return (
-    <div className="w-full shrink-0 bg-white border p-1">
+    <form
+      className="w-full shrink-0 bg-white border-t p-1"
+      onSubmit={handleSubmit}
+    >
       <div className="w-full flex justify-between">
         <Tooltip>
           <TooltipTrigger asChild>
@@ -28,7 +44,7 @@ export const ChatFooter = () => {
         <div className="flex flex-1 overflow-x-scroll text-xs items-center gap-1 hide-scrollbar">
           <div className="flex items-center gap-0.5 bg-accent py-0.5 px-2 rounded-2xl">
             <p>hello</p>
-            <Button variant="ghost" className="p-0 h-fit">
+            <Button variant="ghost" className="p-0 h-fit" type="submit">
               <HugeiconsIcon icon={Cancel01Icon} size={12} />
             </Button>
           </div>
@@ -42,7 +58,13 @@ export const ChatFooter = () => {
           <TooltipContent className="z-100">Send</TooltipContent>
         </Tooltip>
       </div>
-      <Textarea className="focus-visible:ring-0 p-1 h-10 max-h-10" rows={2} />
-    </div>
+      <Textarea
+        className="focus-visible:ring-0 p-1 h-10 max-h-10"
+        placeholder="Describe your thoughts..."
+        rows={2}
+        value={prompt}
+        onChange={(e) => setPrompt(e.target.value)}
+      />
+    </form>
   );
 };

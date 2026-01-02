@@ -1,6 +1,6 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
-import { DESIGN_TOOLS_TYPE } from "./design/constants";
+import { DESIGN_TOOLS_TYPE, MESSAGE_CONTEXT_TYPE } from "./design/constants";
 
 export default defineSchema({
   // Users table for authentication
@@ -152,20 +152,18 @@ export default defineSchema({
     .index("by_created_by", ["createdBy"])
     .index("by_public", ["isPublic"]),
 
+  conversations: defineTable({
+    organizationId: v.string(),
+    userId: v.string(),
+    title: v.string(),
+  }),
+
   messages: defineTable({
-    sessionId: v.string(),
+    conversationId: v.id("conversations"),
     message: v.object({
-      type: v.string(),
-      data: v.object({
-        content: v.string(),
-        role: v.optional(v.string()),
-        name: v.optional(v.string()),
-        additional_kwargs: v.optional(v.any()),
-        response_metadata: v.optional(v.any()),
-        id: v.optional(v.string()),
-        invalid_tool_calls: v.optional(v.array(v.any())),
-        tool_calls: v.optional(v.array(v.any())),
-      }),
+      content: v.string(),
+      context: MESSAGE_CONTEXT_TYPE,
+      role: v.union(v.literal("USER"), v.literal("AI"), v.literal("SYSTEM")),
     }),
-  }).index("bySessionId", ["sessionId"]),
+  }).index("by_conversation", ["conversationId"]),
 });
