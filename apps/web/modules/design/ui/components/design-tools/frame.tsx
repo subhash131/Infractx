@@ -300,22 +300,24 @@ export const FrameTool = () => {
 
     // Save to backend
     await createFrame({
-      pageId: file?.activePage as Id<"pages">,
-      type: "FRAME",
-      height: 600,
-      left: frame.left!,
-      top: frame.top!,
-      width: 800,
-      angle: 0,
-      fill: "#ffffff",
-      opacity: 1,
-      stroke: "#e5e5e5",
-      strokeWidth: 2,
-      scaleX: 1,
-      scaleY: 1,
-      borderScaleFactor: 1,
-      strokeUniform: true,
-      name: "Frame",
+      layerObject: {
+        pageId: file?.activePage as Id<"pages">,
+        type: "FRAME",
+        height: 600,
+        left: frame.left!,
+        top: frame.top!,
+        width: 800,
+        angle: 0,
+        fill: "#ffffff",
+        opacity: 1,
+        stroke: "#e5e5e5",
+        strokeWidth: 2,
+        scaleX: 1,
+        scaleY: 1,
+        borderScaleFactor: 1,
+        strokeUniform: true,
+        name: "Frame",
+      },
     });
   };
 

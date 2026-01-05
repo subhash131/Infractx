@@ -1,6 +1,10 @@
 import { v } from "convex/values";
 import { mutation, query } from "../_generated/server";
-import { DESIGN_TOOLS_TYPE } from "./constants";
+import {
+  DESIGN_TOOLS_TYPE,
+  LAYER_OBJECT_ARGS,
+  SELECT_COLOR,
+} from "./constants";
 import { Doc, Id } from "../_generated/dataModel";
 import { getNextFramePosition } from "./utils";
 import { api } from "../_generated/api";
@@ -8,132 +12,80 @@ import { api } from "../_generated/api";
 // Create a canvas object
 export const createObject = mutation({
   args: {
-    pageId: v.id("pages"),
-    // Object properties
-    type: DESIGN_TOOLS_TYPE,
-    name: v.optional(v.string()),
-
-    // Position and dimensions
-    padding: v.optional(v.number()),
-    left: v.optional(v.float64()),
-    top: v.float64(),
-    width: v.float64(),
-    height: v.float64(),
-    points: v.optional(
-      v.array(
-        v.object({
-          x: v.number(),
-          y: v.number(),
-        })
-      )
-    ),
-
-    // Rotation and scaling
-    angle: v.optional(v.float64()),
-    scaleX: v.optional(v.float64()),
-    scaleY: v.optional(v.float64()),
-
-    // Styling
-    fill: v.optional(v.string()),
-    stroke: v.optional(v.string()),
-    strokeWidth: v.optional(v.float64()),
-    opacity: v.optional(v.float64()),
-
-    // Text-specific properties
-    text: v.optional(v.string()),
-    fontSize: v.optional(v.float64()),
-    fontFamily: v.optional(v.string()),
-    fontWeight: v.optional(v.string()),
-    textAlign: v.optional(v.string()),
-    fontStyle: v.optional(v.string()),
-    underline: v.optional(v.boolean()),
-    linethrough: v.optional(v.boolean()),
-    overline: v.optional(v.boolean()),
-
-    // Image-specific properties
-    imageUrl: v.optional(v.string()),
-
-    // Shape-specific properties
-    radius: v.optional(v.float64()),
-    rx: v.optional(v.float64()),
-    ry: v.optional(v.float64()),
-
-    // Advanced properties
-    shadow: v.optional(v.string()),
-    data: v.optional(v.any()), // Store arbitrary fabric.js object data
-    strokeUniform: v.optional(v.boolean()),
-    parentLayerId: v.optional(v.id("layers")),
-    borderScaleFactor: v.optional(v.float64()),
-    frameTop: v.optional(v.float64()),
+    layerObject: LAYER_OBJECT_ARGS,
   },
   async handler(ctx, args): Promise<Id<"layers">> {
+    const { layerObject } = args;
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
 
     // Get max zIndex
     const maxZIndex = await ctx.db
       .query("layers")
-      .withIndex("by_page", (q) => q.eq("pageId", args.pageId))
+      .withIndex("by_page", (q) => q.eq("pageId", layerObject.pageId))
       .collect()
       .then((objs) =>
         Math.max(...objs.map((o) => (o?.zIndex ? o.zIndex : -1)), -1)
       );
 
-    let frameLeft: number = args.left || 0;
-    if (args.type === "FRAME") {
+    let frameLeft: number = layerObject.left || 0;
+    if (layerObject.type === "FRAME") {
       console.log("before ::", frameLeft);
       const existingFrames = await ctx.runQuery(
         api.design.layers.getLayersByType,
-        { pageId: args.pageId as Id<"pages">, type: "FRAME" }
+        { pageId: layerObject.pageId as Id<"pages">, type: "FRAME" }
       );
       frameLeft = getNextFramePosition(existingFrames).left;
       console.log("after ::", frameLeft);
     }
 
     const layerId = await ctx.db.insert("layers", {
-      pageId: args.pageId,
-      type: args.type,
-      top: args.type === "FRAME" ? args.frameTop || args.top : args.top,
+      pageId: layerObject.pageId,
+      type: layerObject.type,
+      top:
+        layerObject.type === "FRAME"
+          ? layerObject.frameTop || layerObject.top
+          : layerObject.top,
       left: frameLeft,
-      width: args.width,
-      height: args.height,
-      angle: args.angle ?? 0,
-      scaleX: args.scaleX ?? 1,
-      scaleY: args.scaleY ?? 1,
-      fill: args.fill,
-      stroke: args.stroke,
-      strokeWidth: args.strokeWidth ?? 0,
-      opacity: args.opacity ?? 1,
-      text: args.text,
-      fontSize: args.fontSize,
-      fontFamily: args.fontFamily,
-      fontWeight: args.fontWeight,
-      textAlign: args.textAlign,
-      imageUrl: args.imageUrl,
-      radius: args.radius,
-      rx: args.rx,
-      ry: args.ry,
-      shadow: args.shadow,
-      data: args.data,
+      width: layerObject.width,
+      height: layerObject.height,
+      angle: layerObject.angle ?? 0,
+      scaleX: layerObject.scaleX ?? 1,
+      scaleY: layerObject.scaleY ?? 1,
+      fill: layerObject.fill,
+      stroke: layerObject.stroke,
+      strokeWidth: layerObject.strokeWidth ?? 0,
+      opacity: layerObject.opacity ?? 1,
+      text: layerObject.text,
+      fontSize: layerObject.fontSize,
+      fontFamily: layerObject.fontFamily,
+      fontWeight: layerObject.fontWeight,
+      textAlign: layerObject.textAlign,
+      imageUrl: layerObject.imageUrl,
+      radius: layerObject.radius,
+      rx: layerObject.rx,
+      ry: layerObject.ry,
+      shadow: layerObject.shadow,
+      data: layerObject.data,
       zIndex: maxZIndex + 1,
       locked: false,
       visible: true,
       createdAt: Date.now(),
       updatedAt: Date.now(),
-      borderColor: "#4096ee",
-      borderScaleFactor: args.borderScaleFactor,
-      cornerColor: "#4096ee",
+      borderScaleFactor: layerObject.borderScaleFactor,
+      borderColor: SELECT_COLOR,
+      cornerColor: SELECT_COLOR,
       cornerSize: 8,
-      cornerStrokeColor: "#4096ee",
-      strokeUniform: args.strokeUniform,
-      points: args.points,
-      fontStyle: args.fontStyle,
-      linethrough: args.linethrough,
-      overline: args.overline,
-      underline: args.underline,
-      padding: args.padding,
-      name: args.name || "Undefined",
-      parentLayerId: args.parentLayerId,
+      cornerStrokeColor: SELECT_COLOR,
+      strokeUniform: layerObject.strokeUniform,
+      points: layerObject.points,
+      fontStyle: layerObject.fontStyle,
+      linethrough: layerObject.linethrough,
+      overline: layerObject.overline,
+      underline: layerObject.underline,
+      padding: layerObject.padding,
+      name: layerObject.name || "Undefined",
+      parentLayerId: layerObject.parentLayerId,
     });
 
     return layerId;
