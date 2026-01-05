@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import useCanvas from "../../store";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@workspace/backend/_generated/api";
@@ -6,7 +6,7 @@ import { Id } from "@workspace/backend/_generated/dataModel";
 import { Button } from "@workspace/ui/components/button";
 
 export const CanvasLayersList = () => {
-  const { activeFileId } = useCanvas();
+  const { activeFileId, setActivePageId } = useCanvas();
   const pages = useQuery(
     api.design.pages.getFilePages,
     activeFileId ? { fileId: activeFileId as Id<"files"> } : "skip"
@@ -27,6 +27,15 @@ export const CanvasLayersList = () => {
   );
 
   const setActiveLayer = useMutation(api.design.files.setActivePage);
+
+  useEffect(() => {
+    if (!file) return;
+    if (file.activePage) {
+      setActivePageId(file.activePage);
+    } else {
+      setActivePageId(null);
+    }
+  }, [file]);
 
   return (
     <div className="w-44 h-full border-r bg-sidebar absolute left-0 z-99 overflow-y-auto p-4 flex flex-col gap-2">

@@ -287,7 +287,6 @@ export const FrameTool = () => {
     // Center the frame in viewport
     const vpt = canvas.viewportTransform;
     const zoom = canvas.getZoom();
-    const centerX = (canvas.width! / 2 - vpt![4]) / zoom;
     const centerY = (canvas.height! / 2 - vpt![5]) / zoom;
 
     frame.set({

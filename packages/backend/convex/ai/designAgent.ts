@@ -22,10 +22,22 @@ import {
 // AGENT STATE SCHEMA
 // ============================================
 const WorkflowState = Annotation.Root({
+  canvasWidth: Annotation<number>({
+    reducer: (x) => x,
+  }),
+  canvasHeight: Annotation<number>({
+    reducer: (x) => x,
+  }),
+  frameId: Annotation<Id<"layers">>({
+    reducer: (x) => x,
+  }),
   messageId: Annotation<Id<"messages">>({
     reducer: (x) => x,
   }),
   conversationId: Annotation<Id<"conversations">>({
+    reducer: (x) => x,
+  }),
+  pageId: Annotation<Id<"pages">>({
     reducer: (x) => x,
   }),
   userInput: Annotation<string>({
@@ -102,9 +114,9 @@ const WorkflowState = Annotation.Root({
 export type WorkflowStateType = typeof WorkflowState.State;
 
 export const groqModel = new ChatGroq({
-  apiKey: "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",
-  model: "llama-3.3-70b-versatile",
-  temperature: 0.7,
+  apiKey: "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",
+  model: "openai/gpt-oss-120b",
+  temperature: 0,
 });
 
 // ============================================

@@ -15,7 +15,7 @@ export const createObject = mutation({
 
     // Position and dimensions
     padding: v.optional(v.number()),
-    left: v.float64(),
+    left: v.optional(v.float64()),
     top: v.float64(),
     width: v.float64(),
     height: v.float64(),
@@ -29,15 +29,15 @@ export const createObject = mutation({
     ),
 
     // Rotation and scaling
-    angle: v.float64(),
-    scaleX: v.float64(),
-    scaleY: v.float64(),
+    angle: v.optional(v.float64()),
+    scaleX: v.optional(v.float64()),
+    scaleY: v.optional(v.float64()),
 
     // Styling
     fill: v.optional(v.string()),
     stroke: v.optional(v.string()),
-    strokeWidth: v.float64(),
-    opacity: v.float64(),
+    strokeWidth: v.optional(v.float64()),
+    opacity: v.optional(v.float64()),
 
     // Text-specific properties
     text: v.optional(v.string()),
@@ -79,7 +79,7 @@ export const createObject = mutation({
         Math.max(...objs.map((o) => (o?.zIndex ? o.zIndex : -1)), -1)
       );
 
-    let frameLeft: number = args.left;
+    let frameLeft: number = args.left || 0;
     if (args.type === "FRAME") {
       console.log("before ::", frameLeft);
       const existingFrames = await ctx.runQuery(
