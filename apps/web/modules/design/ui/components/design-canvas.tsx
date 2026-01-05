@@ -38,9 +38,36 @@ const createFabricObject = (layer: any): fabric.FabricObject | null => {
     case "TEXT":
       fabricObj = new fabric.IText(obj.text || "", {
         ...obj,
-        obj_type: type, 
+        obj_type: type,
       }) as fabric.FabricObject<Partial<fabric.FabricObjectProps>>;
+      break;
+    case "GROUP":
+      const childObjects: fabric.FabricObject[] = [];
+      const childPositions: Array<{
+        obj: fabric.FabricObject;
+        left: number;
+        top: number;
+      }> = [];
+      if (layer.children && layer.children.length > 0) {
+        layer.children.forEach((childLayer: any) => {
+          const childObj = createFabricObject(childLayer);
+          if (childObj) {
+            // Store for later application
+            childPositions.push({
+              obj: childObj,
+              left: childObj.left,
+              top: childObj.top,
+            });
 
+            childObjects.push(childObj);
+          }
+        });
+      }
+      fabricObj = new fabric.Group(childObjects, {
+        ...obj,
+        obj_type: type,
+      } as fabric.TOptions<fabric.RectProps>);
+      (fabricObj as any)._pendingChildPositions = childPositions;
       break;
     case "FRAME": {
       const childObjects: fabric.FabricObject[] = [];
@@ -95,8 +122,10 @@ export const DesignCanvas = () => {
     setPan,
     mode,
     setSelectedElements,
+    selectedElements,
     setActiveObject,
     activeObject,
+    activePageId,
     activeFileId,
   } = useCanvas();
   const file = useQuery(
@@ -116,7 +145,7 @@ export const DesignCanvas = () => {
       : "skip"
   );
 
-  const removeElement = useMutation(api.design.layers.deleteObject);
+  const removeObject = useMutation(api.design.layers.deleteObject);
   const updateObject = useMutation(api.design.layers.updateObject);
 
   const isPanning = useRef(false);
@@ -124,6 +153,136 @@ export const DesignCanvas = () => {
   const isSpacePressed = useRef(false);
   const initialPinchDistance = useRef<number | null>(null);
   const initialZoom = useRef(1);
+
+  const createObject = useMutation(api.design.layers.createObject);
+
+  useEffect(() => {
+    if (!canvas) return;
+
+    const handleKeyDown = async (e: KeyboardEvent) => {
+      const activeObject = canvas.getActiveObject();
+
+      if (
+        (activeObject instanceof fabric.IText && activeObject.isEditing) ||
+        document.activeElement instanceof HTMLInputElement ||
+        document.activeElement instanceof HTMLTextAreaElement
+      ) {
+        return;
+      }
+
+      /* ================= GROUP ================= */
+      if (
+        (e.ctrlKey || e.metaKey) &&
+        !e.shiftKey &&
+        e.key.toLowerCase() === "g"
+      ) {
+        e.preventDefault();
+        if (!(activeObject instanceof fabric.ActiveSelection)) return;
+
+        const selection = activeObject;
+        const children = selection.getObjects();
+
+        const bounds = selection.getBoundingRect();
+
+        const groupId = await createObject({
+          layerObject: {
+            pageId: activePageId as Id<"pages">,
+            type: "GROUP",
+            name: "Group",
+            left: bounds.left,
+            top: bounds.top,
+            width: selection.width,
+            height: selection.height,
+          },
+        });
+
+        children.forEach((obj) => {
+          obj.set({
+            left: obj.left - bounds.left,
+            top: obj.top - bounds.top,
+          });
+
+          obj.setOnGroup();
+          obj.setCoords();
+        });
+
+        const group = new fabric.Group(children, {
+          left: bounds.left,
+          top: bounds.top,
+          originX: "left",
+          originY: "top",
+          obj_type: "GROUP",
+          _id: groupId,
+        });
+        group.setCoords();
+
+        await Promise.all(
+          children.map((obj) =>
+            updateObject({
+              _id: obj._id as Id<"layers">,
+              parentLayerId: groupId,
+              left: obj.left,
+              top: obj.top,
+            })
+          )
+        );
+
+        canvas.remove(...children);
+        canvas.add(group);
+        canvas.setActiveObject(group);
+        canvas.requestRenderAll();
+      }
+
+      /* ================= UNGROUP ================= */
+      if (
+        (e.ctrlKey || e.metaKey) &&
+        e.shiftKey &&
+        e.key.toLowerCase() === "g"
+      ) {
+        e.preventDefault();
+        if (activeObject?.obj_type !== "GROUP") return;
+
+        const group = activeObject as fabric.Group;
+        const children = group.getObjects();
+        const groupMatrix = group.calcTransformMatrix();
+
+        // Convert back → canvas space
+        await Promise.all(
+          children.map((obj) => {
+            const absolute = fabric.util.transformPoint(
+              new fabric.Point(obj.left ?? 0, obj.top ?? 0),
+              groupMatrix
+            );
+
+            obj.set({
+              left: absolute.x,
+              top: absolute.y,
+            });
+
+            obj.setCoords();
+
+            return updateObject({
+              _id: obj._id as Id<"layers">,
+              parentLayerId: undefined,
+              left: absolute.x,
+              top: absolute.y,
+            });
+          })
+        );
+
+        canvas.remove(group);
+        canvas.add(...children);
+        await removeObject({ id: group._id as Id<"layers"> });
+
+        const selection = new fabric.ActiveSelection(children, { canvas });
+        canvas.setActiveObject(selection);
+        canvas.requestRenderAll();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [canvas, activePageId]);
 
   useEffect(() => {
     if (canvasRef.current && !canvas) {
@@ -342,7 +501,7 @@ export const DesignCanvas = () => {
           }
 
           if (activeObject?._id)
-            removeElement({
+            removeObject({
               id: activeObject._id,
             });
 
@@ -396,11 +555,7 @@ export const DesignCanvas = () => {
           activeObj.setCoords();
           const {
             angle,
-            borderColor,
             borderScaleFactor,
-            cornerColor,
-            cornerSize,
-            cornerStrokeColor,
             data,
             fill,
             fontFamily,
@@ -536,6 +691,34 @@ export const DesignCanvas = () => {
       };
     }
   }, []);
+
+  useEffect(() => {
+    if (!canvas) return;
+
+    const applyCornerStyle = () => {
+      const activeObject = canvas.getActiveObject();
+      if (!activeObject) return;
+
+      activeObject.set({
+        cornerColor: "#4096ee",
+        cornerSize: 8,
+        cornerStrokeColor: "#4096ee",
+        borderColor: "#4096ee",
+        borderScaleFactor: 1,
+        transparentCorners: false,
+      });
+
+      canvas.requestRenderAll();
+    };
+
+    canvas.on("selection:created", applyCornerStyle);
+    canvas.on("selection:updated", applyCornerStyle);
+
+    return () => {
+      canvas.off("selection:created", applyCornerStyle);
+      canvas.off("selection:updated", applyCornerStyle);
+    };
+  }, [canvas]);
 
   useEffect(() => {
     if (!canvas || !canvasRef.current) return;

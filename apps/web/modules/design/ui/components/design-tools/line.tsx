@@ -11,7 +11,7 @@ import { api } from "@workspace/backend/_generated/api";
 
 export const LineTool = () => {
   const { canvas, activeFileId } = useCanvas();
-  const createline = useMutation(api.design.layers.createObject);
+  const createLine = useMutation(api.design.layers.createObject);
   const file = useQuery(
     api.design.files.getFile,
     activeFileId
@@ -56,28 +56,30 @@ export const LineTool = () => {
 
     canvas.add(line);
 
-    await createline({
-      pageId: file?.activePage as Id<"pages">,
-      type: "LINE",
-      height: line.height,
-      left: line.left,
-      radius: line.radius,
-      top: line.top,
-      width: line.width,
-      angle: line.angle,
-      fill: line.fill ? line.fill.toString() : undefined,
-      opacity: line.opacity,
-      rx: line.rx,
-      ry: line.ry,
-      shadow: line.shadow ? line.shadow.toString() : undefined,
-      stroke: line.stroke ? line.stroke.toString() : undefined,
-      strokeWidth: line.strokeWidth,
-      scaleX: line.scaleX,
-      scaleY: line.scaleY,
-      borderScaleFactor: line.borderScaleFactor,
-      strokeUniform: line.strokeUniform,
-      name: "Line",
-      points: line.points,
+    await createLine({
+      layerObject: {
+        pageId: file?.activePage as Id<"pages">,
+        type: "LINE",
+        height: line.height,
+        left: line.left,
+        radius: line.radius,
+        top: line.top,
+        width: line.width,
+        angle: line.angle,
+        fill: line.fill ? line.fill.toString() : undefined,
+        opacity: line.opacity,
+        rx: line.rx,
+        ry: line.ry,
+        shadow: line.shadow ? line.shadow.toString() : undefined,
+        stroke: line.stroke ? line.stroke.toString() : undefined,
+        strokeWidth: line.strokeWidth,
+        scaleX: line.scaleX,
+        scaleY: line.scaleY,
+        borderScaleFactor: line.borderScaleFactor,
+        strokeUniform: line.strokeUniform,
+        name: "Line",
+        points: line.points,
+      },
     });
   };
 
