@@ -1,5 +1,6 @@
 import {
-  Cancel01FreeIcons,
+  AddSquareIcon,
+  CancelCircleIcon,
   TransactionHistoryIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -20,10 +21,13 @@ export const ChatHeader = ({
       <Label className="font-bold select-none">AI Assistant</Label>
       <div className="flex items-center">
         <Button variant={"ghost"}>
+          <HugeiconsIcon icon={AddSquareIcon} strokeWidth={2} />
+        </Button>
+        <Button variant={"ghost"}>
           <HugeiconsIcon icon={TransactionHistoryIcon} strokeWidth={2} />
         </Button>
         <Button variant={"ghost"}>
-          <HugeiconsIcon icon={Cancel01FreeIcons} strokeWidth={3} />
+          <HugeiconsIcon icon={CancelCircleIcon} strokeWidth={2} />
         </Button>
       </div>
     </div>

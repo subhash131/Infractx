@@ -1,15 +1,24 @@
 //node.ts
 "use node";
-import { HumanMessage, SystemMessage } from "@langchain/core/messages";
+import {
+  AIMessage,
+  BaseMessage,
+  HumanMessage,
+  SystemMessage,
+  ToolMessage,
+} from "@langchain/core/messages";
 import { groqModel, WorkflowStateType } from "../designAgent";
 import { api } from "../../_generated/api";
+import { Doc, Id } from "../../_generated/dataModel";
+import { allShapeTools, groqWithShapeTools } from "../tools/layers";
+import { insertLayer, validateFrame } from "./utils";
 
 // ============================================
 // ANALYZE INPUT - Main Router
 // ============================================
 export const analyzeInput = async (state: WorkflowStateType) => {
   const systemPrompt =
-    "You are a router. Analyze if the user wants to have a general conversation (Greeting, FAQ, etc.) or use shape_tools (Frame, Rectangle, Circle) or ui_tools (Navbar, buttons, landing page, dashboard). " +
+    "You are a router. Analyze if the user wants to have a general conversation (Greeting, FAQ, etc.) or use shape_tools (Frame, Rectangle, Circle, text) or ui_tools (Navbar, buttons, landing page, dashboard). " +
     "Reply with ONLY one word: 'generic', 'shape_tools' or 'ui_tools'. Nothing else.";
   const messages = [
     new SystemMessage(systemPrompt),
@@ -48,6 +57,8 @@ export const toolRouter = async (state: WorkflowStateType) => {
   return state.decision;
 };
 
+
+
 // ============================================
 // GENERIC NODE - Handles conversations
 // ============================================
@@ -80,33 +91,104 @@ export const generic = async (state: WorkflowStateType) => {
 // SHAPE TOOLS NODE - Detects shape type
 // ============================================
 export const shapeTools = async (state: WorkflowStateType) => {
-  const systemPrompt =
-    "Analyze the user's request and identify which shape they want to create. " +
-    "Reply with ONLY one word: 'rectangle', 'circle', or 'frame'. Nothing else. " +
-    "Examples: 'add rectangle' → rectangle, 'create circle' → circle, 'make a frame' → frame";
-  const messages = [
-    new SystemMessage(systemPrompt),
+  const systemMessage = new SystemMessage(`You are a design assistant that creates visual elements using tools.
+
+When calling tools, you MUST provide ALL required parameters:
+- name: descriptive name for the element
+- fill: color as hex code (e.g., "#3b82f6" for blue)
+- width, height: dimensions in pixels
+- left, top: position values (can be negative)
+
+Always provide complete parameters for each tool call.`);
+
+  const internalMessages: BaseMessage[] = [
+    systemMessage,
     new HumanMessage(state.userInput),
   ];
 
-  const response = await groqModel.invoke(messages);
-  const result = response.content.toString().toLowerCase().trim();
+  const { frameId } = await validateFrame(state);
 
-  //TODO : implement actual logic
+  let iterations = 0;
+  const maxIterations = 5;
+
   await state.convexState.runMutation(api.ai.messages.updateMessage, {
     messageId: state.messageId,
     content: JSON.stringify({
       stage: "tool_execution",
-      message: `executing shape_tools: ${result}`,
+      message: "Analyzing request and preparing tools...",
+    }),
+    role: "AI",
+  });
+
+  let finalResponse: AIMessage | null = null;
+
+  while (iterations < maxIterations) {
+    const response = await groqWithShapeTools.invoke(internalMessages);
+    internalMessages.push(response);
+    finalResponse = response;
+
+    if (response.tool_calls && response.tool_calls.length > 0) {
+      console.log(`Iteration ${iterations + 1}: ${response.tool_calls.length} tool(s) called`);
+
+      await state.convexState.runMutation(api.ai.messages.updateMessage, {
+        messageId: state.messageId,
+        content: JSON.stringify({
+          stage: "tool_execution",
+          message: `Executing ${response.tool_calls.length} tool(s): ${response.tool_calls.map((t) => t.name).join(", ")}`,
+        }),
+        role: "AI",
+      });
+
+      // Execute tools and collect results
+      for (const toolCall of response.tool_calls) {
+        const tool = allShapeTools.find((t) => t.name === toolCall.name);
+
+        if (tool) {
+          const result = await (tool as any).invoke(toolCall.args);
+          console.log(`${toolCall.name} result:`, result);
+
+          // Use the actual tool result (not args)
+          const layer = {
+            ...result,
+            parentLayerId: frameId,
+            pageId: state.pageId,
+          } as Doc<"layers">;
+
+          console.log("Inserting layer:", layer);
+          await insertLayer(layer, state);
+
+          // Add tool result to internal messages
+          internalMessages.push(
+            new ToolMessage({
+              content: typeof result === 'string' ? result : JSON.stringify(result),
+              tool_call_id: toolCall.id!,
+            })
+          );
+        }
+      }
+
+      iterations++;
+    } else {
+      console.log("Finished. Final message:", response.content);
+      break;
+    }
+  }
+
+  await state.convexState.runMutation(api.ai.messages.updateMessage, {
+    messageId: state.messageId,
+    content: JSON.stringify({
+      stage: "completed",
+      message: "Tool execution completed",
     }),
     role: "AI",
   });
 
   return {
-    result,
-    messages: [...messages, response],
+    messages: finalResponse ? [...state.messages, finalResponse] : state.messages,
+    frameId
   };
 };
+
 
 // ============================================
 // UI TOOLS NODE - Sub-router for UI components
@@ -121,6 +203,7 @@ export const uiTools = async (state: WorkflowStateType) => {
     new HumanMessage(state.userInput),
   ];
 
+   const { frameId } = await validateFrame(state);
   const response = await groqModel.invoke(messages);
   const decision = response.content.toString().toLowerCase().trim();
 
@@ -136,6 +219,7 @@ export const uiTools = async (state: WorkflowStateType) => {
   return {
     decision,
     messages: [...messages, response],
+    frameId
   };
 };
 
@@ -246,7 +330,7 @@ export const validateOutput = async (state: WorkflowStateType) => {
 // OUTPUT ROUTER - Decides to retry or end
 // ============================================
 export const outputRouter = async (state: WorkflowStateType) => {
-  const MAX_RETRIES = 3;
+  const MAX_RETRIES = 0;
 
   // If valid, end the workflow
   if (state.decision === "valid" || state.decision === "end") {

@@ -36,10 +36,11 @@ const createFabricObject = (layer: any): fabric.FabricObject | null => {
       } as fabric.TOptions<fabric.RectProps>);
       break;
     case "TEXT":
-      fabricObj = new fabric.IText("TEXT", {
+      fabricObj = new fabric.IText(obj.text || "", {
         ...obj,
-        obj_type: type,
+        obj_type: type, 
       }) as fabric.FabricObject<Partial<fabric.FabricObjectProps>>;
+
       break;
     case "FRAME": {
       const childObjects: fabric.FabricObject[] = [];
