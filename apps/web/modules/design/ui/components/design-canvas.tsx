@@ -1,3 +1,5 @@
+//new
+
 "use client";
 import React, { useEffect, useRef } from "react";
 import * as fabric from "fabric";
@@ -9,6 +11,7 @@ import { Id } from "@workspace/backend/_generated/dataModel";
 import { debounce } from "lodash";
 import { Frame } from "./design-tools/frame";
 import { fonts } from "./design-tools/util";
+import { DesignGroup } from "./design-tools/group";
 
 const createFabricObject = (layer: any): fabric.FabricObject | null => {
   let fabricObj: fabric.FabricObject | null = null;
@@ -25,7 +28,6 @@ const createFabricObject = (layer: any): fabric.FabricObject | null => {
 
       break;
     case "CIRCLE":
-      console.log({ radius: obj.radius });
       fabricObj = new fabric.Circle({
         ...obj,
         obj_type: type,
@@ -44,34 +46,22 @@ const createFabricObject = (layer: any): fabric.FabricObject | null => {
         fontFamily: "Poppins",
       }) as fabric.FabricObject<Partial<fabric.FabricObjectProps>>;
       break;
-    case "GROUP":
-      const childObjects: fabric.FabricObject[] = [];
-      const childPositions: Array<{
-        obj: fabric.FabricObject;
-        left: number;
-        top: number;
-      }> = [];
-      if (layer.children && layer.children.length > 0) {
-        layer.children.forEach((childLayer: any) => {
-          const childObj = createFabricObject(childLayer);
-          if (childObj) {
-            // Store for later application
-            childPositions.push({
-              obj: childObj,
-              left: childObj.left,
-              top: childObj.top,
-            });
+    case "GROUP": {
+      const children: fabric.FabricObject[] = [];
 
-            childObjects.push(childObj);
-          }
-        });
-      }
-      fabricObj = new fabric.Group(childObjects, {
+      layer.children?.forEach((childLayer: any) => {
+        const child = createFabricObject(childLayer);
+        if (child) children.push(child);
+      });
+
+      fabricObj = new DesignGroup(children, {
         ...obj,
-        obj_type: type,
-      } as fabric.TOptions<fabric.RectProps>);
-      (fabricObj as any)._pendingChildPositions = childPositions;
+        _id: layer._id,
+      });
+
       break;
+    }
+
     case "FRAME": {
       const childObjects: fabric.FabricObject[] = [];
       const childPositions: Array<{
@@ -158,6 +148,9 @@ export const DesignCanvas = () => {
   const initialZoom = useRef(1);
 
   const createObject = useMutation(api.design.layers.createObject);
+  // Add this inside your useEffect where you handle keyboard events
+
+  // Add this inside your useEffect where you handle keyboard events
 
   useEffect(() => {
     if (!canvas) return;
@@ -173,7 +166,7 @@ export const DesignCanvas = () => {
         return;
       }
 
-      /* ================= GROUP ================= */
+      /* ================= GROUP (Ctrl/Cmd + G) ================= */
       if (
         (e.ctrlKey || e.metaKey) &&
         !e.shiftKey &&
@@ -183,100 +176,116 @@ export const DesignCanvas = () => {
         if (!(activeObject instanceof fabric.ActiveSelection)) return;
 
         const selection = activeObject;
-        const children = selection.getObjects();
 
-        const bounds = selection.getBoundingRect();
+        // Find parent object if children have one
+        const firstChild = selection.getObjects()[0];
+        const parentLayerId = (firstChild as any)?.parentLayerId;
+        let parentObject: any = null;
 
+        if (parentLayerId) {
+          // Find the parent object on canvas
+          parentObject = canvas
+            .getObjects()
+            .find((obj: any) => obj._id === parentLayerId);
+        }
+
+        // 1️⃣ Create the group and get parent info
+        const {
+          group,
+          children,
+          parentLayerId: inheritedParentId,
+        } = DesignGroup.createFromSelection(selection, "", parentObject);
+
+        // 2️⃣ Create GROUP layer in DB with inherited parent
         const groupId = await createObject({
           layerObject: {
             pageId: activePageId as Id<"pages">,
             type: "GROUP",
             name: "Group",
-            left: bounds.left,
-            top: bounds.top,
-            width: selection.width,
-            height: selection.height,
+            left: group.left,
+            top: group.top,
+            width: group.width,
+            height: group.height,
+            parentLayerId: inheritedParentId, // Inherit parent from children
           },
         });
 
-        children.forEach((obj) => {
-          obj.set({
-            left: obj.left - bounds.left,
-            top: obj.top - bounds.top,
-          });
+        // 3️⃣ Update the group with the real DB ID
+        group.set({ _id: groupId });
 
-          obj.setOnGroup();
-          obj.setCoords();
-        });
-
-        const group = new fabric.Group(children, {
-          left: bounds.left,
-          top: bounds.top,
-          originX: "left",
-          originY: "top",
-          obj_type: "GROUP",
-          _id: groupId,
-        });
-        group.setCoords();
-
+        // 4️⃣ Update all children in DB to point to the new group as parent
         await Promise.all(
           children.map((obj) =>
             updateObject({
               _id: obj._id as Id<"layers">,
-              parentLayerId: groupId,
+              parentLayerId: groupId, // Children now belong to this group
               left: obj.left,
               top: obj.top,
             })
           )
         );
 
+        // 5️⃣ Update canvas
         canvas.remove(...children);
-        canvas.add(group);
+
+        if (parentObject && typeof parentObject.addWithUpdate === "function") {
+          // Add group to parent instead of canvas
+          parentObject.addWithUpdate(group);
+        } else {
+          canvas.add(group);
+        }
+
         canvas.setActiveObject(group);
         canvas.requestRenderAll();
       }
 
-      /* ================= UNGROUP ================= */
+      /* ================= UNGROUP (Ctrl/Cmd + Shift + G) ================= */
       if (
         (e.ctrlKey || e.metaKey) &&
         e.shiftKey &&
         e.key.toLowerCase() === "g"
       ) {
         e.preventDefault();
-        if (activeObject?.obj_type !== "GROUP") return;
+        if (!(activeObject instanceof DesignGroup)) return;
 
-        const group = activeObject as fabric.Group;
-        const children = group.getObjects();
-        const groupMatrix = group.calcTransformMatrix();
+        const group = activeObject;
+        const parentLayerId = (group as any).parentLayerId;
+        let parentObject: any = null;
 
-        // Convert back → canvas space
+        if (parentLayerId) {
+          // Find the parent object on canvas
+          parentObject = canvas
+            .getObjects()
+            .find((obj: any) => obj._id === parentLayerId);
+        }
+
+        // 1️⃣ Ungroup and get parent info
+        const { children, parentLayerId: inheritedParentId } =
+          group.ungroupToCanvas(canvas, parentObject);
+
+        // 2️⃣ Update all children in DB to inherit the group's parent
         await Promise.all(
-          children.map((obj) => {
-            const absolute = fabric.util.transformPoint(
-              new fabric.Point(obj.left ?? 0, obj.top ?? 0),
-              groupMatrix
-            );
-
-            obj.set({
-              left: absolute.x,
-              top: absolute.y,
-            });
-
-            obj.setCoords();
-
-            return updateObject({
+          children.map((obj) =>
+            updateObject({
               _id: obj._id as Id<"layers">,
-              parentLayerId: undefined,
-              left: absolute.x,
-              top: absolute.y,
-            });
-          })
+              parentLayerId: inheritedParentId, // Children inherit group's parent
+              left: obj.left,
+              top: obj.top,
+            })
+          )
         );
 
-        canvas.remove(group);
-        canvas.add(...children);
+        // 3️⃣ Delete the group from DB
         await removeObject({ id: group._id as Id<"layers"> });
 
+        // 4️⃣ If there's a parent, add children to it
+        if (parentObject && typeof parentObject.addWithUpdate === "function") {
+          children.forEach((child) => {
+            parentObject.addWithUpdate(child);
+          });
+        }
+
+        // 5️⃣ Create selection with ungrouped children
         const selection = new fabric.ActiveSelection(children, { canvas });
         canvas.setActiveObject(selection);
         canvas.requestRenderAll();
@@ -285,7 +294,7 @@ export const DesignCanvas = () => {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [canvas, activePageId]);
+  }, [canvas, activePageId, createObject, updateObject, removeObject]);
 
   useEffect(() => {
     //load font
@@ -365,6 +374,8 @@ export const DesignCanvas = () => {
           initCanvas.requestRenderAll();
           setPan({ x: vpt[4], y: vpt[5] });
         }
+        const active = initCanvas.getActiveObject();
+        if (active) active.setCoords();
       };
 
       // ======= MOUSE DOWN =======
@@ -390,6 +401,9 @@ export const DesignCanvas = () => {
 
           vpt[4] += deltaX;
           vpt[5] += deltaY;
+
+          const active = initCanvas.getActiveObject();
+          if (active) active.setCoords();
 
           initCanvas.requestRenderAll();
           lastPos.current = { x: e.clientX, y: e.clientY };
@@ -472,6 +486,9 @@ export const DesignCanvas = () => {
           vpt[4] += center.x - lastPos.current.x;
           vpt[5] += center.y - lastPos.current.y;
 
+          const active = initCanvas.getActiveObject();
+          if (active) active.setCoords();
+
           initCanvas.requestRenderAll();
           lastPos.current = center;
           setPan({ x: vpt[4], y: vpt[5] });
@@ -549,60 +566,29 @@ export const DesignCanvas = () => {
         setSelectedElements([]);
       };
 
-      const handleObjectModified = debounce(() => {
-        const activeObj = initCanvas.getActiveObject();
-        if (activeObj) {
-          // IMPORTANT: Normalize scale before saving
-          const finalWidth = (activeObj.width || 0) * (activeObj.scaleX || 1);
-          const finalHeight = (activeObj.height || 0) * (activeObj.scaleY || 1);
+      const handleObjectModified = debounce(
+        (modifiedEvent: fabric.ModifiedEvent<fabric.TPointerEvent>) => {
+          if (modifiedEvent) {
+            const modifiedObject = modifiedEvent.target;
+            // IMPORTANT: Normalize scale before saving
+            const finalWidth =
+              (modifiedObject.width || 0) * (modifiedObject.scaleX || 1);
+            const finalHeight =
+              (modifiedObject.height || 0) * (modifiedObject.scaleY || 1);
 
-          // Update the object to use normalized dimensions
-          activeObj.set({
-            width: finalWidth,
-            height: finalHeight,
-            scaleX: 1,
-            scaleY: 1,
-          });
-          activeObj.setCoords();
-          const {
-            angle,
-            borderScaleFactor,
-            data,
-            fill,
-            fontFamily,
-            fontSize,
-            fontStyle,
-            fontWeight,
-            imageUrl,
-            left,
-            linethrough,
-            name,
-            opacity,
-            overline,
-            padding,
-            points,
-            rx,
-            ry,
-            shadow,
-            stroke,
-            strokeUniform,
-            strokeWidth,
-            text,
-            textAlign,
-            top,
-            underline,
-            parentLayerId,
-          } = activeObj;
-
-          if (activeObj?._id)
-            updateObject({
-              _id: activeObj._id as Id<"layers">,
+            // Update the object to use normalized dimensions
+            modifiedObject.set({
               width: finalWidth,
               height: finalHeight,
+              scaleX: 1,
+              scaleY: 1,
+            });
+            modifiedObject.setCoords();
+            const {
               angle,
               borderScaleFactor,
               data,
-              fill: fill?.toString(),
+              fill,
               fontFamily,
               fontSize,
               fontStyle,
@@ -615,13 +601,10 @@ export const DesignCanvas = () => {
               overline,
               padding,
               points,
-              radius: finalWidth / 2,
               rx,
               ry,
-              scaleX: 1, // Always save as 1
-              scaleY: 1, // Always save as 1
-              shadow: shadow?.toString(),
-              stroke: stroke?.toString(),
+              shadow,
+              stroke,
               strokeUniform,
               strokeWidth,
               text,
@@ -629,9 +612,47 @@ export const DesignCanvas = () => {
               top,
               underline,
               parentLayerId,
-            });
+            } = modifiedObject;
+
+            if (modifiedObject?._id)
+              updateObject({
+                _id: modifiedObject._id as Id<"layers">,
+                width: finalWidth,
+                height: finalHeight,
+                angle,
+                borderScaleFactor,
+                data,
+                fill: fill?.toString(),
+                fontFamily,
+                fontSize,
+                fontStyle,
+                fontWeight,
+                imageUrl,
+                left,
+                linethrough,
+                name,
+                opacity,
+                overline,
+                padding,
+                points,
+                radius: finalWidth / 2,
+                rx,
+                ry,
+                scaleX: 1, // Always save as 1
+                scaleY: 1, // Always save as 1
+                shadow: shadow?.toString(),
+                stroke: stroke?.toString(),
+                strokeUniform,
+                strokeWidth,
+                text,
+                textAlign,
+                top,
+                underline,
+                parentLayerId,
+              });
+          }
         }
-      });
+      );
 
       const handleResize = () => {
         const viewportWidth = window.innerWidth;
