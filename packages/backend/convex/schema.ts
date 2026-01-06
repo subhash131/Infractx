@@ -137,7 +137,8 @@ export default defineSchema({
   })
     .index("by_page", ["pageId"])
     .index("by_page_zindex", ["pageId", "zIndex"])
-    .index("by_type", ["type"]),
+    .index("by_type", ["type"])
+    .index("by_parent", ["parentLayerId"]),
   // Design templates
   templates: defineTable({
     name: v.string(),

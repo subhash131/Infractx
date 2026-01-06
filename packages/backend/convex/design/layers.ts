@@ -203,6 +203,13 @@ export const deleteObject = mutation({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
 
+    const children = await ctx.db
+      .query("layers")
+      .withIndex("by_parent", (q) => q.eq("parentLayerId", args.id))
+      .collect();
+
+    //delete children
+    await Promise.all(children.map((child) => ctx.db.delete(child._id)));
     await ctx.db.delete(args.id);
   },
 });

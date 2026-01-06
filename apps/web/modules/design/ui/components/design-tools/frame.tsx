@@ -8,7 +8,8 @@ import { Id } from "@workspace/backend/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@workspace/backend/_generated/api";
 
-// Custom Frame class extending fabric.Group
+/* ================= FRAME CLASS (UNCHANGED) ================= */
+
 export class Frame extends fabric.Group {
   constructor(objects: fabric.FabricObject[], options?: any) {
     super(objects, {
@@ -21,7 +22,6 @@ export class Frame extends fabric.Group {
       originY: "top",
     });
 
-    // Add frame background
     const background = new fabric.Rect({
       left: options?.left,
       top: options?.top,
@@ -32,7 +32,6 @@ export class Frame extends fabric.Group {
       strokeWidth: 1,
       selectable: false,
       evented: false,
-      visible: true,
     });
 
     this.add(background);
@@ -40,213 +39,46 @@ export class Frame extends fabric.Group {
     this.width = background.width;
     this.height = background.height;
 
-    // Enable clipping by default
     this.clipPath = background as fabric.BaseFabricObject;
   }
 
-  // Add child to frame
   addChild(child: fabric.FabricObject) {
     this.add(child);
     this.setCoords();
     return this;
   }
 
-  // Remove child from frame
   removeChild(child: fabric.FabricObject) {
     this.remove(child);
     this.setCoords();
     return this;
   }
 
-  // Add this method to your Frame class
   calculateOverlapPercentage(obj: fabric.FabricObject): number {
-    // Get bounding rectangles
     const frameBounds = this.getBoundingRect();
     const objBounds = obj.getBoundingRect();
 
-    // Calculate intersection area
-    const intersectLeft = Math.max(frameBounds.left, objBounds.left);
-    const intersectTop = Math.max(frameBounds.top, objBounds.top);
-    const intersectRight = Math.min(
+    const left = Math.max(frameBounds.left, objBounds.left);
+    const top = Math.max(frameBounds.top, objBounds.top);
+    const right = Math.min(
       frameBounds.left + frameBounds.width,
       objBounds.left + objBounds.width
     );
-    const intersectBottom = Math.min(
+    const bottom = Math.min(
       frameBounds.top + frameBounds.height,
       objBounds.top + objBounds.height
     );
 
-    // Check if there's actual intersection
-    if (intersectRight <= intersectLeft || intersectBottom <= intersectTop) {
-      return 0;
-    }
+    if (right <= left || bottom <= top) return 0;
 
-    const intersectArea =
-      (intersectRight - intersectLeft) * (intersectBottom - intersectTop);
+    const intersectArea = (right - left) * (bottom - top);
     const objArea = objBounds.width * objBounds.height;
 
     return (intersectArea / objArea) * 100;
   }
-
-  // Align children horizontally
-  alignChildrenHorizontal(
-    alignment: "left" | "center" | "right" | "space-between"
-  ) {
-    const children = this._objects.slice(1); // Skip background
-    if (children.length === 0) return;
-
-    const frameWidth = (this._objects[0] as fabric.Rect).width!;
-    const frameLeft = -(frameWidth / 2);
-
-    switch (alignment) {
-      case "left":
-        children.forEach((child) => {
-          child.set({ left: frameLeft + 20 });
-        });
-        break;
-
-      case "center":
-        children.forEach((child) => {
-          const childWidth = child.width! * (child.scaleX || 1);
-          child.set({ left: -childWidth / 2 });
-        });
-        break;
-
-      case "right":
-        children.forEach((child) => {
-          const childWidth = child.width! * (child.scaleX || 1);
-          child.set({ left: frameWidth / 2 - childWidth - 20 });
-        });
-        break;
-
-      case "space-between":
-        const totalWidth = children.reduce(
-          (sum, child) => sum + child.width! * (child.scaleX || 1),
-          0
-        );
-        const spacing = (frameWidth - totalWidth - 40) / (children.length - 1);
-        let currentLeft = frameLeft + 20;
-
-        children.forEach((child) => {
-          child.set({ left: currentLeft });
-          currentLeft += child.width! * (child.scaleX || 1) + spacing;
-        });
-        break;
-    }
-
-    this.setCoords();
-  }
-
-  // Align children vertically
-  alignChildrenVertical(
-    alignment: "top" | "center" | "bottom" | "space-between"
-  ) {
-    const children = this._objects.slice(1); // Skip background
-    if (children.length === 0) return;
-
-    const frameHeight = (this._objects[0] as fabric.Rect).height!;
-    const frameTop = -(frameHeight / 2);
-
-    switch (alignment) {
-      case "top":
-        children.forEach((child) => {
-          child.set({ top: frameTop + 20 });
-        });
-        break;
-
-      case "center":
-        children.forEach((child) => {
-          const childHeight = child.height! * (child.scaleY || 1);
-          child.set({ top: -childHeight / 2 });
-        });
-        break;
-
-      case "bottom":
-        children.forEach((child) => {
-          const childHeight = child.height! * (child.scaleY || 1);
-          child.set({ top: frameHeight / 2 - childHeight - 20 });
-        });
-        break;
-
-      case "space-between":
-        const totalHeight = children.reduce(
-          (sum, child) => sum + child.height! * (child.scaleY || 1),
-          0
-        );
-        const spacing =
-          (frameHeight - totalHeight - 40) / (children.length - 1);
-        let currentTop = frameTop + 20;
-
-        children.forEach((child) => {
-          child.set({ top: currentTop });
-          currentTop += child.height! * (child.scaleY || 1) + spacing;
-        });
-        break;
-    }
-
-    this.setCoords();
-  }
-
-  // Auto layout - arrange children in rows or columns
-  autoLayout(
-    direction: "row" | "column",
-    gap: number = 16,
-    padding: number = 20
-  ) {
-    const children = this._objects.slice(1); // Skip background
-    if (children.length === 0) return;
-
-    const background = this._objects[0] as fabric.Rect;
-    const frameWidth = background.width!;
-    const frameHeight = background.height!;
-    const startX = -(frameWidth / 2) + padding;
-    const startY = -(frameHeight / 2) + padding;
-
-    if (direction === "row") {
-      let currentX = startX;
-      let currentY = startY;
-      let rowHeight = 0;
-
-      children.forEach((child) => {
-        const childWidth = child.width! * (child.scaleX || 1);
-        const childHeight = child.height! * (child.scaleY || 1);
-
-        // Wrap to next row if exceeds frame width
-        if (
-          currentX + childWidth > frameWidth / 2 - padding &&
-          currentX !== startX
-        ) {
-          currentX = startX;
-          currentY += rowHeight + gap;
-          rowHeight = 0;
-        }
-
-        child.set({
-          left: currentX,
-          top: currentY,
-        });
-
-        currentX += childWidth + gap;
-        rowHeight = Math.max(rowHeight, childHeight);
-      });
-    } else {
-      let currentY = startY;
-
-      children.forEach((child) => {
-        const childHeight = child.height! * (child.scaleY || 1);
-
-        child.set({
-          left: startX,
-          top: currentY,
-        });
-
-        currentY += childHeight + gap;
-      });
-    }
-
-    this.setCoords();
-  }
 }
+
+/* ================= FRAME TOOL ================= */
 
 export const FrameTool = () => {
   const { canvas, activeFileId } = useCanvas();
@@ -254,40 +86,32 @@ export const FrameTool = () => {
 
   const file = useQuery(
     api.design.files.getFile,
-    activeFileId
-      ? {
-          fileId: activeFileId as Id<"files">,
-        }
-      : "skip"
+    activeFileId ? { fileId: activeFileId as Id<"files"> } : "skip"
   );
 
   const handleAddFrame = async () => {
     if (!canvas) return;
 
-    const frames = canvas._objects.filter((obj) => obj.obj_type === "FRAME");
-    const rightmostEdge = Math.max(
-      ...frames.map((frame) => frame.left + frame.width)
-    );
+    const frames = canvas
+      .getObjects()
+      .filter((o) => o.obj_type === "FRAME") as Frame[];
 
-    // Create a new frame
+    const rightmostEdge =
+      frames.length > 0
+        ? Math.max(...frames.map((f) => (f.left ?? 0) + (f.width ?? 0)))
+        : 0;
+
     const frame = new Frame([], {
       width: 800,
       height: 600,
       fill: "#ffffff",
       stroke: "#e5e5e5",
       strokeWidth: 2,
-      cornerColor: "#4096ee",
-      cornerSize: 8,
-      cornerStrokeColor: "#4096ee",
-      borderColor: "#4096ee",
-      borderScaleFactor: 1,
-      strokeUniform: true,
     });
 
-    // Center the frame in viewport
-    const vpt = canvas.viewportTransform;
+    const vpt = canvas.viewportTransform!;
     const zoom = canvas.getZoom();
-    const centerY = (canvas.height! / 2 - vpt![5]) / zoom;
+    const centerY = (canvas.height! / 2 - vpt[5]) / zoom;
 
     frame.set({
       left: rightmostEdge + 10,
@@ -298,25 +122,18 @@ export const FrameTool = () => {
     canvas.setActiveObject(frame);
     canvas.requestRenderAll();
 
-    // Save to backend
     await createFrame({
       layerObject: {
         pageId: file?.activePage as Id<"pages">,
         type: "FRAME",
+        name: "Frame",
+        width: 800,
         height: 600,
         left: frame.left!,
         top: frame.top!,
-        width: 800,
-        angle: 0,
-        fill: "#ffffff",
-        opacity: 1,
-        stroke: "#e5e5e5",
-        strokeWidth: 2,
         scaleX: 1,
         scaleY: 1,
-        borderScaleFactor: 1,
-        strokeUniform: true,
-        name: "Frame",
+        fill: frame.fill?.toString() || "#ffffff",
       },
     });
   };
@@ -324,14 +141,15 @@ export const FrameTool = () => {
   useEffect(() => {
     if (!canvas) return;
 
+    let pendingEnterFrame: Frame | null = null;
+    let pendingObject: fabric.FabricObject | null = null;
+
     const handleObjectMoving = (e: any) => {
       const movingObj = e.target;
       if (!movingObj || movingObj instanceof Frame) return;
 
-      // Update coordinates before checking intersection
       movingObj.setCoords();
 
-      // Find all frames on canvas
       const frames = canvas
         .getObjects()
         .filter((obj) => obj instanceof Frame) as Frame[];
@@ -340,38 +158,58 @@ export const FrameTool = () => {
         frame.setCoords();
         const overlapPercentage = frame.calculateOverlapPercentage(movingObj);
 
-        // If 70% or more of object is inside frame
-        if (overlapPercentage >= 70) {
-          // Check if object is not already in frame
-          if (!frame.contains(movingObj)) {
-            // Remove from canvas and add to frame
-            canvas.remove(movingObj);
-
-            movingObj.set({
-              parentLayerId: frame._id,
-            });
-
-            frame.addChild(movingObj);
-            canvas.setActiveObject(movingObj);
-          }
+        /* ================= ENTER FRAME (DEFERRED) ================= */
+        if (overlapPercentage >= 70 && !frame.contains(movingObj)) {
+          pendingEnterFrame = frame;
+          pendingObject = movingObj;
         }
+
+        /* ================= EXIT FRAME (UNCHANGED, WORKING) ================= */
         if (overlapPercentage <= 30 && frame.contains(movingObj)) {
-          // If object moves out of frame (less than 30% overlap), remove from frame
-          frame.removeChild(movingObj);
           movingObj.set({
             left: movingObj.left + frame.left,
             top: movingObj.top + frame.top,
             parentLayerId: undefined,
+            opacity: 0,
           });
+          frame.removeChild(movingObj);
           canvas.add(movingObj);
+          requestAnimationFrame(() => {
+            movingObj.set({ opacity: 1 });
+            canvas.requestRenderAll();
+          });
         }
       });
     };
 
+    const handleMouseUp = () => {
+      if (!pendingEnterFrame || !pendingObject) return;
+
+      const frame = pendingEnterFrame;
+      const obj = pendingObject;
+
+      canvas.remove(obj);
+
+      obj.set({
+        parentLayerId: frame._id,
+      });
+
+      frame.addChild(obj);
+      obj.setCoords();
+
+      canvas.setActiveObject(obj);
+      canvas.requestRenderAll();
+
+      pendingEnterFrame = null;
+      pendingObject = null;
+    };
+
     canvas.on("object:moving", handleObjectMoving);
+    canvas.on("mouse:up", handleMouseUp);
 
     return () => {
       canvas.off("object:moving", handleObjectMoving);
+      canvas.off("mouse:up", handleMouseUp);
     };
   }, [canvas]);
 

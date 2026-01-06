@@ -8,6 +8,7 @@ import { api } from "@workspace/backend/_generated/api";
 import { Id } from "@workspace/backend/_generated/dataModel";
 import { debounce } from "lodash";
 import { Frame } from "./design-tools/frame";
+import { fonts } from "./design-tools/util";
 
 const createFabricObject = (layer: any): fabric.FabricObject | null => {
   let fabricObj: fabric.FabricObject | null = null;
@@ -24,6 +25,7 @@ const createFabricObject = (layer: any): fabric.FabricObject | null => {
 
       break;
     case "CIRCLE":
+      console.log({ radius: obj.radius });
       fabricObj = new fabric.Circle({
         ...obj,
         obj_type: type,
@@ -36,9 +38,10 @@ const createFabricObject = (layer: any): fabric.FabricObject | null => {
       } as fabric.TOptions<fabric.RectProps>);
       break;
     case "TEXT":
-      fabricObj = new fabric.IText(obj.text || "", {
+      fabricObj = new fabric.IText(obj.text || "Text", {
         ...obj,
         obj_type: type,
+        fontFamily: "Poppins",
       }) as fabric.FabricObject<Partial<fabric.FabricObjectProps>>;
       break;
     case "GROUP":
@@ -285,6 +288,16 @@ export const DesignCanvas = () => {
   }, [canvas, activePageId]);
 
   useEffect(() => {
+    //load font
+    const font = new FontFace("Poppins", `url(${fonts.poppins.url})`, {
+      weight: "400",
+      style: "normal",
+    });
+    (async () => {
+      await font.load();
+      document.fonts.add(font);
+    })();
+
     if (canvasRef.current && !canvas) {
       console.log("Initializing canvas...");
       const viewportWidth = window.innerWidth;
@@ -539,8 +552,6 @@ export const DesignCanvas = () => {
       const handleObjectModified = debounce(() => {
         const activeObj = initCanvas.getActiveObject();
         if (activeObj) {
-          setActiveObject(activeObj);
-
           // IMPORTANT: Normalize scale before saving
           const finalWidth = (activeObj.width || 0) * (activeObj.scaleX || 1);
           const finalHeight = (activeObj.height || 0) * (activeObj.scaleY || 1);
@@ -570,7 +581,6 @@ export const DesignCanvas = () => {
             overline,
             padding,
             points,
-            radius,
             rx,
             ry,
             shadow,
@@ -605,7 +615,7 @@ export const DesignCanvas = () => {
               overline,
               padding,
               points,
-              radius,
+              radius: finalWidth / 2,
               rx,
               ry,
               scaleX: 1, // Always save as 1
@@ -627,11 +637,6 @@ export const DesignCanvas = () => {
         const viewportWidth = window.innerWidth;
         const viewportHeight = window.innerHeight;
 
-        const scaleX = viewportWidth / CANVAS_WIDTH;
-        const scaleY = viewportHeight / CANVAS_HEIGHT;
-        const scaleFactor = Math.min(scaleX, scaleY);
-
-        initCanvas.setZoom(scaleFactor);
         initCanvas.setDimensions(
           {
             width: viewportWidth,
@@ -640,8 +645,7 @@ export const DesignCanvas = () => {
           { cssOnly: true }
         );
 
-        initCanvas.renderAll();
-        setZoom(scaleFactor);
+        initCanvas.requestRenderAll();
       };
 
       // Add event listeners
@@ -711,12 +715,21 @@ export const DesignCanvas = () => {
       canvas.requestRenderAll();
     };
 
+    const handleActiveObject = () => {
+      if (!canvas._activeObject) setActiveObject(null);
+      else setActiveObject(canvas._activeObject);
+    };
+
     canvas.on("selection:created", applyCornerStyle);
     canvas.on("selection:updated", applyCornerStyle);
+    canvas.on("mouse:up", handleActiveObject);
+    canvas.on("mouse:down", handleActiveObject);
 
     return () => {
       canvas.off("selection:created", applyCornerStyle);
       canvas.off("selection:updated", applyCornerStyle);
+      canvas.off("mouse:up", handleActiveObject);
+      canvas.off("mouse:down", handleActiveObject);
     };
   }, [canvas]);
 
