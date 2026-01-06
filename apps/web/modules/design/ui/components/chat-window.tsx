@@ -37,10 +37,6 @@ export const ChatWindow = () => {
         const newX = e.clientX - dragStart.x;
         const newY = e.clientY - dragStart.y;
 
-        console.log({
-          target: (e.target as HTMLDivElement)?.parentElement?.clientHeight,
-        });
-
         // Get window dimensions
         const windowWidth = window.innerWidth;
         const windowHeight = window.innerHeight;

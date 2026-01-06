@@ -12,7 +12,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@workspace/ui/components/tooltip";
-import { useAction, useMutation } from "convex/react";
+import { useAction } from "convex/react";
 import { api } from "@workspace/backend/_generated/api";
 import { Id } from "@workspace/backend/_generated/dataModel";
 import useCanvas from "@/modules/design/store";
@@ -58,9 +58,9 @@ export const ChatFooter = ({ conversationId }: { conversationId: string }) => {
           <TooltipContent className="z-100">Add Context</TooltipContent>
         </Tooltip>
         <div className="flex flex-1 overflow-x-scroll text-xs items-center gap-1 hide-scrollbar">
-          {activeObject && (
+          {activeObject?.name && (
             <div className="flex items-center gap-0.5 bg-accent py-0.5 px-2 rounded-2xl">
-              <p>{activeObject?.obj_type.toLocaleLowerCase()}</p>
+              <p>{activeObject?.name?.toLowerCase()}</p>
               <Button variant="ghost" className="p-0 h-fit" type="button">
                 <HugeiconsIcon icon={Cancel01Icon} size={12} />
               </Button>
