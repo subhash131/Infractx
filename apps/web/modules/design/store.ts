@@ -20,7 +20,7 @@ interface CanvasState {
 interface CanvasActions {
   setCanvas: (canvas: fabric.Canvas | null) => void;
   setSelectedElements: (elements: fabric.FabricObject[]) => void;
-  setActiveObject: (object: fabric.FabricObject) => void;
+  setActiveObject: (object: fabric.FabricObject | null) => void;
   setZoom: (zoom: number) => void;
   setPan: (pan: { x: number; y: number }) => void;
   setMode: (mode: CanvasState["mode"]) => void;

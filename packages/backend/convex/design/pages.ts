@@ -87,7 +87,7 @@ export const updatePage = mutation({
 });
 
 // Delete pages
-export const deleteLayer = mutation({
+export const deletePages = mutation({
   args: { pageId: v.id("pages"), fileId: v.id("files") },
   async handler(ctx, args) {
     const file = await ctx.db.get(args.fileId);

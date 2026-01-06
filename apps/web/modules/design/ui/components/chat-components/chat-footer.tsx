@@ -20,7 +20,7 @@ import useCanvas from "@/modules/design/store";
 export const ChatFooter = ({ conversationId }: { conversationId: string }) => {
   const sendMessage = useAction(api.ai.workflowAction.create);
 
-  const { activePageId,canvas,activeObject } = useCanvas();
+  const { activePageId, canvas, activeObject } = useCanvas();
   const [prompt, setPrompt] = useState("");
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -28,9 +28,12 @@ export const ChatFooter = ({ conversationId }: { conversationId: string }) => {
       conversationId: conversationId as Id<"conversations">,
       prompt,
       pageId: activePageId as Id<"pages">,
-      canvasWidth: canvas?.width ||innerWidth,
-      canvasHeight: canvas?.height||innerHeight,
-      frameId: activeObject?.obj_type==="FRAME" ? activeObject._id as Id<"layers"> : undefined,
+      canvasWidth: canvas?.width || innerWidth,
+      canvasHeight: canvas?.height || innerHeight,
+      frameId:
+        activeObject?.obj_type === "FRAME"
+          ? (activeObject._id as Id<"layers">)
+          : undefined,
     });
     setPrompt("");
   };
@@ -55,12 +58,14 @@ export const ChatFooter = ({ conversationId }: { conversationId: string }) => {
           <TooltipContent className="z-100">Add Context</TooltipContent>
         </Tooltip>
         <div className="flex flex-1 overflow-x-scroll text-xs items-center gap-1 hide-scrollbar">
-         {activeObject?.obj_type && <div className="flex items-center gap-0.5 bg-accent py-0.5 px-2 rounded-2xl">
-            <p>{activeObject?.obj_type.toLocaleLowerCase()}</p>
-            <Button variant="ghost" className="p-0 h-fit" type="button">
-              <HugeiconsIcon icon={Cancel01Icon} size={12} />
-            </Button>
-          </div>}
+          {activeObject && (
+            <div className="flex items-center gap-0.5 bg-accent py-0.5 px-2 rounded-2xl">
+              <p>{activeObject?.obj_type.toLocaleLowerCase()}</p>
+              <Button variant="ghost" className="p-0 h-fit" type="button">
+                <HugeiconsIcon icon={Cancel01Icon} size={12} />
+              </Button>
+            </div>
+          )}
         </div>
         <Tooltip>
           <TooltipTrigger asChild>

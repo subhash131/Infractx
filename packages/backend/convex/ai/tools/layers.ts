@@ -21,7 +21,6 @@ export const addRectangleTool = tool(
     rx,
     ry,
   }) => {
-
     const rectObject = {
       name,
       width: Number(width),
@@ -103,7 +102,7 @@ export const addRectangleTool = tool(
         .default("#000000")
         .describe("Stroke color as hex code. Only if user mentions border"),
     }),
-    returnDirect:true
+    returnDirect: true,
   }
 );
 
@@ -111,7 +110,18 @@ export const addRectangleTool = tool(
 // TOOL 2: Add Circle
 // ============================================
 export const addCircleTool = tool(
-  async ({ name, radius, left, top, fill, stroke, strokeWidth, angle,height,width }) => {
+  async ({
+    name,
+    radius,
+    left,
+    top,
+    fill,
+    stroke,
+    strokeWidth,
+    angle,
+    height,
+    width,
+  }) => {
     const circleObject = {
       type: "CIRCLE" as Doc<"layers">["type"],
       name,
@@ -129,7 +139,7 @@ export const addCircleTool = tool(
       width,
     };
 
-    return circleObject
+    return circleObject;
   },
   {
     name: "addCircle",
@@ -181,14 +191,12 @@ export const addCircleTool = tool(
         ),
       fill: z
         .string()
-        .regex(/^#[0-9A-Fa-f]{6}$/)
         .default("#f3f3f3")
         .describe(
           "Fill color as 6-digit hex code. Same color conversion rules as rectangle"
         ),
       stroke: z
         .string()
-        .regex(/^#[0-9A-Fa-f]{6}$/)
         .optional()
         .describe(
           "Stroke/border color as 6-digit hex code. Only set if user mentions border"
@@ -225,7 +233,9 @@ export const addTextTool = tool(
     left,
     top,
     fill,
-    angle,height,width
+    angle,
+    height,
+    width,
   }) => {
     const textObject = {
       type: "TEXT" as Doc<"layers">["type"],
@@ -338,7 +348,6 @@ export const addTextTool = tool(
         ),
       fill: z
         .string()
-        .regex(/^#[0-9A-Fa-f]{6}$/)
         .default("#000000")
         .describe(
           "Text color as 6-digit hex code. Default '#000000' (black). Same color conversion rules as rectangle"
@@ -356,11 +365,7 @@ export const addTextTool = tool(
 // ============================================
 // Bind all tools to your model
 // ============================================
-export const allShapeTools = [
-  addRectangleTool,
-  addCircleTool,
-  addTextTool,
-];
+export const allShapeTools = [addRectangleTool, addCircleTool, addTextTool];
 
 // Usage with your model:
 export const groqWithShapeTools = groqModel.bindTools(allShapeTools);
