@@ -211,7 +211,7 @@ export const DesignCanvas = () => {
         });
 
         // 3️⃣ Update the group with the real DB ID
-        group.set({ _id: groupId });
+        group.set({ _id: groupId, opacity: 0 });
 
         // 4️⃣ Update all children in DB to point to the new group as parent
         await Promise.all(
@@ -263,6 +263,10 @@ export const DesignCanvas = () => {
         const { children, parentLayerId: inheritedParentId } =
           group.ungroupToCanvas(canvas, parentObject);
 
+        group.set({
+          opacity: 0,
+        });
+
         // 2️⃣ Update all children in DB to inherit the group's parent
         await Promise.all(
           children.map((obj) =>
@@ -289,6 +293,9 @@ export const DesignCanvas = () => {
         const selection = new fabric.ActiveSelection(children, { canvas });
         canvas.setActiveObject(selection);
         canvas.requestRenderAll();
+        requestAnimationFrame(() => {
+          group.set({ opacity: 1 });
+        });
       }
     };
 
