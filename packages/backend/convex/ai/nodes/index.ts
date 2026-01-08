@@ -10,8 +10,11 @@ import {
 import { groqModel, WorkflowStateType } from "../designAgent";
 import { api } from "../../_generated/api";
 import { Doc, Id } from "../../_generated/dataModel";
-import { allShapeTools, groqWithShapeTools } from "../tools/layers";
 import { insertLayer, validateFrame } from "./utils";
+import {
+  allShapeTools,
+  groqWithShapeTools,
+} from "../tools/premitiveLayerTools";
 
 // ============================================
 // ANALYZE INPUT - Main Router
@@ -57,8 +60,6 @@ export const toolRouter = async (state: WorkflowStateType) => {
   return state.decision;
 };
 
-
-
 // ============================================
 // GENERIC NODE - Handles conversations
 // ============================================
@@ -91,7 +92,8 @@ export const generic = async (state: WorkflowStateType) => {
 // SHAPE TOOLS NODE - Detects shape type
 // ============================================
 export const shapeTools = async (state: WorkflowStateType) => {
-  const systemMessage = new SystemMessage(`You are a design assistant that creates visual elements using tools.
+  const systemMessage =
+    new SystemMessage(`You are a design assistant that creates visual elements using tools.
 
 When calling tools, you MUST provide ALL required parameters:
 - name: descriptive name for the element
@@ -128,7 +130,9 @@ Always provide complete parameters for each tool call.`);
     finalResponse = response;
 
     if (response.tool_calls && response.tool_calls.length > 0) {
-      console.log(`Iteration ${iterations + 1}: ${response.tool_calls.length} tool(s) called`);
+      console.log(
+        `Iteration ${iterations + 1}: ${response.tool_calls.length} tool(s) called`
+      );
 
       await state.convexState.runMutation(api.ai.messages.updateMessage, {
         messageId: state.messageId,
@@ -160,7 +164,8 @@ Always provide complete parameters for each tool call.`);
           // Add tool result to internal messages
           internalMessages.push(
             new ToolMessage({
-              content: typeof result === 'string' ? result : JSON.stringify(result),
+              content:
+                typeof result === "string" ? result : JSON.stringify(result),
               tool_call_id: toolCall.id!,
             })
           );
@@ -184,11 +189,12 @@ Always provide complete parameters for each tool call.`);
   });
 
   return {
-    messages: finalResponse ? [...state.messages, finalResponse] : state.messages,
-    frameId
+    messages: finalResponse
+      ? [...state.messages, finalResponse]
+      : state.messages,
+    frameId,
   };
 };
-
 
 // ============================================
 // UI TOOLS NODE - Sub-router for UI components
@@ -203,7 +209,7 @@ export const uiTools = async (state: WorkflowStateType) => {
     new HumanMessage(state.userInput),
   ];
 
-   const { frameId } = await validateFrame(state);
+  const { frameId } = await validateFrame(state);
   const response = await groqModel.invoke(messages);
   const decision = response.content.toString().toLowerCase().trim();
 
@@ -219,7 +225,7 @@ export const uiTools = async (state: WorkflowStateType) => {
   return {
     decision,
     messages: [...messages, response],
-    frameId
+    frameId,
   };
 };
 

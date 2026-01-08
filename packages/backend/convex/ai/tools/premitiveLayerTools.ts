@@ -1,8 +1,14 @@
 "use node";
 import { tool } from "@langchain/core/tools";
 import * as z from "zod";
-import { groqModel } from "../designAgent";
 import { Doc } from "../../_generated/dataModel";
+import { ChatGroq } from "@langchain/groq";
+
+const groqModel = new ChatGroq({
+  apiKey: "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",
+  model: "openai/gpt-oss-120b",
+  temperature: 0,
+});
 
 // ============================================
 // TOOL 1: Add Rectangle

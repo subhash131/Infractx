@@ -44,6 +44,8 @@ const createFabricObject = (layer: any): fabric.FabricObject | null => {
         ...obj,
         obj_type: type,
         fontFamily: "Poppins",
+        padding: 4,
+        editingBorderColor: "#646464",
       }) as fabric.FabricObject<Partial<fabric.FabricObjectProps>>;
       break;
     case "GROUP": {
@@ -333,15 +335,17 @@ export const DesignCanvas = () => {
         selectionLineWidth: 2,
         preserveObjectStacking: true,
       });
+      initCanvas.setDimensions({
+        width: viewportWidth,
+        height: viewportHeight,
+      });
 
       initCanvas.setZoom(scaleFactor);
-      initCanvas.setDimensions(
-        {
-          width: viewportWidth,
-          height: viewportHeight,
-        },
-        { cssOnly: true }
-      );
+      const vpt = initCanvas.viewportTransform!;
+      vpt[4] = (viewportWidth - CANVAS_WIDTH * scaleFactor) / 2;
+      vpt[5] = (viewportHeight - CANVAS_HEIGHT * scaleFactor) / 2;
+
+      initCanvas.setViewportTransform(vpt);
 
       setCanvas(initCanvas);
 
@@ -662,17 +666,22 @@ export const DesignCanvas = () => {
       );
 
       const handleResize = () => {
-        const viewportWidth = window.innerWidth;
-        const viewportHeight = window.innerHeight;
+        const w = window.innerWidth;
+        const h = window.innerHeight;
 
-        initCanvas.setDimensions(
-          {
-            width: viewportWidth,
-            height: viewportHeight,
-          },
-          { cssOnly: true }
-        );
+        initCanvas.setDimensions({ width: w, height: h });
 
+        const scaleX = w / CANVAS_WIDTH;
+        const scaleY = h / CANVAS_HEIGHT;
+        const scaleFactor = Math.min(scaleX, scaleY);
+
+        initCanvas.setZoom(scaleFactor);
+
+        const vpt = initCanvas.viewportTransform!;
+        vpt[4] = (w - CANVAS_WIDTH * scaleFactor) / 2;
+        vpt[5] = (h - CANVAS_HEIGHT * scaleFactor) / 2;
+
+        initCanvas.setViewportTransform(vpt);
         initCanvas.requestRenderAll();
       };
 
@@ -801,10 +810,8 @@ export const DesignCanvas = () => {
   }, [layers]);
 
   return (
-    <canvas
-      ref={canvasRef}
-      id="canvas"
-      className="size-full border border-gray-200"
-    />
+    <div className="absolute inset-0">
+      <canvas ref={canvasRef} id="canvas" className="w-full h-full block" />
+    </div>
   );
 };
