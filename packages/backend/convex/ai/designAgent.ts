@@ -6,13 +6,10 @@ import { BaseMessage } from "@langchain/core/messages";
 import { GenericActionCtx } from "convex/server";
 import { DataModel, Id } from "../_generated/dataModel";
 import {
-  addDashboard,
-  addNavbar,
   analyzeInput,
   generic,
   outputRouter,
   shapeTools,
-  subToolRouter,
   toolRouter,
   uiTools,
   validateOutput,
@@ -128,8 +125,6 @@ export function createWorkflow() {
     .addNode("analyze", analyzeInput)
     .addNode("generic", generic)
     .addNode("ui_tools", uiTools)
-    .addNode("add_dashboard", addDashboard)
-    .addNode("add_navbar", addNavbar)
     .addNode("shape_tools", shapeTools)
     .addNode("validate_output", validateOutput)
 
@@ -146,15 +141,8 @@ export function createWorkflow() {
     // Generic → END (no validation needed)
     .addEdge("generic", END)
 
-    // UI Tools → Sub-routing to specific UI components
-    .addConditionalEdges("ui_tools", subToolRouter, {
-      dashboard: "add_dashboard",
-      navbar: "add_navbar",
-    })
-
     // All tool outputs → Validation
-    .addEdge("add_dashboard", "validate_output")
-    .addEdge("add_navbar", "validate_output")
+    .addEdge("ui_tools", "validate_output")
     .addEdge("shape_tools", "validate_output")
 
     // Validation → Retry or End
