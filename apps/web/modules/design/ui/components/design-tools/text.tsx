@@ -37,6 +37,7 @@ export const TextTool = () => {
       borderColor: "#4096ee",
       borderScaleFactor: 1.2,
       padding: 8,
+      fontFamily: "Poppins",
     });
 
     const vpt = canvas.viewportTransform;
@@ -68,6 +69,8 @@ export const TextTool = () => {
         borderScaleFactor: text.borderScaleFactor,
         strokeUniform: text.strokeUniform,
         name: "Text",
+        fontSize: text.fontSize,
+        fontFamily: text.fontFamily,
       },
     });
   };

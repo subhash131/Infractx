@@ -144,8 +144,10 @@ export const FrameTool = () => {
     let pendingEnterFrame: Frame | null = null;
     let pendingObject: fabric.FabricObject | null = null;
 
-    const handleObjectMoving = (e: any) => {
-      const movingObj = e.target;
+    const handleObjectMoving = (
+      e: fabric.BasicTransformEvent<fabric.TPointerEvent>
+    ) => {
+      const movingObj = e.transform.target;
       if (!movingObj || movingObj instanceof Frame) return;
 
       movingObj.setCoords();

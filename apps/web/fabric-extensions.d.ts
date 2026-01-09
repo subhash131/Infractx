@@ -26,6 +26,11 @@ declare module "fabric" {
     name: string;
     overline: boolean;
     underline: boolean;
+    _pendingChildPositions: {
+      top: number;
+      left: number;
+      obj: FabricObject;
+    }[];
   }
   interface SerializedObjectProps {
     _id?: Id<"layers">;
@@ -50,5 +55,6 @@ declare module "fabric" {
     name: string;
     overline: boolean;
     underline: boolean;
+    _pendingChildPositions: { top: number; left: number; obj: FabricObject }[];
   }
 }
