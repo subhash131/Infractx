@@ -1,5 +1,6 @@
 import { ConvexError, v } from "convex/values";
 import { mutation, query } from "../_generated/server";
+import { Doc } from "../_generated/dataModel";
 
 // Create a new file
 export const createFile = mutation({
@@ -182,7 +183,7 @@ export const updateFile = mutation({
       });
     }
 
-    const updates: any = { updatedAt: Date.now() };
+    const updates: Partial<Doc<"files">> = { updatedAt: Date.now() };
     if (args.name !== undefined) updates.name = args.name;
     if (args.description !== undefined) updates.description = args.description;
     if (args.organizationId !== undefined)

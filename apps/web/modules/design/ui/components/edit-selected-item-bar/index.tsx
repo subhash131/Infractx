@@ -6,6 +6,7 @@ import { Input } from "@workspace/ui/components/input";
 import { Label } from "@workspace/ui/components/label";
 import { useMutation } from "convex/react";
 import { api } from "@workspace/backend/_generated/api";
+import * as fabric from "fabric";
 
 interface ElementProperties {
   left: number;
@@ -72,7 +73,7 @@ export const EditSelectedItemBar = () => {
         ? 0
         : properties.borderRadius;
 
-      const setObj: any = {
+      const setObj: Partial<fabric.FabricObjectProps> = {
         fill: properties.fill,
         stroke: properties.stroke,
         strokeWidth: isNaN(properties.strokeWidth) ? 0 : properties.strokeWidth,

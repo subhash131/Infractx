@@ -49,7 +49,7 @@ export class DesignGroup extends fabric.Group {
     // Check if all children have the same parent
     const firstParent = (children[0] as any).parentLayerId;
     const hasCommonParent = children.every(
-      (obj: any) => obj.parentLayerId === firstParent
+      (obj) => obj.parentLayerId === firstParent
     );
 
     // If they all share a parent, the group should inherit it
@@ -119,7 +119,7 @@ export class DesignGroup extends fabric.Group {
       });
 
       // Inherit parent from group
-      (obj as any).parentLayerId = parentLayerId;
+      obj.parentLayerId = parentLayerId;
 
       obj.setCoords();
     });
