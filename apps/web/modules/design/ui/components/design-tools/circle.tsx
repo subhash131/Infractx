@@ -27,7 +27,7 @@ export const CircleTool = () => {
       radius,
       stroke: "#010101",
       fill: "#f0f0f0",
-      strokeWidth: 0.5,
+      strokeWidth: 0,
       cornerColor: "#4096ee",
       cornerSize: 8,
       cornerStrokeColor: "#4096ee",

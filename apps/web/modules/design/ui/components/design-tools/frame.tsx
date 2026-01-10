@@ -29,7 +29,7 @@ export class Frame extends fabric.Group {
       height: options?.height || 600,
       fill: options?.fill || "#ffffff",
       stroke: options?.stroke || "#e5e5e5",
-      strokeWidth: 1,
+      strokeWidth: 0,
       selectable: false,
       evented: false,
     });
@@ -106,7 +106,7 @@ export const FrameTool = () => {
       height: 600,
       fill: "#ffffff",
       stroke: "#e5e5e5",
-      strokeWidth: 2,
+      strokeWidth: 0,
     });
 
     const vpt = canvas.viewportTransform!;
