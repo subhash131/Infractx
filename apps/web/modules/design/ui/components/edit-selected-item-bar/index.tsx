@@ -1,155 +1,146 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import useCanvas from "../../../store";
-import { Input } from "@workspace/ui/components/input";
-import { Label } from "@workspace/ui/components/label";
 import { useMutation } from "convex/react";
 import { api } from "@workspace/backend/_generated/api";
 import * as fabric from "fabric";
 
-interface ElementProperties {
-  left: number;
-  top: number;
-  width: number;
-  height: number;
-  fill: string;
-  stroke: string;
-  strokeWidth: number;
-  opacity: number;
-  borderRadius: number;
-}
+import { PositionPanel } from "./position-panel";
+import { SizePanel } from "./size-panel";
+import { AppearancePanel } from "./appearance-panel";
+import { Doc } from "@workspace/backend/_generated/dataModel";
+
+const INITIAL_PROPERTIES: Partial<Doc<"layers">> = {
+  left: 0,
+  top: 0,
+  width: 0,
+  height: 0,
+  fill: "#000000",
+  stroke: "transparent",
+  strokeWidth: 0,
+  opacity: 1,
+  radius: 0,
+};
 
 export const EditSelectedItemBar = () => {
   const selectedElements = useCanvas((state) => state.selectedElements);
   const canvas = useCanvas((state) => state.canvas);
 
-  const updateCanvasObject = useMutation(api.design.layers.updateObject);
-
-  const [properties, setProperties] = useState<ElementProperties>({
-    left: 0,
-    top: 0,
-    width: 0,
-    height: 0,
-    fill: "#000000",
-    stroke: "transparent",
-    strokeWidth: 0,
-    opacity: 1,
-    borderRadius: 0,
-  });
+  const [properties, setProperties] =
+    useState<Partial<Doc<"layers">>>(INITIAL_PROPERTIES);
 
   const hasSelection = selectedElements.length > 0;
   const isSingleSelection = selectedElements.length === 1;
+  const activeElement = isSingleSelection ? selectedElements[0] : null;
 
+  // 1. Sync State with Selection
   useEffect(() => {
-    if (isSingleSelection && selectedElements[0]) {
-      const element = selectedElements[0];
+    if (activeElement) {
       setProperties({
-        left: Math.round(element.left || 0),
-        top: Math.round(element.top || 0),
-        width: Math.round((element.width || 0) * (element.scaleX || 1)),
-        height: Math.round((element.height || 0) * (element.scaleY || 1)),
-        fill: (element.fill as string) || "#000000",
-        stroke: (element.stroke as string) || "transparent",
-        strokeWidth: element.strokeWidth || 0,
-        opacity: element.opacity || 1,
-        borderRadius: (element as any).rx || 0,
+        left: Math.round(activeElement.left || 0),
+        top: Math.round(activeElement.top || 0),
+        width: Math.round(
+          (activeElement.width || 0) * (activeElement.scaleX || 1)
+        ),
+        height: Math.round(
+          (activeElement.height || 0) * (activeElement.scaleY || 1)
+        ),
+        fill: activeElement.fill?.toString() || "transparent",
+        stroke: activeElement.stroke?.toString() || "transparent",
+        strokeWidth: activeElement.strokeWidth || 0,
+        opacity: activeElement.opacity || 1,
+        radius:
+          activeElement.obj_type === "CIRCLE"
+            ? Math.round(activeElement.radius || 10)
+            : Math.round(activeElement.rx || 0),
       });
     }
-  }, [selectedElements]);
+  }, [activeElement]);
 
-  // Apply opacity changes in real-time
+  // Helper to safely parse numbers (converts "-" or "" to 0)
+  const safeParseFloat = (value: string | number) => {
+    const parsed = parseFloat(value.toString());
+    return isNaN(parsed) ? 0 : parsed;
+  };
+
+  // 2. Real-time updates for Appearance
   useEffect(() => {
-    if (isSingleSelection && selectedElements[0]) {
-      selectedElements[0].set({ opacity: properties.opacity });
-      canvas?.renderAll();
+    if (!activeElement || !canvas) return;
+
+    const borderRadiusValue = safeParseFloat(properties.radius || 0);
+    const width = safeParseFloat(properties.width || 0);
+    const height = safeParseFloat(properties.height || 0);
+    const strokeWidthValue = safeParseFloat(properties.strokeWidth || 0);
+
+    const setObj: Partial<fabric.FabricObjectProps> = {
+      fill: properties.fill,
+      stroke: properties.stroke,
+      strokeWidth: strokeWidthValue,
+      strokeUniform: true,
+      opacity: properties.opacity,
+      width,
+      height,
+    };
+
+    if (activeElement.type === "rect") {
+      setObj.rx = borderRadiusValue;
+      setObj.ry = borderRadiusValue;
+    } else if (activeElement.type === "circle") {
+      setObj.radius = borderRadiusValue;
     }
-  }, [properties.opacity, isSingleSelection, selectedElements, canvas]);
 
-  // Apply color and stroke changes in real-time
-  useEffect(() => {
-    if (isSingleSelection && selectedElements[0]) {
-      const borderRadiusValue = isNaN(properties.borderRadius)
-        ? 0
-        : properties.borderRadius;
-
-      const setObj: Partial<fabric.FabricObjectProps> = {
-        fill: properties.fill,
-        stroke: properties.stroke,
-        strokeWidth: isNaN(properties.strokeWidth) ? 0 : properties.strokeWidth,
-        strokeUniform: true,
-      };
-
-      // Only apply border radius to rectangles
-      if (selectedElements[0].type === "rect") {
-        setObj.rx = borderRadiusValue;
-        setObj.ry = borderRadiusValue;
-      }
-
-      selectedElements[0].set(setObj);
-
-      canvas?.renderAll();
-    }
+    activeElement.set(setObj);
+    canvas?._activeObject?.setCoords();
+    canvas.renderAll();
   }, [
     properties.fill,
     properties.stroke,
     properties.strokeWidth,
-    properties.borderRadius,
-    isSingleSelection,
-    selectedElements,
+    properties.radius,
+    properties.opacity,
+    activeElement,
     canvas,
   ]);
 
-  const handlePropertyChange = (key: keyof ElementProperties, value: any) => {
-    let newValue: any;
+  // 3. Handlers
+  const handlePropertyChange = useCallback(
+    (key: keyof Partial<Doc<"layers">>, value: any) => {
+      let newValue: any;
 
-    if (key === "fill" || key === "stroke") {
-      // For colors, if value is empty or invalid, set to #000000
-      newValue = value === "" || !value ? "#000000" : value;
-    } else {
-      // For other numeric properties
-      newValue = isNaN(value) ? value : parseFloat(value);
-    }
+      if (key === "fill" || key === "stroke") {
+        newValue = value === "" || !value ? "#000000" : value;
+      } else {
+        // Logic change: Allow intermediate states like "-" or empty string
+        if (value === "" || value === "-") {
+          newValue = value;
+        } else {
+          // Only parse if it looks like a real number
+          const parsed = parseFloat(value);
+          newValue = isNaN(parsed) ? value : parsed;
+        }
+      }
 
-    setProperties((prev) => ({ ...prev, [key]: newValue }));
-  };
+      setProperties((prev) => ({ ...prev, [key]: newValue }));
+    },
+    []
+  );
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      applyChanges();
-    }
-  };
+  const applyChanges = useCallback(() => {
+    if (!activeElement || !canvas) return;
 
-  const applyChanges = () => {
-    if (!isSingleSelection || !selectedElements[0]) return;
-
-    const element = selectedElements[0];
-    element.set({
-      left: isNaN(properties.left) ? 0 : properties.left,
-      top: isNaN(properties.top) ? 0 : properties.top,
-      width: isNaN(properties.width) ? 0 : properties.width,
-      height: isNaN(properties.height) ? 0 : properties.height,
+    activeElement.set({
+      left: safeParseFloat(properties.left || 0),
+      top: safeParseFloat(properties.top || 0),
+      width: safeParseFloat(properties.width || 0),
+      height: safeParseFloat(properties.height || 0),
       scaleX: 1,
       scaleY: 1,
-      fill: properties.fill,
-      stroke: properties.stroke,
-      strokeWidth: isNaN(properties.strokeWidth) ? 0 : properties.strokeWidth,
-      strokeUniform: true,
-      opacity: properties.opacity,
     });
+    activeElement.setCoords();
 
-    // Set border radius (rx and ry for rectangles)
-    const borderRadiusValue = isNaN(properties.borderRadius)
-      ? 0
-      : properties.borderRadius;
-    if ((element as any).rx !== undefined) {
-      (element as any).rx = borderRadiusValue;
-      (element as any).ry = borderRadiusValue;
-    }
-
-    canvas?.renderAll();
-    // // Force update in store to trigger re-renders
-  };
+    canvas.renderAll();
+  }, [activeElement, canvas, properties]);
 
   return (
     <div className="w-44 h-full border-l bg-sidebar absolute right-0 z-99 overflow-y-auto p-4 flex flex-col gap-4">
@@ -166,217 +157,29 @@ export const EditSelectedItemBar = () => {
             </h3>
           </div>
 
-          {isSingleSelection && (
+          {activeElement && (
             <div className="space-y-4">
-              {/* Position Section */}
-              <div className="space-y-3">
-                <h4 className="text-xs font-semibold text-muted-foreground uppercase">
-                  Position
-                </h4>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="space-y-1">
-                    <Label htmlFor="left" className="text-xs">
-                      X
-                    </Label>
-                    <Input
-                      id="left"
-                      type="number"
-                      value={isNaN(properties.left) ? "" : properties.left}
-                      onChange={(e) =>
-                        handlePropertyChange("left", e.target.value)
-                      }
-                      onKeyDown={handleKeyPress}
-                      onBlur={applyChanges}
-                      className="h-8 text-xs"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="top" className="text-xs">
-                      Y
-                    </Label>
-                    <Input
-                      id="top"
-                      type="number"
-                      value={isNaN(properties.top) ? "" : properties.top}
-                      onChange={(e) =>
-                        handlePropertyChange("top", e.target.value)
-                      }
-                      onKeyDown={handleKeyPress}
-                      onBlur={applyChanges}
-                      className="h-8 text-xs"
-                    />
-                  </div>
-                </div>
-              </div>
+              <PositionPanel
+                properties={properties}
+                onChange={handlePropertyChange}
+                onCommit={applyChanges}
+              />
 
-              {/* Size Section */}
-              <div className="space-y-3">
-                <h4 className="text-xs font-semibold text-muted-foreground uppercase">
-                  Size
-                </h4>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="space-y-1">
-                    <Label htmlFor="width" className="text-xs">
-                      Width
-                    </Label>
-                    <Input
-                      id="width"
-                      type="number"
-                      value={isNaN(properties.width) ? "" : properties.width}
-                      onChange={(e) =>
-                        handlePropertyChange("width", e.target.value)
-                      }
-                      onKeyDown={handleKeyPress}
-                      onBlur={applyChanges}
-                      className="h-8 text-xs"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="height" className="text-xs">
-                      Height
-                    </Label>
-                    <Input
-                      id="height"
-                      type="number"
-                      value={isNaN(properties.height) ? "" : properties.height}
-                      onChange={(e) =>
-                        handlePropertyChange("height", e.target.value)
-                      }
-                      onKeyDown={handleKeyPress}
-                      onBlur={applyChanges}
-                      className="h-8 text-xs"
-                    />
-                  </div>
-                </div>
-              </div>
+              <SizePanel
+                properties={properties}
+                onChange={handlePropertyChange}
+                onCommit={applyChanges}
+              />
 
-              {/* Appearance Section */}
-              <div className="space-y-3">
-                <h4 className="text-xs font-semibold text-muted-foreground uppercase">
-                  Appearance
-                </h4>
-                <div className="space-y-2">
-                  <div className="space-y-1">
-                    <Label htmlFor="fill" className="text-xs">
-                      Fill Color
-                    </Label>
-                    <div className="flex gap-2">
-                      <Input
-                        id="fill"
-                        type="color"
-                        value={properties.fill}
-                        onChange={(e) =>
-                          handlePropertyChange("fill", e.target.value)
-                        }
-                        className="h-8 w-12 p-1 cursor-pointer"
-                      />
-                      <Input
-                        type="text"
-                        value={properties.fill}
-                        onChange={(e) =>
-                          handlePropertyChange("fill", e.target.value)
-                        }
-                        className="h-8 text-xs flex-1"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label htmlFor="stroke" className="text-xs">
-                      Stroke Color
-                    </Label>
-                    <div className="flex gap-2">
-                      <Input
-                        id="stroke"
-                        type="color"
-                        value={
-                          properties.stroke === "transparent"
-                            ? "#000000"
-                            : properties.stroke
-                        }
-                        onChange={(e) =>
-                          handlePropertyChange("stroke", e.target.value)
-                        }
-                        className="h-8 w-12 p-1 cursor-pointer"
-                      />
-                      <Input
-                        type="text"
-                        value={properties.stroke}
-                        onChange={(e) =>
-                          handlePropertyChange("stroke", e.target.value)
-                        }
-                        className="h-8 text-xs flex-1"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label htmlFor="strokeWidth" className="text-xs">
-                      Stroke Width
-                    </Label>
-                    <Input
-                      id="strokeWidth"
-                      type="number"
-                      min="0"
-                      step="1"
-                      value={
-                        isNaN(properties.strokeWidth)
-                          ? ""
-                          : properties.strokeWidth
-                      }
-                      onChange={(e) =>
-                        handlePropertyChange("strokeWidth", e.target.value)
-                      }
-                      className="h-8 text-xs"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label htmlFor="opacity" className="text-xs">
-                      Opacity ({Math.round(properties.opacity * 100)}%)
-                    </Label>
-                    <Input
-                      id="opacity"
-                      type="range"
-                      min="0"
-                      max="1"
-                      step="0.05"
-                      value={properties.opacity}
-                      onChange={(e) =>
-                        handlePropertyChange("opacity", e.target.value)
-                      }
-                      className="h-8"
-                    />
-                  </div>
-                  {selectedElements[0]?.type === "rect" && (
-                    <div className="space-y-1">
-                      <Label htmlFor="borderRadius" className="text-xs">
-                        Border Radius ({properties.borderRadius})
-                      </Label>
-                      <Input
-                        id="borderRadius"
-                        type="range"
-                        min="0"
-                        max="50"
-                        step="1"
-                        value={
-                          isNaN(properties.borderRadius)
-                            ? 0
-                            : properties.borderRadius
-                        }
-                        onChange={(e) =>
-                          handlePropertyChange("borderRadius", e.target.value)
-                        }
-                        className="h-8"
-                      />
-                    </div>
-                  )}
-                </div>
-              </div>
+              <AppearancePanel
+                properties={properties}
+                showBorderRadius={activeElement.type === "rect"}
+                onChange={handlePropertyChange}
+              />
             </div>
           )}
 
-          {!isSingleSelection && hasSelection && (
+          {!isSingleSelection && (
             <div className="text-xs text-muted-foreground">
               Multiple items selected. Select one item to edit properties.
             </div>
