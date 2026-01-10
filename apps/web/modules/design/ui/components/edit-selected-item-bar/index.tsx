@@ -9,7 +9,7 @@ import * as fabric from "fabric";
 import { PositionPanel } from "./position-panel";
 import { SizePanel } from "./size-panel";
 import { AppearancePanel } from "./appearance-panel";
-import { Doc } from "@workspace/backend/_generated/dataModel";
+import { Doc, Id } from "@workspace/backend/_generated/dataModel";
 
 const INITIAL_PROPERTIES: Partial<Doc<"layers">> = {
   left: 0,
@@ -26,6 +26,7 @@ const INITIAL_PROPERTIES: Partial<Doc<"layers">> = {
 export const EditSelectedItemBar = () => {
   const selectedElements = useCanvas((state) => state.selectedElements);
   const canvas = useCanvas((state) => state.canvas);
+  const updateLayer = useMutation(api.design.layers.updateObject);
 
   const [properties, setProperties] =
     useState<Partial<Doc<"layers">>>(INITIAL_PROPERTIES);
@@ -129,18 +130,30 @@ export const EditSelectedItemBar = () => {
   const applyChanges = useCallback(() => {
     if (!activeElement || !canvas) return;
 
-    activeElement.set({
-      left: safeParseFloat(properties.left || 0),
-      top: safeParseFloat(properties.top || 0),
-      width: safeParseFloat(properties.width || 0),
-      height: safeParseFloat(properties.height || 0),
-      scaleX: 1,
-      scaleY: 1,
-    });
-    activeElement.setCoords();
+    const left = safeParseFloat(properties.left || 0);
+    const top = safeParseFloat(properties.top || 0);
+    const width = safeParseFloat(properties.width || 0);
+    const height = safeParseFloat(properties.height || 0);
+    const radius =
+      canvas._activeObject?.obj_type === "CIRCLE"
+        ? safeParseFloat(properties.radius || 0)
+        : safeParseFloat(properties.rx || 0);
 
+    activeElement.set({ left, top, width, height });
+    activeElement.setCoords();
     canvas.renderAll();
-  }, [activeElement, canvas, properties]);
+
+    updateLayer({
+      _id: activeElement._id as Id<"layers">,
+      left,
+      top,
+      width,
+      height,
+      radius,
+      parentLayerId: activeElement.parentLayerId,
+      ...properties,
+    }).catch((err) => console.error("Failed to update layer:", err));
+  }, [activeElement, canvas, properties, selectedElements, updateLayer]);
 
   return (
     <div className="w-44 h-full border-l bg-sidebar absolute right-0 z-99 overflow-y-auto p-4 flex flex-col gap-4">
