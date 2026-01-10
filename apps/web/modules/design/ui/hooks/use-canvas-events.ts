@@ -116,7 +116,7 @@ export const useCanvasEvents = (
     };
     const delayedSetActiveObject = debounce((modifiedObject: fabric.Object) => {
       setActiveObject(modifiedObject);
-    }, 400);
+    }, 500);
 
     // Object modification handler
     const handleObjectModified = debounce(

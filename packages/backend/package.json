@@ -20,6 +20,7 @@
     "@clerk/backend": "^2.26.0",
     "@convex-dev/agent": "^0.3.2",
     "@convex-dev/persistent-text-streaming": "^0.3.0",
+    "@convex-dev/prosemirror-sync": "^0.2.0",
     "@convex-dev/rag": "^0.6.1",
     "@convex-dev/workflow": "^0.3.3",
     "@langchain/community": "^1.1.1",
