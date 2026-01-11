@@ -8,6 +8,7 @@ import { useCanvasInit } from "../hooks/use-canvas-init";
 import { useCanvasKeyboard } from "../hooks/use-canvas-keyboard";
 import { useCanvasEvents } from "../hooks/use-canvas-events";
 import { useCanvasLayers } from "../hooks/use-canvas-layers";
+import { useFrameSnapping } from "../hooks/use-frame-snapping";
 
 export const DesignCanvas = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -51,6 +52,14 @@ export const DesignCanvas = () => {
     updateObject,
     removeObject
   );
+
+  useFrameSnapping(canvas, {
+    enabled: true,
+    threshold: 5,
+    showGuides: true,
+    snapToCenter: true,
+    snapToEdges: true,
+  });
 
   // Canvas events (wheel, mouse, touch, selection, etc.)
   useCanvasEvents(

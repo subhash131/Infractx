@@ -17,7 +17,7 @@ const INITIAL_PROPERTIES: Partial<Doc<"layers">> = {
   width: 0,
   height: 0,
   fill: "#000000",
-  stroke: "transparent",
+  stroke: "#FFFFFF00",
   strokeWidth: 0,
   opacity: 1,
   radius: 0,
@@ -47,8 +47,8 @@ export const EditSelectedItemBar = () => {
         height: Math.round(
           (activeElement.height || 0) * (activeElement.scaleY || 1)
         ),
-        fill: activeElement.fill?.toString() || "transparent",
-        stroke: activeElement.stroke?.toString() || "transparent",
+        fill: activeElement.fill?.toString() || "#FFFFFF00",
+        stroke: activeElement.stroke?.toString() || "#FFFFFF00",
         strokeWidth: activeElement.strokeWidth || 0,
         opacity: activeElement.opacity || 1,
         radius:
