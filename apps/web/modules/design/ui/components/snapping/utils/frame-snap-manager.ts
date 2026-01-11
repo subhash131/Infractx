@@ -110,89 +110,133 @@ export class FrameSnapManager {
   private checkAndSnap(obj: fabric.FabricObject, frame: Frame) {
     this.activeGuides = [];
 
-    const objBounds = SnapDetector.getBounds(obj);
-    const frameBounds = SnapDetector.getBounds(frame);
+    // Frame's LOCAL bounds (centered at 0,0)
+    const frameLocalBounds = {
+      left: -frame.width! / 2, // -400
+      right: frame.width! / 2, // 400
+      top: -frame.height! / 2, // -300
+      bottom: frame.height! / 2, // 300
+      centerX: 0,
+      centerY: 0,
+      width: frame.width!,
+      height: frame.height!,
+    };
+
+    // Object's LOCAL bounds (obj.left/top are already local!)
+    const objWidth = obj.getScaledWidth();
+    const objHeight = obj.getScaledHeight();
+
+    const objLocalBounds = {
+      left: obj.left!,
+      top: obj.top!,
+      width: objWidth,
+      height: objHeight,
+      right: obj.left! + objWidth,
+      bottom: obj.top! + objHeight,
+      centerX: obj.left! + objWidth / 2,
+      centerY: obj.top! + objHeight / 2,
+    };
 
     let snappedX = false;
     let snappedY = false;
 
-    // ─── CENTER SNAP ─────────────────────────────
+    // CENTER SNAP
     if (this.config.snapToCenter) {
+      // Check if object center is near frame center (0, 0)
       const dx = this.getSnapDelta(
-        objBounds.centerX,
-        frameBounds.centerX,
+        objLocalBounds.centerX,
+        0, // Frame center X in local coords
         this.config.threshold
       );
 
       if (dx !== null) {
-        obj.left! += dx;
-        this.addGuide("vertical", frameBounds.centerX, "center", frameBounds);
+        obj.set({ left: obj.left! + dx });
+        this.addGuide("vertical", 0, "center", frameLocalBounds);
         snappedX = true;
       }
 
       const dy = this.getSnapDelta(
-        objBounds.centerY,
-        frameBounds.centerY,
+        objLocalBounds.centerY,
+        0, // Frame center Y in local coords
         this.config.threshold
       );
 
       if (dy !== null) {
-        obj.top! += dy;
-        this.addGuide("horizontal", frameBounds.centerY, "center", frameBounds);
+        obj.set({ top: obj.top! + dy });
+        this.addGuide("horizontal", 0, "center", frameLocalBounds);
         snappedY = true;
       }
     }
 
-    // ─── EDGE SNAP ───────────────────────────────
+    // EDGE SNAP
     if (this.config.snapToEdges) {
       if (!snappedX) {
+        // Left edge: obj.left should be at -width/2
         const dxLeft = this.getSnapDelta(
-          objBounds.left,
-          frameBounds.left,
+          objLocalBounds.left,
+          frameLocalBounds.left,
           this.config.threshold
         );
 
         if (dxLeft !== null) {
-          obj.left! += dxLeft;
-          this.addGuide("vertical", frameBounds.left, "edge", frameBounds);
+          obj.set({ left: obj.left! + dxLeft });
+          this.addGuide(
+            "vertical",
+            frameLocalBounds.left,
+            "edge",
+            frameLocalBounds
+          );
         } else {
+          // Right edge: obj.right should be at width/2
           const dxRight = this.getSnapDelta(
-            objBounds.right,
-            frameBounds.right,
+            objLocalBounds.right,
+            frameLocalBounds.right,
             this.config.threshold
           );
 
           if (dxRight !== null) {
-            obj.left! += dxRight;
-            this.addGuide("vertical", frameBounds.right, "edge", frameBounds);
+            obj.set({ left: obj.left! + dxRight });
+            this.addGuide(
+              "vertical",
+              frameLocalBounds.right,
+              "edge",
+              frameLocalBounds
+            );
           }
         }
       }
 
       if (!snappedY) {
+        // Top edge: obj.top should be at -height/2
         const dyTop = this.getSnapDelta(
-          objBounds.top,
-          frameBounds.top,
+          objLocalBounds.top,
+          frameLocalBounds.top,
           this.config.threshold
         );
 
         if (dyTop !== null) {
-          obj.top! += dyTop;
-          this.addGuide("horizontal", frameBounds.top, "edge", frameBounds);
+          obj.set({ top: obj.top! + dyTop });
+          this.addGuide(
+            "horizontal",
+            frameLocalBounds.top,
+            "edge",
+            frameLocalBounds
+          );
         } else {
+          // Bottom edge: obj.bottom should be at height/2
           const dyBottom = this.getSnapDelta(
-            objBounds.bottom,
-            frameBounds.bottom,
+            objLocalBounds.bottom,
+            frameLocalBounds.bottom,
             this.config.threshold
           );
 
           if (dyBottom !== null) {
-            obj.top! += dyBottom;
+            obj.set({ top: obj.top! + dyBottom });
             this.addGuide(
               "horizontal",
-              frameBounds.bottom,
+              frameLocalBounds.bottom,
               "edge",
-              frameBounds
+              frameLocalBounds
             );
           }
         }
@@ -201,7 +245,6 @@ export class FrameSnapManager {
 
     obj.setCoords();
   }
-
   private hasGuide(
     type: "vertical" | "horizontal",
     position: number,
@@ -215,20 +258,25 @@ export class FrameSnapManager {
 
   private addGuide(
     type: "vertical" | "horizontal",
-    position: number,
+    position: number, // This is in LOCAL coords (e.g., 0, -400, 400)
     matchType: "edge" | "center",
-    frameBounds: ObjectBounds
+    frameLocalBounds: ObjectBounds
   ) {
     if (this.hasGuide(type, position, matchType)) return;
 
     this.activeGuides.push({
       type,
-      position,
+      position, // Store local position
       matchType,
       color: this.renderer.getGuideColor(matchType),
       bounds: {
-        start: type === "vertical" ? frameBounds.top : frameBounds.left,
-        end: type === "vertical" ? frameBounds.bottom : frameBounds.right,
+        // Guide line spans full frame in local coords
+        start:
+          type === "vertical" ? frameLocalBounds.top : frameLocalBounds.left,
+        end:
+          type === "vertical"
+            ? frameLocalBounds.bottom
+            : frameLocalBounds.right,
       },
     });
   }
@@ -239,7 +287,6 @@ export class FrameSnapManager {
     this.canvas.requestRenderAll();
   };
 
-  // ─── Public API ───────────────────────────────
   public enable() {
     this.config.enabled = true;
   }

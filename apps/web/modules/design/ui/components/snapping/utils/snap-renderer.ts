@@ -6,7 +6,7 @@ export class SnapRenderer {
 
   private readonly COLORS = {
     center: "#ff0000",
-    edge: "#ff0000",
+    edge: "#ff0000", // Different color for edges
   };
 
   constructor(canvas: fabric.Canvas) {
@@ -17,58 +17,49 @@ export class SnapRenderer {
     const ctx = this.canvas.getContext();
     if (!ctx) return;
 
-    console.log({ guides });
-
-    const frameMatrix = frame.calcTransformMatrix();
     const viewport = this.canvas.viewportTransform;
-
     if (!viewport) return;
+
+    const frameBounds = frame.getBoundingRect();
+    const frameCenter = frame.getCenterPoint();
+
+    // 1. Get the device pixel ratio (Retina factor)
+    const retina = this.canvas.getRetinaScaling();
+    const zoom = this.canvas.getZoom();
 
     ctx.save();
 
-    ctx.setTransform(   
-      viewport[0],
-      viewport[1],
-      viewport[2],
-      viewport[3],
-      viewport[4],
-      viewport[5]
+    // 2. Apply retina scaling to the viewport transform
+    ctx.setTransform(
+      viewport[0] * retina,
+      viewport[1] * retina,
+      viewport[2] * retina,
+      viewport[3] * retina,
+      viewport[4] * retina,
+      viewport[5] * retina
     );
 
     guides.forEach((guide) => {
       ctx.save();
       ctx.strokeStyle = guide.color;
-      const zoom = this.canvas.getZoom();
-      ctx.lineWidth = 1 / zoom;
-      ctx.setLineDash([5, 5]);
+      ctx.lineWidth = 0.5 / zoom;
+      ctx.setLineDash([]);
       ctx.globalAlpha = 0.9;
 
       ctx.beginPath();
 
       if (guide.type === "vertical") {
-        const p1 = fabric.util.transformPoint(
-          new fabric.Point(guide.position, guide.bounds.start),
-          frameMatrix
-        );
-        const p2 = fabric.util.transformPoint(
-          new fabric.Point(guide.position, guide.bounds.end),
-          frameMatrix
-        );
-
-        ctx.moveTo(p1.x, p1.y);
-        ctx.lineTo(p2.x, p2.y);
+        const x = frameCenter.x + guide.position;
+        const y1 = frameBounds.top;
+        const y2 = frameBounds.top + frameBounds.height;
+        ctx.moveTo(x, y1);
+        ctx.lineTo(x, y2);
       } else {
-        const p1 = fabric.util.transformPoint(
-          new fabric.Point(guide.bounds.start, guide.position),
-          frameMatrix
-        );
-        const p2 = fabric.util.transformPoint(
-          new fabric.Point(guide.bounds.end, guide.position),
-          frameMatrix
-        );
-
-        ctx.moveTo(p1.x, p1.y);
-        ctx.lineTo(p2.x, p2.y);
+        const y = frameCenter.y + guide.position;
+        const x1 = frameBounds.left;
+        const x2 = frameBounds.left + frameBounds.width;
+        ctx.moveTo(x1, y);
+        ctx.lineTo(x2, y);
       }
 
       ctx.stroke();
