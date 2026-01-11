@@ -29,13 +29,13 @@ export const AppearancePanel = ({
             <Input
               id="fill"
               type="color"
-              value={properties.fill || "transparent"}
+              value={properties.fill || "#FFFFFF00"}
               onChange={(e) => onChange("fill", e.target.value)}
               className="h-8 w-12 p-1 cursor-pointer"
             />
             <Input
               type="text"
-              value={properties.fill || "transparent"}
+              value={properties.fill || "#FFFFFF00"}
               onChange={(e) => onChange("fill", e.target.value)}
               className="h-8 text-xs flex-1"
             />
