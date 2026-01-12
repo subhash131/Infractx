@@ -10,7 +10,7 @@ import {
   SystemMessage,
   ToolMessage,
 } from "@langchain/core/messages";
-import { allShapeTools, groqWithShapeTools } from "./tools/premitiveLayerTools";
+import { allShapeTools, groqWithShapeTools } from "./tools/primitiveLayerTools";
 
 export const create = action({
   args: {
@@ -154,8 +154,7 @@ Always provide complete parameters for each tool call.`);
 
     return {
       results: allResults,
-      message:
-        messages?.length > 0 ? messages[messages.length - 1].content : "",
+      message: messages?.[messages.length - 1]?.content ?? "",
     };
   },
 });

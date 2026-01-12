@@ -1,5 +1,5 @@
 import * as fabric from "fabric";
-import { Id } from "@workspace/backend/_generated/dataModel";
+import { Doc, Id } from "@workspace/backend/_generated/dataModel";
 import { ReactMutation } from "convex/react";
 import { api } from "@workspace/backend/_generated/api";
 
@@ -46,8 +46,12 @@ export const handlePaste = async (
 
   const objType = cloned.obj_type;
   const parentLayerId = cloned.parentLayerId;
+  if (!objType) return;
 
-  const layerData = {
+  const layerData: Omit<
+    Doc<"layers">,
+    "_id" | "createdAt" | "_creationTime" | "updatedAt"
+  > = {
     pageId: activePageId,
     type: objType,
     name: cloned.name || `${objType} Copy`,
@@ -71,6 +75,8 @@ export const handlePaste = async (
     underline: cloned?.underline,
     points: cloned?.points,
     radius: cloned?.radius,
+    scaleX: cloned.scaleX,
+    scaleY: cloned.scaleY,
   };
 
   const newId = await createObject({ layerObject: layerData });

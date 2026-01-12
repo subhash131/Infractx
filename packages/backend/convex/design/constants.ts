@@ -7,7 +7,8 @@ export const DESIGN_TOOLS_TYPE = v.union(
   v.literal("TEXT"),
   v.literal("LINE"),
   v.literal("GROUP"),
-  v.literal("PENCIL")
+  v.literal("PENCIL"),
+  v.literal("IMAGE")
 );
 
 export const SELECT_COLOR = "#4096ee";

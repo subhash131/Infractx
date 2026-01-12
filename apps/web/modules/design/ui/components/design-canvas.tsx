@@ -10,6 +10,7 @@ import { useCanvasEvents } from "../hooks/use-canvas-events";
 import { useCanvasLayers } from "../hooks/use-canvas-layers";
 import { useFrameSnapping } from "../hooks/use-frame-snapping";
 import { useObjectSnapping } from "../hooks/use-object-snapping";
+import { useImageDrop, useImagePaste } from "../hooks/use-image-drop";
 
 export const DesignCanvas = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -89,6 +90,23 @@ export const DesignCanvas = () => {
     layers as Doc<"layers">[],
     page as Doc<"pages">
   );
+
+  //Enable image drop
+  useImageDrop({
+    canvas,
+    activePageId: activePageId as Id<"pages">,
+    createObject,
+    onImageAdded: (img) => {
+      console.log("Image added to canvas:", img);
+    },
+  });
+
+  // Enable paste from clipboard
+  useImagePaste({
+    canvas,
+    activePageId: activePageId as Id<"pages">,
+    createObject,
+  });
 
   return (
     <div className="absolute inset-0">

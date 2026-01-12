@@ -162,6 +162,16 @@ export const updateObject = mutation({
   },
 });
 
+export const renameLayer = mutation({
+  args: {
+    layerId: v.id("layers"),
+    name: v.string(),
+  },
+  handler: async (ctx, args) => {
+    ctx.db.patch(args.layerId, { name: args.name });
+  },
+});
+
 export const getLayersByPage = query({
   args: {
     pageId: v.id("pages"),
