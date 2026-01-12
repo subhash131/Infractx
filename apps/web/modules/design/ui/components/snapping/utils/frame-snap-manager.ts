@@ -1,5 +1,4 @@
 import * as fabric from "fabric";
-import { SnapDetector } from "./snap-detector";
 import { SnapRenderer } from "./snap-renderer";
 import { SnapGuide, SnapConfig, ObjectBounds } from "./types";
 import { Frame } from "../../design-tools/frame";
