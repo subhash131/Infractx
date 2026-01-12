@@ -9,6 +9,7 @@ import { useCanvasKeyboard } from "../hooks/use-canvas-keyboard";
 import { useCanvasEvents } from "../hooks/use-canvas-events";
 import { useCanvasLayers } from "../hooks/use-canvas-layers";
 import { useFrameSnapping } from "../hooks/use-frame-snapping";
+import { useObjectSnapping } from "../hooks/use-object-snapping";
 
 export const DesignCanvas = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -59,6 +60,13 @@ export const DesignCanvas = () => {
     showGuides: true,
     snapToCenter: true,
     snapToEdges: true,
+  });
+
+  useObjectSnapping(canvas, {
+    enabled: true,
+    maxNearbyObjects: 4,
+    threshold: 5,
+    showGuides: true,
   });
 
   // Canvas events (wheel, mouse, touch, selection, etc.)
