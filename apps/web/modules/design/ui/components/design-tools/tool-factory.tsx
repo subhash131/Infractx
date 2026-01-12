@@ -14,21 +14,31 @@ export const createFabricObject = (
   layer: LayerNode
 ): fabric.FabricObject | null => {
   let fabricObj: fabric.FabricObject | null = null;
-  const { type, fontWeight, ...obj } = layer;
+  const { type, fontWeight, shadow, ...obj } = layer;
 
   switch (type) {
     case "RECT":
       fabricObj = new fabric.Rect({
         ...obj,
+        shadow,
         obj_type: type,
-        absolutePositioned: false,
       } as fabric.TOptions<fabric.RectProps>);
+      break;
+    case "IMAGE":
+      if (!obj.imageUrl) break;
+      const imgEl = document.createElement("img");
+      imgEl.src = obj.imageUrl;
+      fabricObj = new fabric.FabricImage(imgEl, {
+        ...obj,
+      }) as fabric.FabricObject;
+
       break;
 
     case "CIRCLE":
       fabricObj = new fabric.Circle({
         ...obj,
         obj_type: type,
+        shadow,
       } as fabric.TOptions<fabric.CircleProps>);
       break;
 
@@ -36,18 +46,19 @@ export const createFabricObject = (
       fabricObj = new fabric.Polyline(layer.points || [], {
         ...obj,
         obj_type: type,
+        shadow,
       } as fabric.TOptions<fabric.RectProps>);
       break;
 
     case "TEXT":
-      fabricObj = new fabric.IText(obj.text || "Text", {
+      fabricObj = new fabric.IText(obj.text?.trim() || "Text", {
         ...obj,
         obj_type: type,
         fontFamily: "Poppins",
         padding: 4,
         editingBorderColor: "#646464",
-        shadow: obj.shadow ? new fabric.Shadow(obj.shadow) : undefined,
-        linethrough: obj.linethrough ? obj.linethrough.toString() : "false",
+        shadow: shadow ? new fabric.Shadow(shadow) : undefined,
+        linethrough: false,
       }) as fabric.FabricObject<Partial<fabric.FabricObjectProps>>;
       break;
 
@@ -57,7 +68,7 @@ export const createFabricObject = (
         const child = createFabricObject(childLayer);
         if (child) children.push(child);
       });
-      fabricObj = new DesignGroup(children, { ...obj, _id: layer._id });
+      fabricObj = new DesignGroup(children, { ...obj, _id: layer._id, shadow });
       break;
     }
 
@@ -86,6 +97,7 @@ export const createFabricObject = (
       fabricObj = new Frame(childObjects, {
         ...obj,
         obj_type: type,
+        shadow,
       } as fabric.TOptions<fabric.RectProps>);
 
       (fabricObj as any)._pendingChildPositions = childPositions;

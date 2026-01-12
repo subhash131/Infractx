@@ -14,7 +14,7 @@ import { insertLayer, validateFrame } from "./utils";
 import {
   allShapeTools,
   groqWithShapeTools,
-} from "../tools/premitiveLayerTools";
+} from "../tools/primitiveLayerTools";
 
 // ============================================
 // ANALYZE INPUT - Main Router

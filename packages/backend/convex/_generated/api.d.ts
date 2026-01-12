@@ -14,7 +14,7 @@ import type * as ai_messages from "../ai/messages.js";
 import type * as ai_nodes_index from "../ai/nodes/index.js";
 import type * as ai_nodes_utils from "../ai/nodes/utils.js";
 import type * as ai_tools_advancedLayerTools from "../ai/tools/advancedLayerTools.js";
-import type * as ai_tools_premitiveLayerTools from "../ai/tools/premitiveLayerTools.js";
+import type * as ai_tools_premitiveLayerTools from "../ai/tools/primitiveLayerTools.js";
 import type * as ai_workflowAction from "../ai/workflowAction.js";
 import type * as auth_auth from "../auth/auth.js";
 import type * as design_canvases from "../design/canvases.js";

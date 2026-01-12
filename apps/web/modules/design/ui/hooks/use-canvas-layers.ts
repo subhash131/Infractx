@@ -7,42 +7,66 @@ import useCanvas from "../../store";
 export const useCanvasLayers = (
   canvas: fabric.Canvas | null,
   canvasRef: React.RefObject<HTMLCanvasElement | null>,
-  layers: Doc<"layers">[],
+  layers: Doc<"layers">[] | undefined,
   page: Doc<"pages">
 ) => {
   const { activeObject } = useCanvas();
+
   useEffect(() => {
     if (!canvas || !canvasRef.current) return;
+    if (!layers || layers.length === 0) {
+      canvas.clear();
+      canvas.requestRenderAll();
+      return;
+    }
 
-    canvas.clear();
-    canvas.renderOnAddRemove = false;
-    canvas.backgroundColor = page?.bgColor || "#d9d9d9";
+    let cancelled = false;
 
-    layers?.forEach((layer) => {
-      const fabricObj = createFabricObject(layer);
+    const loadLayers = async () => {
+      canvas.clear();
+      canvas.renderOnAddRemove = false;
 
-      if (fabricObj) {
-        canvas.add(fabricObj);
+      canvas.backgroundColor = page?.bgColor || "#d9d9d9";
 
-        // Apply child positions AFTER adding to canvas
-        if (fabricObj._pendingChildPositions) {
-          fabricObj._pendingChildPositions.forEach(({ obj, left, top }) => {
-            obj.setCoords();
-            obj.set({ left, top });
-            if (activeObject?._id === obj._id) {
-              canvas.setActiveObject(obj);
+      const objects = (
+        await Promise.all(layers.map(createFabricObject))
+      ).filter(Boolean) as fabric.FabricObject[];
+
+      if (cancelled) return;
+
+      canvas.add(...objects);
+
+      // Apply FRAME child positions
+      objects.forEach((obj: any) => {
+        if (obj._pendingChildPositions?.length) {
+          obj._pendingChildPositions.forEach(
+            ({ obj: child, left, top }: any) => {
+              child.set({ left, top });
+              child.setCoords();
+
+              if (activeObject?._id === child._id) {
+                child.setCoords();
+                canvas.setActiveObject(child);
+              }
             }
-          });
-          fabricObj._pendingChildPositions = [];
+          );
+          delete obj._pendingChildPositions;
         }
 
-        if (activeObject?._id === fabricObj._id) {
-          canvas.setActiveObject(fabricObj);
+        if (activeObject?._id === obj._id) {
+          obj.setCoords();
+          canvas.setActiveObject(obj);
         }
-      }
-    });
+      });
 
-    canvas.renderOnAddRemove = true;
-    canvas.requestRenderAll();
-  }, [layers, canvas, canvasRef, page, activeObject]);
+      canvas.renderOnAddRemove = true;
+      canvas.requestRenderAll();
+    };
+
+    loadLayers();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [layers, canvas, canvasRef, page]);
 };

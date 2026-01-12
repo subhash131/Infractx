@@ -5,7 +5,6 @@ import { Minus } from "lucide-react";
 import { Button } from "@workspace/ui/components/button";
 import useCanvas from "../../../store";
 import { Id } from "@workspace/backend/_generated/dataModel";
-import { TOOLS } from "../../constants";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@workspace/backend/_generated/api";
 

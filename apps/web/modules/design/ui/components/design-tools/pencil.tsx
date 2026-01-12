@@ -33,11 +33,6 @@ export const PencilTool = () => {
       top: centerY - path.height / 2 + canvas._objects.length * 10,
     });
     canvas.add(path);
-
-    // addElement(path);
-    // canvas.setActiveObject(path);
-    // setSelectedElements([path]);
-    // setCount((prev) => prev + 1);
   };
 
   return (
