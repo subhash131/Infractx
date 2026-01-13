@@ -22,6 +22,7 @@ import type * as design_constants from "../design/constants.js";
 import type * as design_files from "../design/files.js";
 import type * as design_layers from "../design/layers.js";
 import type * as design_pages from "../design/pages.js";
+import type * as design_templates from "../design/templates.js";
 import type * as design_utils from "../design/utils.js";
 import type * as prosemirror from "../prosemirror.js";
 
@@ -46,6 +47,7 @@ declare const fullApi: ApiFromModules<{
   "design/files": typeof design_files;
   "design/layers": typeof design_layers;
   "design/pages": typeof design_pages;
+  "design/templates": typeof design_templates;
   "design/utils": typeof design_utils;
   prosemirror: typeof prosemirror;
 }>;

@@ -11,7 +11,7 @@ export const validateFrame = async (state: WorkflowStateType) => {
     const frame = await state.convexState.runQuery(
       api.design.layers.getLayerById,
       {
-        frameId: state.frameId,
+        layerId: state.frameId,
       }
     );
     console.log("validateFrame - existing frame check:", frame);

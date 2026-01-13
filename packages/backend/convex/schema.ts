@@ -144,14 +144,16 @@ export default defineSchema({
     name: v.string(),
     description: v.optional(v.string()),
     createdBy: v.string(),
-    canvasData: v.any(), // Store complete canvas state
+    org_id: v.string(),
+    frameDate: v.string(),
     thumbnail: v.optional(v.string()),
     tags: v.optional(v.array(v.string())),
     isPublic: v.boolean(),
     createdAt: v.number(),
   })
     .index("by_created_by", ["createdBy"])
-    .index("by_public", ["isPublic"]),
+    .index("by_public", ["isPublic"])
+    .index("by_organization", ["org_id"]),
 
   conversations: defineTable({
     organizationId: v.string(),
