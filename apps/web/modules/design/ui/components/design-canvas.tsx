@@ -45,6 +45,7 @@ export const DesignCanvas = () => {
   const removeObject = useMutation(api.design.layers.deleteObject);
   const updateObject = useMutation(api.design.layers.updateObject);
   const createObject = useMutation(api.design.layers.createObject);
+  const saveFrameTemplate = useMutation(api.design.templates.saveFrameTemplate);
 
   // Initialize canvas
   useCanvasInit(canvasRef, canvas, setCanvas, setZoom);
@@ -120,16 +121,7 @@ export const DesignCanvas = () => {
 
   return (
     <div className="absolute inset-0">
-      <FrameContextMenu
-        onSave={() => {
-          const frame = getFrame();
-          console.log({ frame });
-          if (frame) {
-            console.log("Saving frame as template:", frame);
-            clearFrame();
-          }
-        }}
-      />
+      <FrameContextMenu frameId={getFrame()?._id} />
       <canvas ref={canvasRef} id="canvas" className="w-full h-full block" />
     </div>
   );

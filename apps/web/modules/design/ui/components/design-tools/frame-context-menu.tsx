@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { TemplateSaveForm } from "../templates/template-save-form";
+import { Id } from "@workspace/backend/_generated/dataModel";
 
 interface MenuPosition {
   x: number;
   y: number;
 }
 
-export function FrameContextMenu({ onSave }: { onSave: () => void }) {
+export function FrameContextMenu({ frameId }: { frameId?: Id<"layers"> }) {
   const [pos, setPos] = useState<MenuPosition | null>(null);
 
   useEffect(() => {
@@ -23,35 +25,20 @@ export function FrameContextMenu({ onSave }: { onSave: () => void }) {
     if (!pos) return;
 
     const close = () => setPos(null);
-
     window.addEventListener("click", close);
-    window.addEventListener("scroll", close, true);
 
-    return () => {
-      window.removeEventListener("click", close);
-      window.removeEventListener("scroll", close, true);
-    };
+    return () => window.removeEventListener("click", close);
   }, [pos]);
 
-  if (!pos) return null;
+  if (!pos || !frameId) return null;
 
   return createPortal(
     <div
-      className="fixed text-[#fff] bg-[#111] min-h-40 p-1 rounded-lg min-w-40"
-      style={{
-        left: pos.x,
-        top: pos.y,
-      }}
+      className="fixed bg-[#111] text-white rounded-lg p-1 min-w-40"
+      style={{ left: pos.x, top: pos.y }}
+      onClick={(e) => e.stopPropagation()}
     >
-      <button
-        className="px-2 py-1 text-xs rounded hover:bg-gray-200 hover:text-black w-full text-start"
-        onClick={(e) => {
-          onSave();
-          setPos(null);
-        }}
-      >
-        Save as template
-      </button>
+      <TemplateSaveForm frameId={frameId} />
     </div>,
     document.body
   );

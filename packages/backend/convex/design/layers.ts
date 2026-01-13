@@ -5,8 +5,14 @@ import {
   LAYER_OBJECT_ARGS,
   SELECT_COLOR,
 } from "./constants";
-import { Doc, Id } from "../_generated/dataModel";
-import { getNextFramePosition } from "./utils";
+import { Id } from "../_generated/dataModel";
+import {
+  getNextFramePosition,
+  buildFrameLayerTree,
+  LayerNode,
+  buildPageLayerTree,
+  buildFrameTemplateTree,
+} from "./utils";
 import { api } from "../_generated/api";
 
 // Create a canvas object
@@ -172,38 +178,30 @@ export const renameLayer = mutation({
   },
 });
 
-type LayerNode = Doc<"layers"> & {
-  children: LayerNode[];
-};
+export const getLayersByFrame = query({
+  args: { frameId: v.id("layers") },
+  handler: async (ctx, args) => {
+    const frame = await ctx.db.get(args.frameId);
+    if (!frame) return [];
+
+    const layers = await ctx.db
+      .query("layers")
+      .withIndex("by_page", (q) => q.eq("pageId", frame.pageId))
+      .collect();
+
+    return buildFrameLayerTree(layers, args.frameId);
+  },
+});
 
 export const getLayersByPage = query({
-  args: {
-    pageId: v.id("pages"),
-  },
+  args: { pageId: v.id("pages") },
   handler: async (ctx, args) => {
     const layers = await ctx.db
       .query("layers")
       .withIndex("by_page", (q) => q.eq("pageId", args.pageId))
       .collect();
 
-    // Build a tree structure
-    const buildTree = (
-      parentId: Id<"layers"> | null | undefined
-    ): LayerNode[] => {
-      return layers
-        .filter((layer) => {
-          if (parentId == null) {
-            return layer.parentLayerId == null;
-          }
-          return layer.parentLayerId === parentId;
-        })
-        .map((layer) => ({
-          ...layer,
-          children: buildTree(layer._id),
-        }));
-    };
-
-    return buildTree(null);
+    return buildPageLayerTree(layers);
   },
 });
 
@@ -242,11 +240,11 @@ export const getLayersByType = query({
 });
 
 export const getLayerById = query({
-  args: { frameId: v.id("layers") },
+  args: { layerId: v.id("layers") },
   handler: async (ctx, args) => {
     const frame = await ctx.db
       .query("layers")
-      .withIndex("by_id", (q) => q.eq("_id", args.frameId))
+      .withIndex("by_id", (q) => q.eq("_id", args.layerId))
       .unique();
     return frame;
   },
