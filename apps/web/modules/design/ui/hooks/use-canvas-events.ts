@@ -164,11 +164,11 @@ export const useCanvasEvents = (
             top,
             underline,
             parentLayerId,
-          } = modifiedObject as any;
+          } = modifiedObject;
 
-          if ((modifiedObject as any)?._id) {
+          if (modifiedObject?._id) {
             updateObject({
-              _id: (modifiedObject as any)._id as Id<"layers">,
+              _id: modifiedObject._id as Id<"layers">,
               width: finalWidth,
               height: finalHeight,
               angle,

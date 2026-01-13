@@ -9,6 +9,7 @@ import { Input } from "@workspace/ui/components/input";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { ArrowDown01Icon, ArrowRight01Icon } from "@hugeicons/core-free-icons";
 import { cn } from "@workspace/ui/lib/utils";
+import { RecursiveLayer } from "./snapping/utils/types";
 
 /* ======================================================
    Helpers: Fabric object lookup (recursive)
@@ -18,9 +19,9 @@ const findFabricObjectById = (
   obj: fabric.FabricObject,
   id: string
 ): fabric.FabricObject | null => {
-  if ((obj as any)._id === id) return obj;
+  if (obj._id === id) return obj;
 
-  const children = (obj as any)._objects || (obj as any)._children;
+  const children = (obj as fabric.Group).getObjects();
   if (Array.isArray(children)) {
     for (const child of children) {
       const found = findFabricObjectById(child, id);
@@ -52,7 +53,7 @@ const LayerRow = React.memo(
     isEditing,
     collapsed,
   }: {
-    layer: any;
+    layer: RecursiveLayer[number];
     depth: number;
     isEditing: boolean;
     collapsed: boolean;
@@ -141,7 +142,10 @@ export const CanvasLayersList = () => {
      Recursive renderer (no handlers)
   ====================================================== */
 
-  const renderLayerTree = (layer: any, depth = 0): React.ReactNode => {
+  const renderLayerTree = (
+    layer: RecursiveLayer[number],
+    depth = 0
+  ): React.ReactNode => {
     const collapsedHere = collapsed.has(layer._id);
 
     return (
@@ -154,7 +158,7 @@ export const CanvasLayersList = () => {
         />
 
         {!collapsedHere &&
-          layer.children?.map((child: any) =>
+          layer.children?.map((child: RecursiveLayer[number]) =>
             renderLayerTree(child, depth + 1)
           )}
       </React.Fragment>

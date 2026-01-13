@@ -74,7 +74,7 @@ export class FrameSnapManager {
   };
 
   private findParentFrame(obj: fabric.FabricObject): Frame | null {
-    const objWithId = obj as any;
+    const objWithId = obj;
 
     if (!objWithId.parentLayerId) return null;
 
@@ -83,7 +83,7 @@ export class FrameSnapManager {
     while (currentParentId) {
       const parent = this.canvas
         .getObjects()
-        .find((o: any) => o._id === currentParentId);
+        .find((o) => o._id === currentParentId);
 
       if (!parent) break;
 

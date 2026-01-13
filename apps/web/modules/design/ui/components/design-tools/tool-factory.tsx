@@ -100,7 +100,7 @@ export const createFabricObject = (
         shadow,
       } as fabric.TOptions<fabric.RectProps>);
 
-      (fabricObj as any)._pendingChildPositions = childPositions;
+      fabricObj._pendingChildPositions = childPositions;
       break;
     }
   }

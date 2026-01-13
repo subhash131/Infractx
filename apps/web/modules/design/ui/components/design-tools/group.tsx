@@ -47,7 +47,7 @@ export class DesignGroup extends fabric.Group {
     const bounds = selection.getBoundingRect();
 
     // Check if all children have the same parent
-    const firstParent = (children[0] as any).parentLayerId;
+    const firstParent = (children[0] as fabric.FabricObject).parentLayerId;
     const hasCommonParent = children.every(
       (obj) => obj.parentLayerId === firstParent
     );
@@ -96,7 +96,7 @@ export class DesignGroup extends fabric.Group {
     const groupMatrix = this.calcTransformMatrix();
 
     // Children should inherit the group's parent
-    const parentLayerId = (this as any).parentLayerId;
+    const parentLayerId = this.parentLayerId;
 
     children.forEach((obj) => {
       const absolute = new fabric.Point(obj.left ?? 0, obj.top ?? 0).transform(

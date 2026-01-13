@@ -3,11 +3,12 @@ import * as fabric from "fabric";
 import { createFabricObject } from "../components/design-tools/tool-factory";
 import { Doc } from "@workspace/backend/_generated/dataModel";
 import useCanvas from "../../store";
+import { RecursiveLayer } from "../components/snapping/utils/types";
 
 export const useCanvasLayers = (
   canvas: fabric.Canvas | null,
   canvasRef: React.RefObject<HTMLCanvasElement | null>,
-  layers: Doc<"layers">[] | undefined,
+  layers: RecursiveLayer | undefined,
   page: Doc<"pages">
 ) => {
   const { activeObject } = useCanvas();
@@ -37,20 +38,18 @@ export const useCanvasLayers = (
       canvas.add(...objects);
 
       // Apply FRAME child positions
-      objects.forEach((obj: any) => {
+      objects.forEach((obj) => {
         if (obj._pendingChildPositions?.length) {
-          obj._pendingChildPositions.forEach(
-            ({ obj: child, left, top }: any) => {
-              child.set({ left, top });
-              child.setCoords();
+          obj._pendingChildPositions.forEach(({ obj: child, left, top }) => {
+            child.set({ left, top });
+            child.setCoords();
 
-              if (activeObject?._id === child._id) {
-                child.setCoords();
-                canvas.setActiveObject(child);
-              }
+            if (activeObject?._id === child._id) {
+              child.setCoords();
+              canvas.setActiveObject(child);
             }
-          );
-          delete obj._pendingChildPositions;
+          });
+          obj._pendingChildPositions = [];
         }
 
         if (activeObject?._id === obj._id) {
