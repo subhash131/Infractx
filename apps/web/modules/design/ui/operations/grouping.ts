@@ -13,7 +13,7 @@ export const handleGroup = async (
 ) => {
   const selection = activeObject;
   const firstChild = selection.getObjects()[0];
-  const parentLayerId = (firstChild as any)?.parentLayerId;
+  const parentLayerId = firstChild?.parentLayerId;
   let parentObject: fabric.Group | undefined = undefined;
 
   if (parentLayerId) {
@@ -73,7 +73,7 @@ export const handleUngroup = async (
   removeObject: ReactMutation<typeof api.design.layers.deleteObject>
 ) => {
   const group = activeObject;
-  const parentLayerId = (group as any).parentLayerId;
+  const parentLayerId = group.parentLayerId;
   let parentObject: fabric.Group | undefined = undefined;
 
   if (parentLayerId) {

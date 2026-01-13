@@ -172,6 +172,10 @@ export const renameLayer = mutation({
   },
 });
 
+type LayerNode = Doc<"layers"> & {
+  children: LayerNode[];
+};
+
 export const getLayersByPage = query({
   args: {
     pageId: v.id("pages"),
@@ -184,13 +188,12 @@ export const getLayersByPage = query({
 
     // Build a tree structure
     const buildTree = (
-      parentId: string | null | undefined
-    ): Doc<"layers">[] => {
+      parentId: Id<"layers"> | null | undefined
+    ): LayerNode[] => {
       return layers
         .filter((layer) => {
-          // Handle both null and undefined as root layers
-          if (parentId === null || parentId === undefined) {
-            return !layer.parentLayerId; // Matches null, undefined, or missing
+          if (parentId == null) {
+            return layer.parentLayerId == null;
           }
           return layer.parentLayerId === parentId;
         })

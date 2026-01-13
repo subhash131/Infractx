@@ -1,11 +1,17 @@
 import { useEffect } from "react";
 import * as fabric from "fabric";
 import { Id } from "@workspace/backend/_generated/dataModel";
+import { api } from "@workspace/backend/_generated/api";
+import type { FunctionArgs, FunctionReturnType } from "convex/server";
+
+type CreateObjectFunction = (
+  args: FunctionArgs<typeof api.design.layers.createObject>
+) => Promise<FunctionReturnType<typeof api.design.layers.createObject>>;
 
 interface UseImageDropOptions {
   canvas: fabric.Canvas | null;
   activePageId: Id<"pages"> | null;
-  createObject: any;
+  createObject: CreateObjectFunction;
   onImageAdded?: (imageObj: fabric.Image) => void;
 }
 
@@ -91,7 +97,7 @@ async function handleImageFile(
   pointer: { x: number; y: number },
   canvas: fabric.Canvas,
   activePageId: Id<"pages">,
-  createObject: any,
+  createObject: CreateObjectFunction,
   onImageAdded?: (imageObj: fabric.Image) => void
 ) {
   const dataUrl = await readFileAsDataURL(file);
@@ -156,7 +162,7 @@ export const useImagePaste = ({
 }: {
   canvas: fabric.Canvas | null;
   activePageId: Id<"pages"> | null;
-  createObject: any;
+  createObject: CreateObjectFunction;
 }) => {
   useEffect(() => {
     if (!canvas) return;

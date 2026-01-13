@@ -7,6 +7,7 @@ import {
   SnapCandidate,
 } from "./types";
 import { SnapRenderer } from "./snap-renderer";
+import { Id } from "@workspace/backend/_generated/dataModel";
 
 export class ObjectSnapManager {
   private canvas: fabric.Canvas;
@@ -74,16 +75,16 @@ export class ObjectSnapManager {
     allObjects: fabric.FabricObject[]
   ): fabric.FabricObject[] {
     const movingBounds = this.getGlobalBounds(movingObject);
-    const movingId = (movingObject as any)._id;
+    const movingId = movingObject._id;
 
     // Calculate distances to all objects
     const objectsWithDistance = allObjects
       .filter((obj) => {
-        const objId = (obj as any)._id;
+        const objId = obj._id;
         // Skip the moving object itself
         if (objId === movingId) return false;
         // Skip frames
-        if ((obj as any).obj_type === "FRAME") return false;
+        if (obj.obj_type === "FRAME") return false;
         return true;
       })
       .map((obj) => {
@@ -105,17 +106,17 @@ export class ObjectSnapManager {
   private getPotentialObjects(
     movingObject: fabric.FabricObject
   ): fabric.FabricObject[] {
-    const parentLayerId = (movingObject as any).parentLayerId;
+    const parentLayerId = movingObject.parentLayerId;
 
     if (parentLayerId) {
       const parentFrame = this.canvas
         .getObjects()
-        .find((obj: any) => obj._id === parentLayerId);
+        .find((obj) => obj._id === parentLayerId);
 
       if (parentFrame && parentFrame instanceof fabric.Group) {
         return parentFrame
           .getObjects()
-          .filter((obj: any) => obj._id !== (movingObject as any)._id);
+          .filter((obj) => obj._id !== movingObject._id);
       }
 
       return [];
@@ -123,10 +124,7 @@ export class ObjectSnapManager {
       // No parent: get all canvas-level objects (no parent)
       return this.canvas
         .getObjects()
-        .filter(
-          (obj) =>
-            !(obj as any).parentLayerId && (obj as any).obj_type !== "FRAME"
-        );
+        .filter((obj) => !obj.parentLayerId && obj.obj_type !== "FRAME");
     }
   }
 
@@ -355,8 +353,7 @@ export class ObjectSnapManager {
     }
 
     const parentGroup = movingObject.group;
-    const isInsideFrame =
-      parentGroup && (parentGroup as any).obj_type === "FRAME";
+    const isInsideFrame = parentGroup && parentGroup.obj_type === "FRAME";
 
     if (bestXSnap) {
       if (isInsideFrame) {
@@ -374,7 +371,7 @@ export class ObjectSnapManager {
           start: bestXSnap.guideStart,
           end: bestXSnap.guideEnd,
         },
-        targetObjectId: (bestXSnap.targetObject as any)._id,
+        targetObjectId: bestXSnap.targetObject._id as Id<"layers">,
         color: "#ff0000",
       });
     }
@@ -395,7 +392,7 @@ export class ObjectSnapManager {
           start: bestYSnap.guideStart,
           end: bestYSnap.guideEnd,
         },
-        targetObjectId: (bestYSnap.targetObject as any)._id,
+        targetObjectId: bestYSnap.targetObject._id as Id<"layers">,
         color: "#ff0000",
       });
     }

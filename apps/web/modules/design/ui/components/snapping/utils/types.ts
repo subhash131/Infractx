@@ -1,3 +1,5 @@
+import { api } from "@workspace/backend/_generated/api";
+import { FunctionReturnType } from "convex/server";
 import * as fabric from "fabric";
 
 export interface SnapGuide {
@@ -69,3 +71,7 @@ export interface ObjectSnapConfig {
   showGuides: boolean;
   priority: ObjectSnapPriority;
 }
+
+export type RecursiveLayer = FunctionReturnType<
+  typeof api.design.layers.getLayersByPage
+>;

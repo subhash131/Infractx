@@ -11,6 +11,9 @@ import { useCanvasLayers } from "../hooks/use-canvas-layers";
 import { useFrameSnapping } from "../hooks/use-frame-snapping";
 import { useObjectSnapping } from "../hooks/use-object-snapping";
 import { useImageDrop, useImagePaste } from "../hooks/use-image-drop";
+import { FrameContextMenu } from "./design-tools/frame-context-menu";
+import { useFrameContextMenu } from "../hooks/use-frame-context-menu";
+import { RecursiveLayer } from "./snapping/utils/types";
 
 export const DesignCanvas = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -87,7 +90,7 @@ export const DesignCanvas = () => {
   useCanvasLayers(
     canvas,
     canvasRef,
-    layers as Doc<"layers">[],
+    layers as RecursiveLayer,
     page as Doc<"pages">
   );
 
@@ -108,8 +111,25 @@ export const DesignCanvas = () => {
     createObject,
   });
 
+  const { getFrame, clearFrame } = useFrameContextMenu({
+    canvas,
+    onSaveAsTemplate: (frame) => {
+      console.log("Right clicked on:", frame);
+    },
+  });
+
   return (
     <div className="absolute inset-0">
+      <FrameContextMenu
+        onSave={() => {
+          const frame = getFrame();
+          console.log({ frame });
+          if (frame) {
+            console.log("Saving frame as template:", frame);
+            clearFrame();
+          }
+        }}
+      />
       <canvas ref={canvasRef} id="canvas" className="w-full h-full block" />
     </div>
   );
