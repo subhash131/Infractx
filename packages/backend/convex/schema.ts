@@ -134,6 +134,8 @@ export default defineSchema({
     visible: v.optional(v.boolean()),
     createdAt: v.number(),
     updatedAt: v.number(),
+    layerRef: v.optional(v.string()),
+    parentLayerRef: v.optional(v.string()),
   })
     .index("by_page", ["pageId"])
     .index("by_page_zindex", ["pageId", "zIndex"])

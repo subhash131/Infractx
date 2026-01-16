@@ -53,6 +53,7 @@ export const getTemplatesByOrganization = query({
   },
 });
 export const getTemplatesByUser = query({
+  args: {},
   handler: async (ctx) => {
     const user = await ctx.auth.getUserIdentity();
     if (!user)
