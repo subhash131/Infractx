@@ -111,7 +111,8 @@ const WorkflowState = Annotation.Root({
 export type WorkflowStateType = typeof WorkflowState.State;
 
 export const groqModel = new ChatGroq({
-  apiKey: "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",
+  // apiKey: "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",
+  apiKey: "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",
   model: "openai/gpt-oss-120b",
   temperature: 0,
 });
