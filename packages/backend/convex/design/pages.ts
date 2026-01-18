@@ -4,7 +4,7 @@ import { mutation, query } from "../_generated/server";
 // Create a page
 export const createPage = mutation({
   args: {
-    fileId: v.id("files"),
+    designId: v.id("designs"),
     name: v.string(),
   },
   async handler(ctx, args) {
@@ -16,8 +16,8 @@ export const createPage = mutation({
       });
 
     const file = await ctx.db
-      .query("files")
-      .withIndex("by_id", (q) => q.eq("_id", args.fileId));
+      .query("designs")
+      .withIndex("by_id", (q) => q.eq("_id", args.designId));
 
     if (!file)
       new ConvexError({
@@ -29,12 +29,12 @@ export const createPage = mutation({
       name: args.name,
       bgColor: "#D9D9D9",
       layersCount: 0,
-      fileId: args.fileId,
+      designId: args.designId,
       updatedAt: Date.now(),
       createdAt: Date.now(),
     });
 
-    await ctx.db.patch(args.fileId, {
+    await ctx.db.patch(args.designId, {
       activePage: pageId,
     });
 
@@ -44,11 +44,11 @@ export const createPage = mutation({
 
 // Get pages in a file
 export const getFilePages = query({
-  args: { fileId: v.id("files") },
+  args: { designId: v.id("designs") },
   async handler(ctx, args) {
     return await ctx.db
       .query("pages")
-      .withIndex("by_file", (q) => q.eq("fileId", args.fileId))
+      .withIndex("by_design", (q) => q.eq("designId", args.designId))
       .collect();
   },
 });
@@ -88,13 +88,13 @@ export const updatePage = mutation({
 
 // Delete pages
 export const deletePages = mutation({
-  args: { pageId: v.id("pages"), fileId: v.id("files") },
+  args: { pageId: v.id("pages"), designId: v.id("designs") },
   async handler(ctx, args) {
-    const file = await ctx.db.get(args.fileId);
+    const file = await ctx.db.get(args.designId);
     if (!file) throw new Error("File not found");
     const pages = await ctx.db
       .query("pages")
-      .withIndex("by_file", (q) => q.eq("fileId", args.fileId))
+      .withIndex("by_design", (q) => q.eq("designId", args.designId))
       .collect();
     if (pages.length <= 1)
       throw new Error("Cannot delete the only available page");

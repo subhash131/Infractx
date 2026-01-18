@@ -21,7 +21,7 @@ export default defineSchema({
     .index("by_user", ["userId"])
     .index("by_expiry", ["expiresAt"]),
 
-  files: defineTable({
+  designs: defineTable({
     name: v.string(),
     description: v.optional(v.string()),
     ownerId: v.string(),
@@ -36,12 +36,12 @@ export default defineSchema({
 
   pages: defineTable({
     name: v.string(),
-    fileId: v.id("files"),
+    designId: v.id("designs"),
     layersCount: v.number(),
     bgColor: v.string(),
     createdAt: v.number(),
     updatedAt: v.number(),
-  }).index("by_file", ["fileId"]),
+  }).index("by_design", ["designId"]),
 
   // Canvas documents store the main canvas state
   canvases: defineTable({
@@ -84,8 +84,8 @@ export default defineSchema({
         v.object({
           x: v.number(),
           y: v.number(),
-        })
-      )
+        }),
+      ),
     ),
 
     // Rotation and scaling
@@ -171,4 +171,9 @@ export default defineSchema({
       role: v.union(v.literal("USER"), v.literal("AI"), v.literal("SYSTEM")),
     }),
   }).index("by_conversation", ["conversationId"]),
+
+  requirements: defineTable({
+    name: v.string(),
+    description: v.optional(v.string()),
+  }),
 });

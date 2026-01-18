@@ -18,8 +18,7 @@ export const createFile = mutation({
       });
     }
 
-    // TODO: Verify organizationId access when implemented
-    const fileId = await ctx.db.insert("files", {
+    const designId = await ctx.db.insert("designs", {
       name: args.name,
       description: args.description,
       ownerId: identity.subject,
@@ -30,24 +29,24 @@ export const createFile = mutation({
 
     const pageId = await ctx.db.insert("pages", {
       bgColor: "#D9D9D9",
-      fileId,
+      designId,
       name: "Page 1",
       layersCount: 0,
       createdAt: Date.now(),
       updatedAt: Date.now(),
     });
 
-    await ctx.db.patch(fileId, {
+    await ctx.db.patch(designId, {
       activePage: pageId,
     });
 
-    return fileId;
+    return designId;
   },
 });
 
 export const setActivePage = mutation({
   args: {
-    fileId: v.id("files"),
+    designId: v.id("designs"),
     pageId: v.id("pages"),
   },
   handler: async (ctx, args) => {
@@ -60,8 +59,8 @@ export const setActivePage = mutation({
     }
 
     const file = await ctx.db
-      .query("files")
-      .withIndex("by_id", (q) => q.eq("_id", args.fileId))
+      .query("designs")
+      .withIndex("by_id", (q) => q.eq("_id", args.designId))
       .unique();
     if (!file) {
       throw new ConvexError({
@@ -80,7 +79,7 @@ export const setActivePage = mutation({
       });
     }
 
-    await ctx.db.patch(args.fileId, {
+    await ctx.db.patch(args.designId, {
       activePage: page._id,
     });
     return true;
@@ -89,7 +88,7 @@ export const setActivePage = mutation({
 
 // Get file by ID
 export const getFile = query({
-  args: { fileId: v.id("files") },
+  args: { designId: v.id("designs") },
   async handler(ctx, args) {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
@@ -99,7 +98,7 @@ export const getFile = query({
       });
     }
 
-    const file = await ctx.db.get(args.fileId);
+    const file = await ctx.db.get(args.designId);
     if (!file) {
       throw new ConvexError({
         code: "NOT_FOUND",
@@ -138,8 +137,8 @@ export const getUserFiles = query({
     }
 
     const files = await ctx.db
-      .query("files")
-      .withIndex("by_owner", (q) => q.eq("ownerId", identity.subject as any))
+      .query("designs")
+      .withIndex("by_owner", (q) => q.eq("ownerId", identity.subject))
       .collect();
 
     // Filter by organization if provided
@@ -154,7 +153,7 @@ export const getUserFiles = query({
 // Update file
 export const updateFile = mutation({
   args: {
-    fileId: v.id("files"),
+    designId: v.id("designs"),
     name: v.optional(v.string()),
     description: v.optional(v.string()),
     organizationId: v.optional(v.string()),
@@ -168,7 +167,7 @@ export const updateFile = mutation({
       });
     }
 
-    const file = await ctx.db.get(args.fileId);
+    const file = await ctx.db.get(args.designId);
     if (!file) {
       throw new ConvexError({
         code: "NOT_FOUND",
@@ -183,14 +182,14 @@ export const updateFile = mutation({
       });
     }
 
-    const updates: Partial<Doc<"files">> = { updatedAt: Date.now() };
+    const updates: Partial<Doc<"designs">> = { updatedAt: Date.now() };
     if (args.name !== undefined) updates.name = args.name;
     if (args.description !== undefined) updates.description = args.description;
     if (args.organizationId !== undefined)
       updates.organizationId = args.organizationId;
 
-    await ctx.db.patch(args.fileId, updates);
+    await ctx.db.patch(args.designId, updates);
 
-    return args.fileId;
+    return args.designId;
   },
 });

@@ -9,9 +9,7 @@ import { Id } from "../_generated/dataModel";
 import {
   getNextFramePosition,
   buildFrameLayerTree,
-  LayerNode,
   buildPageLayerTree,
-  buildFrameTemplateTree,
 } from "./utils";
 import { api } from "../_generated/api";
 
@@ -20,7 +18,7 @@ export const createObject = mutation({
   args: {
     layerObject: LAYER_OBJECT_ARGS,
   },
-  async handler(ctx, args): Promise<Id<"layers">> {
+  async handler(ctx, args): Promise<{ _id: Id<"layers">; success: boolean }> {
     const { layerObject } = args;
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
@@ -31,7 +29,7 @@ export const createObject = mutation({
       .withIndex("by_page", (q) => q.eq("pageId", layerObject.pageId))
       .collect()
       .then((objs) =>
-        Math.max(...objs.map((o) => (o?.zIndex ? o.zIndex : -1)), -1)
+        Math.max(...objs.map((o) => (o?.zIndex ? o.zIndex : -1)), -1),
       );
 
     let frameLeft: number = layerObject.left || 0;
@@ -39,7 +37,7 @@ export const createObject = mutation({
       console.log("before ::", frameLeft);
       const existingFrames = await ctx.runQuery(
         api.design.layers.getLayersByType,
-        { pageId: layerObject.pageId as Id<"pages">, type: "FRAME" }
+        { pageId: layerObject.pageId as Id<"pages">, type: "FRAME" },
       );
       frameLeft = getNextFramePosition(existingFrames).left;
       console.log("after ::", frameLeft);
@@ -94,7 +92,7 @@ export const createObject = mutation({
       parentLayerId: layerObject.parentLayerId,
     });
 
-    return layerId;
+    return { _id: layerId, success: true };
   },
 });
 export const updateObject = mutation({
@@ -115,9 +113,9 @@ export const updateObject = mutation({
           v.object({
             x: v.number(),
             y: v.number(),
-          })
-        )
-      )
+          }),
+        ),
+      ),
     ),
 
     // Rotation and scaling
@@ -202,6 +200,20 @@ export const getLayersByPage = query({
       .collect();
 
     return buildPageLayerTree(layers);
+  },
+});
+
+export const getFramesByPage = query({
+  args: { pageId: v.id("pages") },
+  handler: async (ctx, args) => {
+    const layers = await ctx.db
+      .query("layers")
+      .withIndex("by_page", (q) => q.eq("pageId", args.pageId))
+      .collect();
+
+    const frames = layers.filter((l) => l.type === "FRAME");
+
+    return buildPageLayerTree(frames);
   },
 });
 
