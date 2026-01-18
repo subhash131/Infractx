@@ -12,13 +12,13 @@ export const validateFrame = async (state: WorkflowStateType) => {
       api.design.layers.getLayerById,
       {
         layerId: state.frameId,
-      }
+      },
     );
     console.log("validateFrame - existing frame check:", frame);
 
     if (!frame || frame.type !== "FRAME") {
       // Frame is invalid - create new one
-      frameId = await state.convexState.runMutation(
+      const res = await state.convexState.runMutation(
         api.design.layers.createObject,
         {
           layerObject: {
@@ -31,13 +31,14 @@ export const validateFrame = async (state: WorkflowStateType) => {
             left: state.canvasWidth / 2 - 100,
             top: state.canvasHeight / 2 - 300,
           },
-        }
+        },
       );
+      frameId = res._id;
       console.log("validateFrame - created new frame (invalid):", frameId);
     }
   } else {
-    // ✅ No frame ID provided - create new one
-    frameId = await state.convexState.runMutation(
+    //  No frame ID provided - create new one
+    const res = await state.convexState.runMutation(
       api.design.layers.createObject,
       {
         layerObject: {
@@ -50,8 +51,9 @@ export const validateFrame = async (state: WorkflowStateType) => {
           left: state.canvasWidth / 2 - 400,
           top: state.canvasHeight / 2 - 300,
         },
-      }
+      },
     );
+    frameId = res._id;
     console.log("validateFrame - created new frame (none existed):", frameId);
   }
 
@@ -61,13 +63,13 @@ export const validateFrame = async (state: WorkflowStateType) => {
 
 export const insertLayer = async (
   layer: Doc<"layers">,
-  state: WorkflowStateType
+  state: WorkflowStateType,
 ) => {
-  const layerId = await state.convexState.runMutation(
+  const { _id: layerId } = await state.convexState.runMutation(
     api.design.layers.createObject,
     {
       layerObject: layer,
-    }
+    },
   );
   return layerId;
 };
