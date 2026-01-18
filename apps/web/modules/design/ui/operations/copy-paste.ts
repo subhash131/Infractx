@@ -5,7 +5,7 @@ import { api } from "@workspace/backend/_generated/api";
 
 export const handleCopy = async (
   activeObject: fabric.FabricObject,
-  copiedObjectRef: React.RefObject<fabric.FabricObject | null>
+  copiedObjectRef: React.RefObject<fabric.FabricObject | null>,
 ) => {
   copiedObjectRef.current = await activeObject.clone();
 
@@ -30,7 +30,7 @@ export const handlePaste = async (
   copiedObjectRef: React.RefObject<fabric.FabricObject | null>,
   canvas: fabric.Canvas,
   activePageId: Id<"pages">,
-  createObject: ReactMutation<typeof api.design.layers.createObject>
+  createObject: ReactMutation<typeof api.design.layers.createObject>,
 ) => {
   if (!copiedObjectRef.current) return;
 
@@ -79,8 +79,8 @@ export const handlePaste = async (
     scaleY: cloned.scaleY,
   };
 
-  const newId = await createObject({ layerObject: layerData });
-  cloned.set({ _id: newId });
+  const { _id } = await createObject({ layerObject: layerData });
+  cloned.set({ _id });
 
   let parentObject: fabric.Group | undefined = undefined;
   if (parentLayerId) {
