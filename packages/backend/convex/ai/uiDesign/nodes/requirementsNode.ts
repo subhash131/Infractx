@@ -1,73 +1,46 @@
 "use node";
-import { model } from "../graph";
-import { AgentState } from "../types";
-import { parseJSON } from "../utils";
+import { AgentState } from "../state";
+import { log, parseJSON } from "../utils";
+import { LayoutRules } from "../layoutRules";
+import { ProjectRequirements } from "../types";
+import { model } from "../model";
 
 export async function requirementsNode(
-  state: AgentState
+  state: AgentState,
 ): Promise<Partial<AgentState>> {
-  console.log("[requirements] Analyzing user message for requirements...");
+  log(state, "info", "[requirements] Extracting...");
 
-  if (!state.requirements) {
-    const prompt = `
-Analyze this user request and extract project requirements:
+  const prompt = `Extract from: "${state.userMessage}"
 
-User: "${state.userMessage}"
-
-Extract and return as JSON:
+JSON only:
 {
-  "projectType": "landing_page" | "dashboard" | "e-commerce" | "portfolio",
-  "targetAudience": "who is this for?",
-  "purpose": "what should this achieve?",
-  "style": "design aesthetic (e.g., modern, playful, professional)",
-  "requiredSections": ["array", "of", "section", "names"],
-  "colorScheme": {
-    "primary": "#hexcolor",
-    "secondary": "#hexcolor",
-    "accent": "#hexcolor",
-    "text": "#hexcolor",
-    "background": "#hexcolor"
-  },
-  "mustHave": ["critical", "features"],
-  "niceToHave": ["optional", "features"]
-}
+  "projectType": "landing_page|dashboard|portfolio|e-commerce|<any>",
+  "targetAudience": "who",
+  "purpose": "what",
+  "style": "modern|playful|professional|minimal",
+  "requiredSections": ["hero","features"],
+  "colorScheme": {"primary":"#hex","secondary":"#hex","accent":"#hex","text":"#hex","background":"#hex"},
+  "mustHave": ["feature1"]
+}`;
 
-Return ONLY valid JSON, no explanations.`;
+  try {
+    const response = await model.invoke(prompt);
+    const requirements = parseJSON(
+      response.content.toString(),
+    ) as ProjectRequirements;
+    const viewport = LayoutRules.determineViewport(requirements);
+    requirements.viewportType = viewport.type;
+    requirements.viewportWidth = viewport.width;
 
-    try {
-      const response = await model.invoke(prompt);
-      const text = response.content.toString();
-      const requirements = parseJSON(text);
-
-      console.log("[requirements] ✓ Extracted project requirements");
-      console.log(`  - Type: ${requirements.projectType}`);
-      console.log(`  - Sections: ${requirements.requiredSections.join(", ")}`);
-
-      return { requirements };
-    } catch (error) {
-      console.error("[requirements] ✗ Failed to extract requirements:", error);
-
-      return {
-        requirements: {
-          projectType: "landing_page",
-          targetAudience: "general audience",
-          purpose: "showcase product/service",
-          style: "modern, clean",
-          requiredSections: ["hero", "features", "cta", "footer"],
-          colorScheme: {
-            primary: "#3B82F6",
-            secondary: "#EFF6FF",
-            accent: "#10B981",
-            text: "#1F2937",
-            background: "#FFFFFF",
-          },
-          mustHave: ["clear CTA", "responsive design"],
-          niceToHave: [],
-        },
-      };
-    }
+    log(
+      state,
+      "info",
+      `[requirements] ${requirements.projectType}, ${viewport.width}px`,
+    );
+    console.log({ requirements });
+    return { requirements, llmCalls: (state.llmCalls || 0) + 1 };
+  } catch (error) {
+    log(state, "error", `[requirements] Failed: ${JSON.stringify(error)}`);
+    throw new Error("Failed to extract requirements");
   }
-
-  console.log("[requirements] No requirement updates needed");
-  return {};
 }

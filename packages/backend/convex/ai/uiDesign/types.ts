@@ -17,30 +17,40 @@ export interface ProjectRequirements {
   };
   mustHave: string[];
   niceToHave: string[];
+  viewportType: "desktop" | "tablet" | "mobile";
+  viewportWidth: number;
 }
 
 export interface Intent {
-  action:
-    | "create_new"
-    | "modify_existing"
-    | "add_component"
-    | "remove_component"
-    | "style_change";
+  action: "create_new" | "modify_existing" | "needs_clarification";
   target: string | null;
-  specificChange: string | null;
-  scope: "entire_design" | "single_component" | "multiple_components";
+  targetType: "frame" | "object" | null;
+  modification?: string;
+  confidence: number;
+  warning?: string;
+  question?: string;
+  suggestions?: Array<{ frameRef: string; name: string }>;
 }
 
 export interface DesignSystem {
-  spacing: { small: number; medium: number; large: number; xlarge: number };
+  spacing: {
+    xs: number;
+    sm: number;
+    md: number;
+    lg: number;
+    xl: number;
+    xxl: number;
+  };
   typography: {
     h1: number;
     h2: number;
     h3: number;
+    h4: number;
     body: number;
     small: number;
   };
-  borderRadius: number;
+  borderRadius: { sm: number; md: number; lg: number; full: number };
+  grid: { columns: number; columnWidth: number; gutter: number };
 }
 
 export interface Component {
@@ -52,26 +62,23 @@ export interface Component {
   width: number;
   height: number;
 }
+export interface FramePlan {
+  layerRef: string;
+  name: string;
+  width: number;
+  height: number;
+  left: number;
+  top: number;
+  fill: string;
+}
 
-export interface AgentState {
-  userMessage: string;
-  conversationHistory: any[];
-  requirements: ProjectRequirements | null;
-  intent: Intent | null;
-  existingDesign: Layer[];
-  designPlan: any;
-  modificationPlan: any;
-  componentsToGenerate: Component[];
-  designSystem: DesignSystem | null;
-  generatedLayers: Layer[];
-  generationLog: string[];
-  hierarchy: Record<string, string[]>;
-  rootLayers: string[];
-  orphanedLayers: string[];
-  hierarchyDepth: number;
-  validationResults: any;
-  errors: string[];
+export interface ValidationResults {
+  passed: boolean;
+  checks: Array<{
+    name: string;
+    status: "pass" | "warn" | "fail";
+    message?: string;
+  }>;
   warnings: string[];
-  executionStats: any;
-  pageId: Id<"pages">;
+  errors: string[];
 }
