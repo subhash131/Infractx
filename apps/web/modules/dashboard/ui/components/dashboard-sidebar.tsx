@@ -1,6 +1,6 @@
 "use client";
 import React from "react";
-import { type LucideIcon, CreditCardIcon, InboxIcon } from "lucide-react";
+import { type LucideIcon, ClipboardList, InboxIcon } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -28,22 +28,19 @@ type SidebarItem = {
   icon: LucideIcon;
 };
 
-const customerSupportItems: SidebarItem[] = [
+const dashboardNavItems: SidebarItem[] = [
   {
-    title: "Drafts",
-    url: "/files",
+    title: "Designs",
+    url: "/designs",
     icon: InboxIcon,
+  },
+  {
+    title: "Requirements",
+    url: "/requirements",
+    icon: ClipboardList,
   },
 ];
 const configurationItems: SidebarItem[] = [];
-
-const accountItems: SidebarItem[] = [
-  {
-    title: "Plans & Billing",
-    url: "/billing",
-    icon: CreditCardIcon,
-  },
-];
 
 const DashboardSidebar = () => {
   const pathname = usePathname();
@@ -63,7 +60,7 @@ const DashboardSidebar = () => {
           <SidebarGroupLabel>Customer Support</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {customerSupportItems.map((item) => (
+              {dashboardNavItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
                     asChild
@@ -71,54 +68,10 @@ const DashboardSidebar = () => {
                     isActive={isActive(item.url)}
                     size="sm"
                   >
-                    <Link href={item.url}>
+                    <a href={item.url}>
                       <item.icon className="size-4" />
                       {item.title}
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-        <SidebarGroup>
-          <SidebarGroupLabel>Configuration</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {configurationItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    asChild
-                    tooltip={item.title}
-                    isActive={isActive(item.url)}
-                    size="sm"
-                  >
-                    <Link href={item.url}>
-                      <item.icon className="size-4" />
-                      {item.title}
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-        <SidebarGroup>
-          <SidebarGroupLabel>Account</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {accountItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    asChild
-                    tooltip={item.title}
-                    isActive={isActive(item.url)}
-                    size="sm"
-                  >
-                    <Link href={item.url}>
-                      <item.icon className="size-4" />
-                      {item.title}
-                    </Link>
+                    </a>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}

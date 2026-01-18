@@ -17,11 +17,11 @@ import { RecursiveLayer } from "./snapping/utils/types";
 
 const findFabricObjectById = (
   obj: fabric.FabricObject,
-  id: string
+  id: string,
 ): fabric.FabricObject | null => {
   if (obj._id === id) return obj;
 
-  const children = (obj as fabric.Group).getObjects();
+  const children = (obj as fabric.Group)._objects;
   if (Array.isArray(children)) {
     for (const child of children) {
       const found = findFabricObjectById(child, id);
@@ -33,7 +33,7 @@ const findFabricObjectById = (
 
 const findOnCanvas = (
   canvas: fabric.Canvas,
-  id: string
+  id: string,
 ): fabric.FabricObject | null => {
   for (const obj of canvas.getObjects()) {
     const found = findFabricObjectById(obj, id);
@@ -98,7 +98,7 @@ const LayerRow = React.memo(
         )}
       </div>
     );
-  }
+  },
 );
 
 LayerRow.displayName = "LayerRow";
@@ -116,17 +116,17 @@ export const CanvasLayersList = () => {
 
   const pages = useQuery(
     api.design.pages.getFilePages,
-    activeFileId ? { fileId: activeFileId as Id<"files"> } : "skip"
+    activeFileId ? { fileId: activeFileId as Id<"files"> } : "skip",
   );
 
   const file = useQuery(
     api.design.files.getFile,
-    activeFileId ? { fileId: activeFileId as Id<"files"> } : "skip"
+    activeFileId ? { fileId: activeFileId as Id<"files"> } : "skip",
   );
 
   const layers = useQuery(
     api.design.layers.getLayersByPage,
-    file?.activePage ? { pageId: file.activePage as Id<"pages"> } : "skip"
+    file?.activePage ? { pageId: file.activePage as Id<"pages"> } : "skip",
   );
 
   const addPage = useMutation(api.design.pages.createPage);
@@ -144,7 +144,7 @@ export const CanvasLayersList = () => {
 
   const renderLayerTree = (
     layer: RecursiveLayer[number],
-    depth = 0
+    depth = 0,
   ): React.ReactNode => {
     const collapsedHere = collapsed.has(layer._id);
 
@@ -159,7 +159,7 @@ export const CanvasLayersList = () => {
 
         {!collapsedHere &&
           layer.children?.map((child: RecursiveLayer[number]) =>
-            renderLayerTree(child, depth + 1)
+            renderLayerTree(child, depth + 1),
           )}
       </React.Fragment>
     );
@@ -203,7 +203,7 @@ export const CanvasLayersList = () => {
       canvas.setActiveObject(obj);
       canvas.requestRenderAll();
     },
-    [canvas]
+    [canvas],
   );
 
   const handleDoubleClick = useCallback(
@@ -217,7 +217,7 @@ export const CanvasLayersList = () => {
 
       setEditingLayerId(layerId);
     },
-    []
+    [],
   );
 
   const handleKeyDown = useCallback(
@@ -234,7 +234,7 @@ export const CanvasLayersList = () => {
         target.value = "";
       }
     },
-    []
+    [],
   );
 
   const handleBlur = useCallback(
@@ -251,7 +251,7 @@ export const CanvasLayersList = () => {
 
       setEditingLayerId(null);
     },
-    [renameLayer]
+    [renameLayer],
   );
 
   /* ======================================================

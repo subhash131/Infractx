@@ -5,7 +5,7 @@ import { api } from "@workspace/backend/_generated/api";
 import type { FunctionArgs, FunctionReturnType } from "convex/server";
 
 type CreateObjectFunction = (
-  args: FunctionArgs<typeof api.design.layers.createObject>
+  args: FunctionArgs<typeof api.design.layers.createObject>,
 ) => Promise<FunctionReturnType<typeof api.design.layers.createObject>>;
 
 interface UseImageDropOptions {
@@ -60,7 +60,7 @@ export const useImageDrop = ({
       if (!e.dataTransfer?.files?.length) return;
 
       const imageFiles = Array.from(e.dataTransfer.files).filter((f) =>
-        f.type.startsWith("image/")
+        f.type.startsWith("image/"),
       );
 
       if (!imageFiles.length) return;
@@ -75,19 +75,19 @@ export const useImageDrop = ({
           canvas,
           activePageId,
           createObject,
-          onImageAdded
+          onImageAdded,
         );
       }
     };
 
-    el.addEventListener("dragenter", handleDragOver);
-    el.addEventListener("dragover", handleDragOver);
-    el.addEventListener("drop", handleDrop);
+    el?.addEventListener("dragenter", handleDragOver);
+    el?.addEventListener("dragover", handleDragOver);
+    el?.addEventListener("drop", handleDrop);
 
     return () => {
-      el.removeEventListener("dragenter", handleDragOver);
-      el.removeEventListener("dragover", handleDragOver);
-      el.removeEventListener("drop", handleDrop);
+      el?.removeEventListener("dragenter", handleDragOver);
+      el?.removeEventListener("dragover", handleDragOver);
+      el?.removeEventListener("drop", handleDrop);
     };
   }, [canvas, activePageId, createObject, onImageAdded]);
 };
@@ -98,7 +98,7 @@ async function handleImageFile(
   canvas: fabric.Canvas,
   activePageId: Id<"pages">,
   createObject: CreateObjectFunction,
-  onImageAdded?: (imageObj: fabric.Image) => void
+  onImageAdded?: (imageObj: fabric.Image) => void,
 ) {
   const dataUrl = await readFileAsDataURL(file);
 
@@ -186,7 +186,7 @@ export const useImagePaste = ({
             { x: center.left, y: center.top },
             canvas,
             activePageId,
-            createObject
+            createObject,
           );
         }
       }

@@ -9,7 +9,7 @@ export const handleGroup = async (
   canvas: fabric.Canvas,
   activePageId: Id<"pages">,
   createObject: ReactMutation<typeof api.design.layers.createObject>,
-  updateObject: ReactMutation<typeof api.design.layers.updateObject>
+  updateObject: ReactMutation<typeof api.design.layers.updateObject>,
 ) => {
   const selection = activeObject;
   const firstChild = selection.getObjects()[0];
@@ -28,7 +28,7 @@ export const handleGroup = async (
     parentLayerId: inheritedParentId,
   } = DesignGroup.createFromSelection(selection, "", parentObject);
 
-  const groupId = await createObject({
+  const { _id: groupId } = await createObject({
     layerObject: {
       pageId: activePageId,
       type: "GROUP",
@@ -50,8 +50,8 @@ export const handleGroup = async (
         parentLayerId: groupId,
         left: obj.left,
         top: obj.top,
-      })
-    )
+      }),
+    ),
   );
 
   canvas.remove(...children);
@@ -70,7 +70,7 @@ export const handleUngroup = async (
   activeObject: DesignGroup,
   canvas: fabric.Canvas,
   updateObject: ReactMutation<typeof api.design.layers.updateObject>,
-  removeObject: ReactMutation<typeof api.design.layers.deleteObject>
+  removeObject: ReactMutation<typeof api.design.layers.deleteObject>,
 ) => {
   const group = activeObject;
   const parentLayerId = group.parentLayerId;
@@ -84,7 +84,7 @@ export const handleUngroup = async (
 
   const { children, parentLayerId: inheritedParentId } = group.ungroupToCanvas(
     canvas,
-    parentObject
+    parentObject,
   );
 
   group.set({ opacity: 0 });
@@ -96,8 +96,8 @@ export const handleUngroup = async (
         parentLayerId: inheritedParentId,
         left: obj.left,
         top: obj.top,
-      })
-    )
+      }),
+    ),
   );
 
   await removeObject({ id: group._id as Id<"layers"> });

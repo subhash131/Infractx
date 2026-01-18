@@ -2,14 +2,14 @@ import { DesignView } from "@/modules/design/ui/views/design-view";
 
 type PageProps = {
   params: Promise<{
-    fileId: string;
+    designId: string;
   }>;
 };
 
 const Page = async ({ params }: PageProps) => {
-  const fileId = (await params).fileId;
+  const designId = (await params).designId;
 
-  return <DesignView fileId={fileId} />;
+  return <DesignView designId={designId} />;
 };
 
 export default Page;
