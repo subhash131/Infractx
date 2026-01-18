@@ -8,7 +8,7 @@ export const DESIGN_TOOLS_TYPE = v.union(
   v.literal("LINE"),
   v.literal("GROUP"),
   v.literal("PENCIL"),
-  v.literal("IMAGE")
+  v.literal("IMAGE"),
 );
 
 export const SELECT_COLOR = "#4096ee";
@@ -19,8 +19,8 @@ export const MESSAGE_CONTEXT_TYPE = v.optional(
       type: v.union(v.literal("DOC_REF"), v.literal("TEXT")),
       id: v.string(),
       tableName: v.union(v.literal("LAYERS"), v.literal("TEMPLATES")),
-    })
-  )
+    }),
+  ),
 );
 
 export const LAYER_OBJECT_ARGS = v.object({
@@ -28,6 +28,7 @@ export const LAYER_OBJECT_ARGS = v.object({
   // Object properties
   type: DESIGN_TOOLS_TYPE,
   name: v.optional(v.string()),
+  layerRef: v.optional(v.string()),
 
   // Position and dimensions
   padding: v.optional(v.number()),
@@ -40,8 +41,8 @@ export const LAYER_OBJECT_ARGS = v.object({
       v.object({
         x: v.number(),
         y: v.number(),
-      })
-    )
+      }),
+    ),
   ),
 
   // Rotation and scaling
@@ -76,7 +77,7 @@ export const LAYER_OBJECT_ARGS = v.object({
 
   // Advanced properties
   shadow: v.optional(v.string()),
-  data: v.optional(v.any()), // Store arbitrary fabric.js object data
+  data: v.optional(v.any()),
   strokeUniform: v.optional(v.boolean()),
   parentLayerId: v.optional(v.id("layers")),
   borderScaleFactor: v.optional(v.float64()),
