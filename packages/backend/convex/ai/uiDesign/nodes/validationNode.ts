@@ -1,62 +1,86 @@
 "use node";
-import { AgentState } from "../types";
+import { AgentState } from "../state";
+import { ValidationResults } from "../types";
+import { log } from "../utils";
 
 export async function validationNode(
-  state: AgentState
+  state: AgentState,
 ): Promise<Partial<AgentState>> {
-  console.log("[validation] Running quality checks...");
+  log(state, "info", "[validation] Checking...");
 
   const warnings: string[] = [];
   const errors: string[] = [];
-  const validations: any[] = [];
+  const checks: Array<{
+    name: string;
+    status: "pass" | "warn" | "fail";
+    message?: string;
+  }> = [];
 
-  const generatedSections = new Set(
-    state
-      .generatedLayers!.filter((l) => l.parentLayerRef === null)
-      .map((l) =>
-        l.layerRef?.replace("_section_container", "").replace("_section", "")
-      )
-  );
-
-  state.requirements!.requiredSections.forEach((section) => {
-    if (generatedSections.has(section)) {
-      validations.push({ check: `Section: ${section}`, status: "pass" });
-    } else {
-      warnings.push(`Missing section: ${section}`);
-    }
-  });
-
-  if (state.orphanedLayers && state.orphanedLayers.length > 0) {
-    errors.push(`Found ${state.orphanedLayers.length} orphaned layers`);
+  const frameCreated = state.layerIdMap!.has(state.framePlan!.layerRef);
+  if (frameCreated) {
+    checks.push({ name: "Frame created", status: "pass" });
   } else {
-    validations.push({ check: "No orphaned layers", status: "pass" });
+    checks.push({
+      name: "Frame created",
+      status: "fail",
+      message: "Frame not inserted",
+    });
+    errors.push("Frame was not created");
   }
 
-  const layerRefs = state.generatedLayers!.map((l) => l.layerRef);
-  const uniqueRefs = new Set(layerRefs);
+  const totalSections = state.componentsToGenerate!.length;
+  const completedSections = state.sectionsCreated!.length;
+  const failedSections = state.sectionsFailed!.length;
 
-  if (layerRefs.length !== uniqueRefs.size) {
-    errors.push("Duplicate layerRefs found");
+  if (failedSections === 0) {
+    checks.push({ name: "All sections created", status: "pass" });
+  } else if (completedSections > 0) {
+    checks.push({
+      name: "Partial completion",
+      status: "warn",
+      message: `${failedSections}/${totalSections} failed`,
+    });
+    warnings.push(
+      `${failedSections} sections failed: ${state.sectionsFailed!.join(", ")}`,
+    );
   } else {
-    validations.push({ check: "All layerRefs unique", status: "pass" });
+    checks.push({
+      name: "Section creation",
+      status: "fail",
+      message: "All failed",
+    });
+    errors.push("All sections failed");
   }
 
-  const passedChecks = validations.filter((v) => v.status === "pass").length;
-  const totalChecks = validations.length;
+  const minLayersExpected = totalSections * 3;
+  if (state.insertedLayerIds!.length >= minLayersExpected) {
+    checks.push({ name: "Sufficient layers", status: "pass" });
+  } else {
+    checks.push({
+      name: "Layer count",
+      status: "warn",
+      message: `Only ${state.insertedLayerIds!.length} created`,
+    });
+    warnings.push("Fewer layers than expected");
+  }
 
-  console.log(
-    `[validation] ✓ Completed: ${passedChecks}/${totalChecks} checks passed`
-  );
+  if (state.retryAttempts! > 10) {
+    warnings.push(`High retry count: ${state.retryAttempts} retries`);
+  }
 
-  return {
-    validationResults: {
-      passed: passedChecks,
-      total: totalChecks,
-      validations,
-      warnings,
-      errors,
-    },
+  const validationResults: ValidationResults = {
+    passed: errors.length === 0,
+    checks,
     warnings,
-    errors: errors.length > 0 ? errors : undefined,
+    errors,
   };
+  log(
+    state,
+    "info",
+    `[validation] ${checks.filter((c) => c.status === "pass").length}/${checks.length} passed`,
+  );
+  warnings.forEach((w) => log(state, "warn", `[validation] ${w}`));
+  errors.forEach((e) => log(state, "error", `[validation] ${e}`));
+
+  return { validationResults, warnings, errors };
 }

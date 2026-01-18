@@ -1,27 +1,56 @@
 "use node";
-export function parseJSON(text: string): any {
+
+import { AgentState } from "./state";
+
+export function parseJSON(text: string): unknown {
+  const original = text;
+
   try {
-    let cleaned = text
-      .replace(/```json\n?/g, "")
-      .replace(/```\n?/g, "")
+    // Remove code fences
+    const cleaned = text
+      .replace(/```(?:json)?/gi, "")
+      .replace(/```/g, "")
       .trim();
 
-    // Ensure it starts with [ or {
-    if (!cleaned.startsWith("[") && !cleaned.startsWith("{")) {
-      // Try to find JSON in the text
-      const jsonMatch = cleaned.match(/(\[[\s\S]*\])|(\{[\s\S]*\})/);
-      if (jsonMatch) {
-        cleaned = jsonMatch[0];
-      } else {
-        throw new Error("No valid JSON found in response");
+    const start = cleaned.search(/[\[{]/);
+    if (start === -1) throw new Error("No JSON start found");
+
+    let depth = 0;
+    let inString = false;
+    let escape = false;
+
+    for (let i = start; i < cleaned.length; i++) {
+      const char = cleaned[i];
+
+      if (inString) {
+        if (escape) {
+          escape = false;
+        } else if (char === "\\") {
+          escape = true;
+        } else if (char === '"') {
+          inString = false;
+        }
+        continue;
+      }
+
+      if (char === '"') {
+        inString = true;
+      } else if (char === "{" || char === "[") {
+        depth++;
+      } else if (char === "}" || char === "]") {
+        depth--;
+        if (depth === 0) {
+          const jsonStr = cleaned.slice(start, i + 1);
+          return JSON.parse(jsonStr);
+        }
       }
     }
 
-    return JSON.parse(cleaned);
-  } catch (error) {
-    console.error("[parseJSON] Failed to parse:", text.substring(0, 500));
-    console.error("[parseJSON] Error:", error);
-    throw new Error(`JSON parsing failed: ${error}`);
+    throw new Error("Unbalanced JSON structure");
+  } catch (err) {
+    console.error("[parseJSON] Failed");
+    console.error("Raw:", original.slice(0, 500));
+    throw err;
   }
 }
 
@@ -31,4 +60,15 @@ export function sleep(ms: number): Promise<void> {
 
 export function generateUniqueId(): string {
   return `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+}
+
+export function log(
+  state: AgentState,
+  level: "info" | "warn" | "error",
+  message: string,
+) {
+  const prefix = level === "error" ? "✗" : level === "warn" ? "⚠" : "✓";
+  if (state.verbose || level !== "info") {
+    console.log(`${prefix} ${message}`);
+  }
 }

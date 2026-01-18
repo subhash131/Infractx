@@ -11,7 +11,8 @@ import {
   ToolMessage,
 } from "@langchain/core/messages";
 import { allShapeTools, groqWithShapeTools } from "./tools/primitiveLayerTools";
-import { UIDesignAgent } from "./uiDesign/graph";
+import { UIDesignAgent } from "./uiDesign/designAgent";
+import { Id } from "../_generated/dataModel";
 
 export const create = action({
   args: {
@@ -78,8 +79,8 @@ export const create = action({
 export const workflowMermaid = action({
   args: {},
   handler: async () => {
-    const workflow = createWorkflow();
-    return (await workflow.getGraphAsync()).drawMermaid();
+    const workflow = new UIDesignAgent();
+    return workflow.getGraphMermaid();
   },
 });
 
@@ -121,7 +122,7 @@ Always provide complete parameters for each tool call.`);
       // Check if there are tool calls
       if (response.tool_calls && response.tool_calls.length > 0) {
         console.log(
-          `Iteration ${iterations + 1}: ${response.tool_calls.length} tool(s) called`
+          `Iteration ${iterations + 1}: ${response.tool_calls.length} tool(s) called`,
         );
 
         // Execute all tool calls
@@ -140,7 +141,7 @@ Always provide complete parameters for each tool call.`);
               new ToolMessage({
                 content: result,
                 tool_call_id: toolCall.id!,
-              })
+              }),
             );
           }
         }
@@ -166,103 +167,21 @@ export const testAgents = action({
     // pageId: v.id("pages"),
     // canvasWidth: v.number(),
     // canvasHeight: v.number(),
-    // frameId: v.optional(v.id("layers")),
+    frameId: v.optional(v.id("layers")),
   },
   handler: async (ctx, args) => {
     // const { prompt, pageId, canvasWidth, canvasHeight, frameId } = args;
 
     const agent = new UIDesignAgent();
+    const userMessage = `Add a navbar`;
 
     // Generate a new design
-    const result = await agent.generateDesign(
-      `
-Build a modern SaaS landing page using Next.js (App Router) and Shadcn UI, replicating the layout, spacing, and visual hierarchy of the provided screenshot, but using the content and branding described below.
-
-Website Description
-Create a landing page for ClipFlow, a video commerce platform that enables brands to create interactive, shoppable videos and live shopping experiences. The page should feel clean, fast, premium, and conversion-focused, like top-tier startup SaaS products.
-
-Page Structure
-- Top navigation bar with CTAs
-- Hero section with headline, subheadline, and CTA buttons
-- Central mobile phone mockup showing a video
-- Floating stat cards and product cards around the phone
-- Social proof section with brand logos
-
-Brand & Content (Use Exactly This Text)
-
-Brand Name: ClipFlow
-
-Navigation Bar
-- Platform
-- Use Cases
-- Learn
-- Pricing
-- Request Demo (secondary button, outlined)
-- Start Free Trial (primary button, filled)
-
-Hero Section
-Headline: Power Your Store With Interactive Video Commerce
-Subheadline: Create, host, and monetize high-performance product videos, live shopping streams, and interactive experiences — all optimized for speed, scale, and conversions.
-Primary CTA: Start Free Trial
-Secondary CTA: Request a Demo
-
-Floating Stat Cards
-- 42.7 Min Average Session Duration
-- 3.1B+ Video Views Delivered Worldwide
-
-Left Bottom Info Card
-Turn videos into instant shopping experiences
-Button: Copy Share Link
-
-Right Product Card
-Performance Runner Pro
-$149.00
-
-Video Overlay Labels on Phone Mockup
-- Tap to Shop
-- View Details
-- Add to Cart
-
-Social Proof Section
-Text: Trusted by modern commerce brands worldwide
-Brand logos (text placeholders or simple logo components):
-VELORA, NORTHWAVE, BLUMER, SKINNIFY, PUREDROP, LUXORA, THREADLINE, URBAN PEAK
-
-Color Palette
-- Primary Black: #111111
-- White Background: #FFFFFF
-- Secondary Text Gray: #6B7280
-- Light Gray Backgrounds: #F5F5F5
-- Yellow Accent Card: #FFD84D
-- Orange Accent Card: #FF8A4C
-- Soft Purple Gradient Shapes: #E9D5FF → #F5E9FF
-
-Design Principles
-- Large bold typography for hero headline
-- Generous white space and padding
-- Center-aligned hero content
-- Rounded cards with subtle shadows
-- Floating UI cards layered around the phone mockup
-- Clean grid alignment and consistent spacing
-- Mobile-first responsiveness with desktop enhancements
-
-UI & Component Details
-- Sticky top navigation bar
-- Shadcn Button, Card, Badge, and Avatar components
-- Primary CTA button: solid black with white text
-- Secondary CTA button: white with black border
-- Phone mockup centered with layered background gradients
-- Floating cards positioned absolutely relative to hero container
-- Logos displayed in grayscale with equal spacing
-
-Technical Requirements
-- Use Next.js App Router
-- Use Shadcn UI + Tailwind CSS
-- Fully responsive (mobile, tablet, desktop)
-- Use reusable components
-- Clean semantic HTML structure
-`
-    );
+    const result = await agent.generateDesign({
+      userMessage,
+      convex: ctx,
+      pageId: "kh7c7nnh5hneq00xyrt3p8c8px7xyhe5" as Id<"pages">,
+      verbose: true,
+    });
 
     // Access the generated layers
     console.log("Layers:", result.design.layers);

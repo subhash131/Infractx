@@ -1,51 +1,153 @@
 "use node";
-import { model } from "../graph";
-import { AgentState } from "../types";
-import { parseJSON } from "../utils";
+import { AgentState } from "../state";
+import { matchFrameFromMessage } from "./matchFrameFromMessage";
+import { model } from "../model";
+import { log } from "../utils";
 
 export async function intentUnderstandingNode(
-  state: AgentState
+  state: AgentState,
 ): Promise<Partial<AgentState>> {
-  console.log("[intentUnderstanding] Analyzing user intent...");
+  log(state, "info", "[intent] Analyzing...");
 
-  const hasExistingDesign =
-    state.existingDesign && state.existingDesign.length > 0;
-
-  const prompt = `
-User message: "${state.userMessage}"
-Has existing design: ${hasExistingDesign}
-
-Determine the user's intent and return as JSON:
-{
-  "action": "create_new" | "modify_existing" | "add_component",
-  "target": "which component/section or null for entire page",
-  "specificChange": "what specifically should change (for modifications)",
-  "scope": "entire_design" | "single_component" | "multiple_components"
-}
-
-Return ONLY valid JSON.`;
-
-  try {
+  if (state.selectedObjectId) {
+    const prompt = `Message: "${state.userMessage}". What to modify? (10 words max)`;
     const response = await model.invoke(prompt);
-    const text = response.content.toString();
-    const intent = parseJSON(text);
+    const modification = response.content.toString().trim();
 
-    console.log("[intentUnderstanding] ✓ Detected intent:", intent.action);
-    if (intent.target) {
-      console.log(`  - Target: ${intent.target}`);
-    }
+    console.log({
+      intent: {
+        action: "modify_existing",
+        target: state.selectedObjectId,
+        targetType: "object",
+        modification,
+        confidence: 1.0,
+      },
+      llmCalls: (state.llmCalls || 0) + 1,
+    });
 
-    return { intent };
-  } catch (error) {
-    console.error("[intentUnderstanding] ✗ Failed to determine intent");
+    return {
+      intent: {
+        action: "modify_existing",
+        target: state.selectedObjectId,
+        targetType: "object",
+        modification,
+        confidence: 1.0,
+      },
+      llmCalls: (state.llmCalls || 0) + 1,
+    };
+  }
 
+  const createKeywords = [
+    "build",
+    "create",
+    "make",
+    "design",
+    "new",
+    "generate",
+  ];
+  const isCreate = createKeywords.some((kw) =>
+    state.userMessage.toLowerCase().includes(kw),
+  );
+
+  if (isCreate) {
+    log(state, "info", "[intent] create_new");
+    console.log({
+      intent: {
+        action: "create_new",
+        target: null,
+        targetType: "frame",
+        confidence: 0.9,
+      },
+    });
     return {
       intent: {
         action: "create_new",
         target: null,
-        specificChange: null,
-        scope: "entire_design",
+        targetType: "frame",
+        confidence: 0.9,
       },
     };
   }
+
+  if (state.availableFrames.length > 0) {
+    const matchedFrame = await matchFrameFromMessage(
+      state.userMessage,
+      state.availableFrames,
+    );
+
+    if (!matchedFrame) {
+      console.log({
+        intent: {
+          action: "needs_clarification",
+          target: null,
+          targetType: null,
+          confidence: 0,
+          question: "I couldn't find that frame. Please be more specific.",
+          suggestions: state.availableFrames.map((f) => ({
+            frameRef: f.layerRef!,
+            name: f.name,
+          })),
+        },
+        llmCalls: (state.llmCalls || 0) + 1,
+      });
+      return {
+        intent: {
+          action: "needs_clarification",
+          target: null,
+          targetType: null,
+          confidence: 0,
+          question: "I couldn't find that frame. Please be more specific.",
+          suggestions: state.availableFrames.map((f) => ({
+            frameRef: f.layerRef!,
+            name: f.name,
+          })),
+        },
+        llmCalls: (state.llmCalls || 0) + 1,
+      };
+    }
+
+    const prompt = `Message: "${state.userMessage}". Frame: ${matchedFrame}. What to modify?`;
+    const response = await model.invoke(prompt);
+    const modification = response.content.toString().trim();
+
+    console.log({
+      intent: {
+        action: "modify_existing",
+        target: matchedFrame,
+        targetType: "frame",
+        modification,
+        confidence: 0.85,
+      },
+      llmCalls: (state.llmCalls || 0) + 2,
+    });
+
+    return {
+      intent: {
+        action: "modify_existing",
+        target: matchedFrame,
+        targetType: "frame",
+        modification,
+        confidence: 0.85,
+      },
+      llmCalls: (state.llmCalls || 0) + 2,
+    };
+  }
+
+  console.log({
+    intent: {
+      action: "create_new",
+      target: null,
+      targetType: "frame",
+      confidence: 0.7,
+    },
+  });
+
+  return {
+    intent: {
+      action: "create_new",
+      target: null,
+      targetType: "frame",
+      confidence: 0.7,
+    },
+  };
 }

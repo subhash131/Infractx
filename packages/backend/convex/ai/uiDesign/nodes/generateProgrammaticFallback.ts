@@ -1,0 +1,71 @@
+"use node";
+import { LayoutRules } from "../layoutRules";
+import { Layer } from "../types";
+
+export function generateProgrammaticFallback(
+  type: string,
+  pos: { top: number; left: number },
+  width: number,
+  height: number,
+  frameRef: string,
+  colors: any,
+): Layer[] {
+  const now = Date.now();
+  const centerX = LayoutRules.center(width, 600);
+  return [
+    {
+      layerRef: `${type}_section_bg`,
+      type: "RECT",
+      name: "Background",
+      parentLayerRef: frameRef,
+      left: pos.left,
+      top: pos.top,
+      width,
+      height,
+      fill: colors.background,
+      stroke: "transparent",
+      strokeWidth: 0,
+      opacity: 1,
+      angle: 0,
+      scaleX: 1,
+      scaleY: 1,
+      rx: 0,
+      ry: 0,
+      zIndex: 1,
+      locked: false,
+      visible: true,
+      createdAt: now,
+      updatedAt: now,
+    } as Layer,
+    {
+      layerRef: `${type}_section_title`,
+      type: "TEXT",
+      name: "Title",
+      parentLayerRef: frameRef,
+      left: pos.left + centerX,
+      top: pos.top + height * 0.3,
+      width: 600,
+      height: 50,
+      fill: colors.text,
+      stroke: "transparent",
+      strokeWidth: 0,
+      opacity: 1,
+      angle: 0,
+      scaleX: 1,
+      scaleY: 1,
+      text: type.charAt(0).toUpperCase() + type.slice(1),
+      fontSize: LayoutRules.TYPOGRAPHY.h2,
+      fontFamily: "Poppins",
+      fontWeight: "700",
+      textAlign: "center",
+      linethrough: false,
+      underline: false,
+      overline: false,
+      zIndex: 2,
+      locked: false,
+      visible: true,
+      createdAt: now,
+      updatedAt: now,
+    } as Layer,
+  ];
+}
