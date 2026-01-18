@@ -5,6 +5,12 @@
 
 @import "tw-animate-css";
 
+/* Tiptap Editor */
+@plugin "@tailwindcss/typography";
+.prose p {
+  margin: 0;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 :root {
