@@ -121,7 +121,7 @@ export const CanvasLayersList = () => {
   );
 
   const file = useQuery(
-    api.design.files.getFile,
+    api.design.files.getDesignFileById,
     activeDesignId ? { designId: activeDesignId as Id<"designs"> } : "skip",
   );
 

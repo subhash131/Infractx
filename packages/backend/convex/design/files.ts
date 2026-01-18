@@ -2,8 +2,7 @@ import { ConvexError, v } from "convex/values";
 import { mutation, query } from "../_generated/server";
 import { Doc } from "../_generated/dataModel";
 
-// Create a new file
-export const createFile = mutation({
+export const createDesignFile = mutation({
   args: {
     name: v.string(),
     description: v.optional(v.string()),
@@ -86,8 +85,7 @@ export const setActivePage = mutation({
   },
 });
 
-// Get file by ID
-export const getFile = query({
+export const getDesignFileById = query({
   args: { designId: v.id("designs") },
   async handler(ctx, args) {
     const identity = await ctx.auth.getUserIdentity();
@@ -122,8 +120,7 @@ export const getFile = query({
   },
 });
 
-// Get all files for current user
-export const getUserFiles = query({
+export const getDesignFilesByOrgId = query({
   args: {
     organizationId: v.optional(v.string()),
   },
@@ -150,8 +147,7 @@ export const getUserFiles = query({
   },
 });
 
-// Update file
-export const updateFile = mutation({
+export const updateDesignFile = mutation({
   args: {
     designId: v.id("designs"),
     name: v.optional(v.string()),

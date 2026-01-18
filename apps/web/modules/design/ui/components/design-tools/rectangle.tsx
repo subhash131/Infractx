@@ -13,7 +13,7 @@ export const RectangleTool = () => {
   const createRectangle = useMutation(api.design.layers.createObject);
 
   const file = useQuery(
-    api.design.files.getFile,
+    api.design.files.getDesignFileById,
     activeDesignId
       ? {
           designId: activeDesignId as Id<"designs">,

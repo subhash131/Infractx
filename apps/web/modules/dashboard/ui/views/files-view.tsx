@@ -6,10 +6,10 @@ import { Button } from "@workspace/ui/components/button";
 import Link from "next/link";
 
 export const FilesView = () => {
-  const files = useQuery(api.design.files.getUserFiles, {
+  const files = useQuery(api.design.files.getDesignFilesByOrgId, {
     organizationId: "123",
   });
-  const create = useMutation(api.design.files.createFile);
+  const create = useMutation(api.design.files.createDesignFile);
   return (
     <div>
       FilesView
