@@ -62,11 +62,11 @@ export class Frame extends fabric.Group {
     const top = Math.max(frameBounds.top, objBounds.top);
     const right = Math.min(
       frameBounds.left + frameBounds.width,
-      objBounds.left + objBounds.width
+      objBounds.left + objBounds.width,
     );
     const bottom = Math.min(
       frameBounds.top + frameBounds.height,
-      objBounds.top + objBounds.height
+      objBounds.top + objBounds.height,
     );
 
     if (right <= left || bottom <= top) return 0;
@@ -81,12 +81,12 @@ export class Frame extends fabric.Group {
 /* ================= FRAME TOOL ================= */
 
 export const FrameTool = () => {
-  const { canvas, activeFileId } = useCanvas();
+  const { canvas, activeDesignId } = useCanvas();
   const createFrame = useMutation(api.design.layers.createObject);
 
   const file = useQuery(
     api.design.files.getFile,
-    activeFileId ? { fileId: activeFileId as Id<"files"> } : "skip"
+    activeDesignId ? { designId: activeDesignId as Id<"designs"> } : "skip",
   );
 
   const handleAddFrame = async () => {
@@ -145,7 +145,7 @@ export const FrameTool = () => {
     let pendingObject: fabric.FabricObject | null = null;
 
     const handleObjectMoving = (
-      e: fabric.BasicTransformEvent<fabric.TPointerEvent>
+      e: fabric.BasicTransformEvent<fabric.TPointerEvent>,
     ) => {
       const movingObj = e.transform.target;
       if (!movingObj || movingObj instanceof Frame) return;

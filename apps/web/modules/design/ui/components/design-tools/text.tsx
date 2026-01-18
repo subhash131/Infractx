@@ -9,15 +9,15 @@ import { api } from "@workspace/backend/_generated/api";
 import { Id } from "@workspace/backend/_generated/dataModel";
 
 export const TextTool = () => {
-  const { canvas, activeFileId } = useCanvas();
+  const { canvas, activeDesignId } = useCanvas();
   const createText = useMutation(api.design.layers.createObject);
   const file = useQuery(
     api.design.files.getFile,
-    activeFileId
+    activeDesignId
       ? {
-          fileId: activeFileId as Id<"files">,
+          designId: activeDesignId as Id<"designs">,
         }
-      : "skip"
+      : "skip",
   );
 
   const handleAddText = async () => {

@@ -26,20 +26,20 @@ export const DesignCanvas = () => {
     setSelectedElements,
     setActiveObject,
     activePageId,
-    activeFileId,
+    activeDesignId,
   } = useCanvas();
 
   const file = useQuery(
     api.design.files.getFile,
-    activeFileId ? { fileId: activeFileId as Id<"files"> } : "skip"
+    activeDesignId ? { designId: activeDesignId as Id<"designs"> } : "skip",
   );
   const page = useQuery(
     api.design.pages.getPageById,
-    file?.activePage ? { pageId: file.activePage } : "skip"
+    file?.activePage ? { pageId: file.activePage } : "skip",
   );
   const layers = useQuery(
     api.design.layers.getLayersByPage,
-    file?.activePage ? { pageId: file.activePage } : "skip"
+    file?.activePage ? { pageId: file.activePage } : "skip",
   );
 
   const removeObject = useMutation(api.design.layers.deleteObject);
@@ -56,7 +56,7 @@ export const DesignCanvas = () => {
     activePageId as Id<"pages">,
     createObject,
     updateObject,
-    removeObject
+    removeObject,
   );
 
   useFrameSnapping(canvas, {
@@ -84,7 +84,7 @@ export const DesignCanvas = () => {
     setSelectedElements,
     setActiveObject,
     updateObject,
-    removeObject
+    removeObject,
   );
 
   // Render layers
@@ -92,7 +92,7 @@ export const DesignCanvas = () => {
     canvas,
     canvasRef,
     layers as RecursiveLayer,
-    page as Doc<"pages">
+    page as Doc<"pages">,
   );
 
   //Enable image drop

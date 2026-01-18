@@ -9,15 +9,15 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "@workspace/backend/_generated/api";
 
 export const LineTool = () => {
-  const { canvas, activeFileId } = useCanvas();
+  const { canvas, activeDesignId } = useCanvas();
   const createLine = useMutation(api.design.layers.createObject);
   const file = useQuery(
     api.design.files.getFile,
-    activeFileId
+    activeDesignId
       ? {
-          fileId: activeFileId as Id<"files">,
+          designId: activeDesignId as Id<"designs">,
         }
-      : "skip"
+      : "skip",
   );
 
   const handleAddLine = async () => {
@@ -41,7 +41,7 @@ export const LineTool = () => {
         borderColor: "#4096ee",
         borderScaleFactor: 1,
         angle: 45,
-      }
+      },
     );
 
     const vpt = canvas.viewportTransform;

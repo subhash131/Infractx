@@ -4,7 +4,7 @@ import * as fabric from "fabric";
 interface CanvasState {
   // Canvas instance
   canvas: fabric.Canvas | null;
-  activeFileId: string | null;
+  activeDesignId: string | null;
   activePageId: string | null;
 
   // UI-only state (not persisted)
@@ -26,7 +26,7 @@ interface CanvasActions {
   setMode: (mode: CanvasState["mode"]) => void;
   setBackgroundColor: (color: string) => void;
   setShowGrid: (show: boolean) => void;
-  setActiveFileId: (fileId: string | null) => void;
+  setActiveDesignId: (designId: string | null) => void;
   setActivePageId: (pageId: string | null) => void;
 }
 
@@ -39,7 +39,7 @@ const useCanvas = create<CanvasState & CanvasActions>((set, get) => ({
   mode: "select",
   backgroundColor: "#ffffff",
   showGrid: false,
-  activeFileId: null,
+  activeDesignId: null,
   activePageId: null,
 
   setCanvas: (canvas) => set({ canvas }),
@@ -58,7 +58,7 @@ const useCanvas = create<CanvasState & CanvasActions>((set, get) => ({
 
   setActiveObject: (object) => set({ activeObject: object }),
 
-  setActiveFileId: (fileId) => set({ activeFileId: fileId }),
+  setActiveDesignId: (designId) => set({ activeDesignId: designId }),
 
   setActivePageId: (pageId) => set({ activePageId: pageId }),
 }));

@@ -8,15 +8,15 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "@workspace/backend/_generated/api";
 
 export const CircleTool = () => {
-  const { canvas, activeFileId } = useCanvas();
+  const { canvas, activeDesignId } = useCanvas();
   const createCircle = useMutation(api.design.layers.createObject);
   const file = useQuery(
     api.design.files.getFile,
-    activeFileId
+    activeDesignId
       ? {
-          fileId: activeFileId as Id<"files">,
+          designId: activeDesignId as Id<"designs">,
         }
-      : "skip"
+      : "skip",
   );
 
   const handleAddCircle = async () => {
