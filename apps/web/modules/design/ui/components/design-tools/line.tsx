@@ -12,7 +12,7 @@ export const LineTool = () => {
   const { canvas, activeDesignId } = useCanvas();
   const createLine = useMutation(api.design.layers.createObject);
   const file = useQuery(
-    api.design.files.getFile,
+    api.design.files.getDesignFileById,
     activeDesignId
       ? {
           designId: activeDesignId as Id<"designs">,
