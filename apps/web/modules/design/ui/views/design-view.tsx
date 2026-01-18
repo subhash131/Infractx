@@ -8,15 +8,15 @@ import useCanvas from "../../store";
 import { CanvasLayersList } from "../components/canvas-layers-list";
 import { ChatWindow } from "../components/chat-window";
 
-export const DesignView = ({ fileId }: { fileId: string }) => {
-  const { setActiveFileId } = useCanvas();
+export const DesignView = ({ designId }: { designId: string }) => {
+  const { setActiveDesignId } = useCanvas();
   useEffect(() => {
-    if (!fileId) return;
-    setActiveFileId(fileId);
+    if (!designId) return;
+    setActiveDesignId(designId);
     return () => {
-      setActiveFileId(null);
+      setActiveDesignId(null);
     };
-  }, [fileId]);
+  }, [designId]);
   return (
     <div className="w-screen h-screen overflow-hidden flex items-center justify-center relative">
       <DesignCanvas />

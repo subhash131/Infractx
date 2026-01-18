@@ -108,7 +108,8 @@ LayerRow.displayName = "LayerRow";
 ====================================================== */
 
 export const CanvasLayersList = () => {
-  const { activeFileId, setActivePageId, canvas } = useCanvas();
+  const { activeDesignId, setActivePageId, canvas } = useCanvas();
+  console.log({ activeDesignId });
 
   const [editingLayerId, setEditingLayerId] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
@@ -116,12 +117,12 @@ export const CanvasLayersList = () => {
 
   const pages = useQuery(
     api.design.pages.getFilePages,
-    activeFileId ? { fileId: activeFileId as Id<"files"> } : "skip",
+    activeDesignId ? { designId: activeDesignId as Id<"designs"> } : "skip",
   );
 
   const file = useQuery(
     api.design.files.getFile,
-    activeFileId ? { fileId: activeFileId as Id<"files"> } : "skip",
+    activeDesignId ? { designId: activeDesignId as Id<"designs"> } : "skip",
   );
 
   const layers = useQuery(
@@ -267,7 +268,7 @@ export const CanvasLayersList = () => {
           variant={file?.activePage === page._id ? "outline" : "ghost"}
           onClick={() =>
             setActiveLayer({
-              fileId: activeFileId as Id<"files">,
+              designId: activeDesignId as Id<"designs">,
               pageId: page._id,
             })
           }
@@ -280,7 +281,7 @@ export const CanvasLayersList = () => {
         <Button
           onClick={() =>
             addPage({
-              fileId: activeFileId as Id<"files">,
+              designId: activeDesignId as Id<"designs">,
               name: `Page ${pages.length + 1}`,
             })
           }
