@@ -66,20 +66,18 @@ export const CanvasFrame: React.FC<CanvasFrameProps> = ({
     const finalWidth = Math.max(5, rectNode.width() * scaleX);
     const finalHeight = Math.max(5, rectNode.height() * scaleY);
 
-    // --- CRITICAL FIX START ---
     // Reset Rect
     rectNode.x(0);
     rectNode.y(0);
     rectNode.scaleX(1);
     rectNode.scaleY(1);
 
-    // Reset Clip Group (This was missing!)
+    // Reset Clip Group
     // Since Rect is back at 0,0, Clip must be back at 0,0 too.
     innerGroupNode.clipX(0);
     innerGroupNode.clipY(0);
     innerGroupNode.clipWidth(finalWidth);
     innerGroupNode.clipHeight(finalHeight);
-    // --- CRITICAL FIX END ---
 
     // Move the outer group to the new position
     onUpdate(frame.id, {
