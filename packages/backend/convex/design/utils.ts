@@ -1,4 +1,63 @@
+import { v } from "convex/values";
 import { Doc, Id } from "../_generated/dataModel";
+import { DESIGN_TOOLS_TYPE } from "./constants";
+
+export const shapeInsertValidator = v.object({
+  // --- Identity & Hierarchy ---
+  type: DESIGN_TOOLS_TYPE,
+  pageId: v.id("pages"),
+  name: v.string(),
+
+  // hierarchy
+  parentShapeId: v.optional(v.id("shapes")), // Null = Root Layer
+
+  // --- Geometry ---
+  x: v.float64(),
+  y: v.float64(),
+  width: v.float64(),
+  height: v.float64(),
+  rotation: v.float64(),
+  scaleX: v.float64(),
+  scaleY: v.float64(),
+
+  // --- Frame Logic ---
+  clipsContent: v.optional(v.boolean()),
+
+  // --- Styling ---
+  fill: v.optional(v.string()),
+  stroke: v.optional(v.string()),
+  strokeWidth: v.float64(),
+  opacity: v.float64(),
+  cornerRadius: v.optional(v.float64()),
+
+  // --- Specific Data ---
+  text: v.optional(v.string()),
+  fontSize: v.optional(v.float64()),
+  fontFamily: v.optional(v.string()),
+  fontWeight: v.optional(v.string()),
+  textAlign: v.optional(v.string()),
+  fontStyle: v.optional(v.string()),
+  underline: v.optional(v.boolean()),
+  linethrough: v.optional(v.boolean()),
+  overline: v.optional(v.boolean()),
+
+  imageUrl: v.optional(v.string()), // For Type: IMAGE
+
+  // For Type: PATH / LINE / POLYGON
+  points: v.optional(v.any()), // Array of points
+  pathData: v.optional(v.string()), // SVG Path string for complex shapes
+
+  // --- Metadata ---
+  order: v.float64(),
+  locked: v.optional(v.boolean()),
+  visible: v.optional(v.boolean()),
+
+  // arbitrary data for plugins or fabric.js specifics
+  meta: v.optional(v.any()),
+
+  createdAt: v.number(),
+  updatedAt: v.number(),
+});
 
 export function getNextFramePosition(frames: Doc<"layers">[]) {
   if (!frames || frames.length === 0) {
@@ -7,7 +66,7 @@ export function getNextFramePosition(frames: Doc<"layers">[]) {
 
   // Find the rightmost edge (left + width) of all frames
   const rightmostEdge = Math.max(
-    ...frames.map((frame) => frame.left + frame.width)
+    ...frames.map((frame) => frame.left + frame.width),
   );
 
   // Add 10px padding for the new object's left position
@@ -47,7 +106,7 @@ export function buildPageLayerTree(layers: Doc<"layers">[]): LayerNode[] {
 
 export function buildFrameLayerTree(
   layers: Doc<"layers">[],
-  frameId: Id<"layers">
+  frameId: Id<"layers">,
 ): LayerNode[] {
   function build(layers: Doc<"layers">[], parentId: Id<"layers">): LayerNode[] {
     return layers
@@ -62,7 +121,7 @@ export function buildFrameLayerTree(
 
 export function buildFrameTemplateTree(
   layers: Doc<"layers">[],
-  frameId: Id<"layers">
+  frameId: Id<"layers">,
 ): TemplateLayerNode[] {
   function build(parentId: Id<"layers">): TemplateLayerNode[] {
     return layers

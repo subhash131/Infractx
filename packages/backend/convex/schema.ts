@@ -1,6 +1,7 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import { DESIGN_TOOLS_TYPE, MESSAGE_CONTEXT_TYPE } from "./design/constants";
+import { shapeInsertValidator } from "./design/utils";
 
 export default defineSchema({
   // Users table for authentication
@@ -64,6 +65,7 @@ export default defineSchema({
   }).index("by_page", ["pageId"]),
 
   // Canvas objects store individual elements (rectangles, circles, text, images, etc.)
+  //Old - for fabric-js
   layers: defineTable({
     // Object properties
     type: DESIGN_TOOLS_TYPE, // "rect", "circle", "triangle", "text", "image", "path", etc.
@@ -141,6 +143,14 @@ export default defineSchema({
     .index("by_page_zindex", ["pageId", "zIndex"])
     .index("by_type", ["type"])
     .index("by_parent", ["parentLayerId"]),
+
+  //new - for konva.js
+  shapes: defineTable(shapeInsertValidator)
+    .index("by_page", ["pageId"])
+    .index("by_parent_order", ["parentShapeId", "order"])
+    .index("by_type", ["type"])
+    .index("by_parent", ["parentShapeId"]),
+
   // Design templates
   templates: defineTable({
     name: v.string(),
