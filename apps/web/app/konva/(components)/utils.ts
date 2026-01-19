@@ -1,0 +1,170 @@
+import Konva from "konva";
+import { Guide } from "./types";
+
+const VISUAL_THRESHOLD = 5;
+const SNAP_DISTANCE_LIMIT = 5;
+
+export const getSnapThreshold = (scale: number): number => {
+  return Math.min(VISUAL_THRESHOLD / scale, SNAP_DISTANCE_LIMIT);
+};
+
+export const getFrameGuides = (frameWidth: number, frameHeight: number) => ({
+  vertical: [0, frameWidth / 2, frameWidth],
+  horizontal: [0, frameHeight / 2, frameHeight],
+});
+
+export const getChildEdges = (box: any, absX: number, absY: number) => ({
+  vertical: [
+    { guide: box.x, offset: box.x - absX, snap: "start" },
+    {
+      guide: box.x + box.width / 2,
+      offset: box.x + box.width / 2 - absX,
+      snap: "center",
+    },
+    { guide: box.x + box.width, offset: box.x + box.width - absX, snap: "end" },
+  ],
+  horizontal: [
+    { guide: box.y, offset: box.y - absY, snap: "start" },
+    {
+      guide: box.y + box.height / 2,
+      offset: box.y + box.height / 2 - absY,
+      snap: "center",
+    },
+    {
+      guide: box.y + box.height,
+      offset: box.y + box.height - absY,
+      snap: "end",
+    },
+  ],
+});
+
+export const findSnapGuides = (
+  frameGuides: ReturnType<typeof getFrameGuides>,
+  childEdges: ReturnType<typeof getChildEdges>,
+  threshold: number,
+): Guide[] => {
+  const resultV: any[] = [];
+  const resultH: any[] = [];
+
+  frameGuides.vertical.forEach((lineGuide) => {
+    childEdges.vertical.forEach((childEdge) => {
+      const diff = Math.abs(lineGuide - childEdge.guide);
+      if (diff < threshold) {
+        resultV.push({
+          lineGuide,
+          diff,
+          snap: childEdge.snap,
+          offset: childEdge.offset,
+        });
+      }
+    });
+  });
+
+  frameGuides.horizontal.forEach((lineGuide) => {
+    childEdges.horizontal.forEach((childEdge) => {
+      const diff = Math.abs(lineGuide - childEdge.guide);
+      if (diff < threshold) {
+        resultH.push({
+          lineGuide,
+          diff,
+          snap: childEdge.snap,
+          offset: childEdge.offset,
+        });
+      }
+    });
+  });
+
+  const guides: Guide[] = [];
+  const minV = resultV.sort((a, b) => a.diff - b.diff)[0];
+  const minH = resultH.sort((a, b) => a.diff - b.diff)[0];
+
+  if (minV) {
+    guides.push({
+      lineGuide: minV.lineGuide,
+      offset: minV.offset,
+      orientation: "V",
+      snap: minV.snap,
+    });
+  }
+  if (minH) {
+    guides.push({
+      lineGuide: minH.lineGuide,
+      offset: minH.offset,
+      orientation: "H",
+      snap: minH.snap,
+    });
+  }
+
+  return guides;
+};
+
+export const drawGuides = (
+  guides: Guide[],
+  group: any,
+  frameWidth: number,
+  frameHeight: number,
+) => {
+  guides.forEach((lg) => {
+    const points =
+      lg.orientation === "H"
+        ? [0, lg.lineGuide, frameWidth, lg.lineGuide]
+        : [lg.lineGuide, 0, lg.lineGuide, frameHeight];
+
+    const line = new Konva.Line({
+      points,
+      stroke: "#FF00FF",
+      strokeWidth: 1,
+      name: "guid-line",
+      dash: [4, 6],
+    });
+    group.add(line);
+  });
+};
+
+export const createSnapHandler = (
+  frameWidth: number,
+  frameHeight: number,
+  onUpdate: (pos: { x: number; y: number }) => void,
+) => {
+  return (e: any) => {
+    const node = e.target;
+    const innerGroup = node.getParent();
+    const frameGroup = innerGroup.getParent();
+
+    if (!frameGroup) return;
+
+    frameGroup.find(".guid-line").forEach((l: any) => l.destroy());
+
+    const box = node.getClientRect({ relativeTo: innerGroup });
+    const absX = node.x();
+    const absY = node.y();
+
+    const frameGuides = getFrameGuides(frameWidth, frameHeight);
+    const scale = node.getStage().scaleX();
+    const threshold = getSnapThreshold(scale);
+    const childEdges = getChildEdges(box, absX, absY);
+
+    const guides = findSnapGuides(frameGuides, childEdges, threshold);
+
+    if (guides.length) {
+      drawGuides(guides, frameGroup, frameWidth, frameHeight);
+
+      const pos = { x: absX, y: absY };
+      guides.forEach((lg) => {
+        if (lg.orientation === "V") pos.x = lg.lineGuide - lg.offset;
+        else if (lg.orientation === "H") pos.y = lg.lineGuide - lg.offset;
+      });
+
+      node.setAttrs(pos);
+      onUpdate(pos); // Notify parent of position change
+    }
+  };
+};
+
+export const clearGuides = (e: any) => {
+  const innerGroup = e.target.getParent();
+  const frameGroup = innerGroup?.getParent();
+  if (frameGroup) {
+    frameGroup.find(".guid-line").forEach((l: any) => l.destroy());
+  }
+};
