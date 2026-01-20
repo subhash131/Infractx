@@ -1,3 +1,5 @@
+import { Doc } from "@workspace/backend/_generated/dataModel";
+
 export interface Guide {
   lineGuide: number;
   offset: number;
@@ -23,11 +25,10 @@ export interface FrameProps extends FrameData {
 
 export interface ShapeData {
   id: string;
-  type: "text" | "circle" | "rect";
+  type: Doc<"shapes">["type"];
   x: number;
   y: number;
   frameId: string;
-  // Shape-specific properties
   text?: string;
   fontSize?: number;
   radius?: number;

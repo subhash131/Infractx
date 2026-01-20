@@ -8,9 +8,10 @@ interface CanvasFrameProps {
   frame: FrameData;
   shapes: ShapeData[];
   isSelected: boolean;
-  onSelect: () => void;
+  onSelect: (e: Konva.KonvaEventObject<MouseEvent>) => void;
   onUpdate: (id: string, attrs: Partial<FrameData>) => void;
   onShapeUpdate: (id: string, attrs: Partial<ShapeData>) => void;
+  handleShapeUpdate?: (e: Konva.KonvaEventObject<DragEvent>) => void;
 }
 
 export const CanvasFrame: React.FC<CanvasFrameProps> = ({
@@ -20,18 +21,11 @@ export const CanvasFrame: React.FC<CanvasFrameProps> = ({
   onSelect,
   onUpdate,
   onShapeUpdate,
+  handleShapeUpdate,
 }) => {
   const outerGroupRef = useRef<Konva.Group>(null);
   const innerGroupRef = useRef<Konva.Group>(null);
   const rectRef = useRef<Konva.Rect>(null);
-  const transformerRef = useRef<Konva.Transformer>(null);
-
-  useEffect(() => {
-    if (isSelected && transformerRef.current && rectRef.current) {
-      transformerRef.current.nodes([rectRef.current]);
-      transformerRef.current.getLayer()?.batchDraw();
-    }
-  }, [isSelected]);
 
   // 1. LIVE UPDATE: Syncs clip mask to the moving rect
   const handleTransform = () => {
@@ -91,14 +85,14 @@ export const CanvasFrame: React.FC<CanvasFrameProps> = ({
   return (
     <Group
       ref={outerGroupRef}
-      x={frame.x}
-      y={frame.y}
       draggable
       onClick={onSelect}
-      onTap={onSelect}
-      onDragEnd={(e) => {
-        onUpdate(frame.id, { x: e.target.x(), y: e.target.y() });
-      }}
+      onDragEnd={handleShapeUpdate}
+      id={frame.id}
+      width={frame.width}
+      height={frame.height}
+      x={frame.x}
+      y={frame.y}
     >
       <Group
         ref={innerGroupRef}
@@ -106,8 +100,10 @@ export const CanvasFrame: React.FC<CanvasFrameProps> = ({
         clipY={0}
         clipWidth={frame.width}
         clipHeight={frame.height}
+        id={frame.id}
       >
         <Rect
+          id={frame.id}
           ref={rectRef}
           width={frame.width}
           height={frame.height}
@@ -130,23 +126,6 @@ export const CanvasFrame: React.FC<CanvasFrameProps> = ({
           />
         ))}
       </Group>
-
-      {isSelected && (
-        <Transformer
-          ref={transformerRef}
-          boundBoxFunc={(oldBox, newBox) => {
-            if (newBox.width < 50 || newBox.height < 50) return oldBox;
-            return newBox;
-          }}
-          rotateEnabled={false}
-          borderStroke="#2196f3"
-          borderStrokeWidth={1}
-          anchorStroke="#2196f3"
-          anchorFill="white"
-          anchorSize={8}
-          anchorCornerRadius={2}
-        />
-      )}
     </Group>
   );
 };
