@@ -8,6 +8,7 @@ export interface Guide {
 }
 export interface FrameData {
   id: string;
+  name: string;
   x: number;
   y: number;
   width: number;
@@ -38,3 +39,7 @@ export interface ShapeData {
   opacity?: number;
   parentId?: string;
 }
+
+export type ShapeNode = Doc<"shapes"> & {
+  children: ShapeNode[];
+};

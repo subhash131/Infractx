@@ -25,7 +25,6 @@ export const useShapeDrawing = () => {
       setActiveShapeId(undefined);
     }
     if (activeTool === "SELECT") return;
-
     const stage = e.target.getStage();
     if (!stage) return;
 
