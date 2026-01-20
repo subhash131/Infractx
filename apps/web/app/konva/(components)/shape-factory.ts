@@ -14,7 +14,7 @@ export const createShapeObject = (
     y: shape.height < 0 ? shape.y + shape.height : shape.y,
     width: Math.abs(shape.width),
     height: Math.abs(shape.height),
-    fill: "#008080",
+    fill: "#f0f0f0",
     opacity: 1,
     strokeWidth: 0,
     order: 0,
@@ -26,14 +26,22 @@ export const createShapeObject = (
     case "RECT":
       return {
         ...baseShape,
-        type: "RECT" as Doc<"shapes">["type"],
+        type: "RECT",
         name: "Rectangle",
       };
     case "CIRCLE":
       return {
         ...baseShape,
-        type: "CIRCLE" as Doc<"shapes">["type"],
+        type: "CIRCLE",
         name: "Circle",
+        radius: shape.radius,
+      };
+    case "FRAME":
+      return {
+        ...baseShape,
+        type: "FRAME",
+        name: "Frame",
+        fill: "#fafafa",
       };
     default:
       return null;

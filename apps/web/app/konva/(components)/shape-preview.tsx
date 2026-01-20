@@ -17,32 +17,32 @@ interface ShapePreviewProps {
 export const ShapePreview: React.FC<ShapePreviewProps> = ({ shape }) => {
   const { activeTool } = useCanvas();
 
-  if (activeTool === "RECT") {
-    return (
-      <Rect
-        x={shape.x}
-        y={shape.y}
-        width={shape.width}
-        height={shape.height}
-        fill="rgba(33, 150, 243, 0.2)"
-        stroke="rgba(33, 150, 243, 1)"
-        strokeWidth={1}
-      />
-    );
+  switch (activeTool) {
+    case "FRAME":
+    case "RECT":
+      return (
+        <Rect
+          x={shape.x}
+          y={shape.y}
+          width={shape.width}
+          height={shape.height}
+          fill="rgba(33, 150, 243, 0.2)"
+          stroke="rgba(33, 150, 243, 1)"
+          strokeWidth={1}
+        />
+      );
+    case "CIRCLE":
+      return (
+        <Circle
+          radius={shape.radius}
+          x={shape.x}
+          y={shape.y}
+          fill="rgba(33, 150, 243, 0.2)"
+          stroke="rgba(33, 150, 243, 1)"
+          strokeWidth={1}
+        />
+      );
+    default:
+      return null;
   }
-
-  if (activeTool === "CIRCLE") {
-    return (
-      <Circle
-        radius={shape.radius}
-        x={shape.x}
-        y={shape.y}
-        fill="rgba(33, 150, 243, 0.2)"
-        stroke="rgba(33, 150, 243, 1)"
-        strokeWidth={1}
-      />
-    );
-  }
-
-  return null;
 };

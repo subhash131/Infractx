@@ -25,7 +25,7 @@ export const Shape: React.FC<ShapeProps> = ({
   };
 
   switch (shape.type) {
-    case "text":
+    case "TEXT":
       return (
         <Text
           x={shape.x}
@@ -40,7 +40,7 @@ export const Shape: React.FC<ShapeProps> = ({
         />
       );
 
-    case "circle":
+    case "CIRCLE":
       return (
         <Circle
           x={shape.x}
@@ -54,7 +54,7 @@ export const Shape: React.FC<ShapeProps> = ({
         />
       );
 
-    case "rect":
+    case "RECT":
       return (
         <Rect
           x={shape.x}

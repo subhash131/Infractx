@@ -5,7 +5,7 @@ export const useShapes = () => {
   const [shapes, setShapes] = useState<ShapeData[]>([
     {
       id: "s1",
-      type: "text",
+      type: "TEXT",
       x: 10,
       y: 10,
       frameId: "1",
@@ -14,7 +14,7 @@ export const useShapes = () => {
     },
     {
       id: "s2",
-      type: "circle",
+      type: "CIRCLE",
       x: 50,
       y: 50,
       frameId: "1",
@@ -24,7 +24,7 @@ export const useShapes = () => {
     },
     {
       id: "s3",
-      type: "rect",
+      type: "RECT",
       x: 0,
       y: 0,
       frameId: "1",

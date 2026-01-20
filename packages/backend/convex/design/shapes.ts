@@ -36,7 +36,7 @@ export const getShapeById = query({
     return shape;
   },
 });
-export const getShapeByPage = query({
+export const getShapesByPage = query({
   args: {
     pageId: v.id("pages"),
   },

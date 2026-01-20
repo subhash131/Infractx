@@ -24,7 +24,7 @@ export const shapeInsertValidator = v.object({
   clipsContent: v.optional(v.boolean()),
 
   // --- Styling ---
-  fill: v.optional(v.string()),
+  fill: v.string(),
   stroke: v.optional(v.string()),
   strokeWidth: v.float64(),
   opacity: v.float64(),
@@ -46,6 +46,7 @@ export const shapeInsertValidator = v.object({
   // For Type: PATH / LINE / POLYGON
   points: v.optional(v.any()), // Array of points
   pathData: v.optional(v.string()), // SVG Path string for complex shapes
+  radius: v.optional(v.float64()), // For CIRCLE
 
   // --- Metadata ---
   order: v.float64(),
