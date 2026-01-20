@@ -17,7 +17,6 @@ interface CanvasFrameProps {
 export const CanvasFrame: React.FC<CanvasFrameProps> = ({
   frame,
   shapes,
-  isSelected,
   onSelect,
   onUpdate,
   onShapeUpdate,
