@@ -7,12 +7,12 @@ export const GridPattern: React.FC = () => (
       <Group key={`grid-${i}`}>
         <Line
           points={[i * 100, -5000, i * 100, 5000]}
-          stroke="#e0e0e0"
+          stroke="#999999"
           strokeWidth={0.5}
         />
         <Line
           points={[-5000, i * 100, 5000, i * 100]}
-          stroke="#e0e0e0"
+          stroke="#999999"
           strokeWidth={0.5}
         />
       </Group>
