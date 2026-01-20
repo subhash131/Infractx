@@ -282,7 +282,6 @@ export const CanvasFrame: React.FC<CanvasFrameProps> = ({
           width={frame.width}
           height={frame.height}
           fill={frame.fill}
-          cornerRadius={20}
           shadowEnabled={false}
           stroke={"#e0e0e0"}
           shadowOffsetX={2}
