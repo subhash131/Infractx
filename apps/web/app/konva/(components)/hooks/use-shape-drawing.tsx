@@ -21,10 +21,10 @@ export const useShapeDrawing = () => {
   const [newShape, setNewShape] = useState<NewShape | null>(null);
 
   const handlePointerDown = (e: KonvaEventObject<PointerEvent>) => {
-    if (activeTool === "SELECT") {
+    if (e.target === e.target.getStage()) {
       setActiveShapeId(undefined);
-      return;
     }
+    if (activeTool === "SELECT") return;
 
     const stage = e.target.getStage();
     if (!stage) return;
@@ -102,7 +102,6 @@ export const useShapeDrawing = () => {
 
     if (shapeObject) {
       createShape({ shapeObject });
-      console.log("Created shape:", shapeObject);
     }
 
     setNewShape(null);
