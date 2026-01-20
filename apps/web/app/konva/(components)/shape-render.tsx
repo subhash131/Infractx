@@ -3,19 +3,23 @@ import { Rect, Circle } from "react-konva";
 import { Doc, Id } from "@workspace/backend/_generated/dataModel";
 import { CanvasFrame } from "./canvas-frame";
 import Konva from "konva";
+import { ActiveTool } from "./store";
+import { ShapeNode } from "./types";
 
 interface ShapeRendererProps {
-  shape: Doc<"shapes">;
+  shape: ShapeNode;
   activeShapeId?: Id<"shapes">;
-  handleShapeUpdate?: (e: Konva.KonvaEventObject<DragEvent>) => void;
+  activeTool: ActiveTool;
+  handleShapeUpdate: (e: Konva.KonvaEventObject<DragEvent>) => void;
   handleShapeSelect: (e: Konva.KonvaEventObject<MouseEvent>) => void;
 }
 
 export const ShapeRenderer: React.FC<ShapeRendererProps> = ({
   shape,
+  activeShapeId,
+  activeTool,
   handleShapeUpdate,
   handleShapeSelect,
-  activeShapeId,
 }) => {
   const commonProps = {
     id: shape._id.toString(),
@@ -36,9 +40,10 @@ export const ShapeRenderer: React.FC<ShapeRendererProps> = ({
           id={shape._id}
           width={shape.width}
           height={shape.height}
-          draggable
-          onDragEnd={handleShapeUpdate}
+          draggable={activeTool === "SELECT"}
           onClick={handleShapeSelect}
+          onDragStart={handleShapeSelect}
+          onTransformEnd={handleShapeUpdate}
         />
       );
 
@@ -49,9 +54,10 @@ export const ShapeRenderer: React.FC<ShapeRendererProps> = ({
           {...shape}
           id={shape._id}
           radius={shape.radius || shape.width / 2}
-          draggable
-          onDragEnd={handleShapeUpdate}
+          draggable={activeTool === "SELECT"}
           onClick={handleShapeSelect}
+          onDragStart={handleShapeSelect}
+          onTransformEnd={handleShapeUpdate}
         />
       );
 
@@ -65,12 +71,14 @@ export const ShapeRenderer: React.FC<ShapeRendererProps> = ({
             width: shape.width,
             height: shape.height,
             id: shape._id.toString(),
+            name: shape.name,
           }}
           isSelected={activeShapeId === shape._id}
+          draggable={activeTool === "SELECT"}
           onSelect={handleShapeSelect}
           onShapeUpdate={() => {}}
           handleShapeUpdate={handleShapeUpdate}
-          shapes={[]}
+          shapes={shape.children || []}
           onUpdate={() => {}}
         />
       );

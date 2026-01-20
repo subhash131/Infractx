@@ -1,5 +1,6 @@
 import Konva from "konva";
-import { Guide } from "./types";
+import { Guide, ShapeNode } from "./types";
+import { Doc } from "@workspace/backend/_generated/dataModel";
 
 const VISUAL_THRESHOLD = 5;
 const SNAP_DISTANCE_LIMIT = 5;
@@ -217,3 +218,55 @@ export const buildTreeOptimized = (flatShapes: any[]) => {
 
   return tree;
 };
+
+// 2. Define the Tree Node (inherits Shape + adds children)
+
+/**
+ * Parses a flat list of shapes into a hierarchical tree.
+ * Sorts siblings by 'order', falling back to '_creationTime'.
+ */
+export function buildShapeTree(shapes: Doc<"shapes">[]): ShapeNode[] {
+  const nodeMap = new Map<string, ShapeNode>();
+  const roots: ShapeNode[] = [];
+
+  // Step A: Initialize Map and Clone Objects
+  // We clone to avoid mutating the original input array
+  shapes.forEach((shape) => {
+    nodeMap.set(shape._id, { ...shape, children: [] });
+  });
+
+  // Step B: Build Hierarchy
+  nodeMap.forEach((node) => {
+    // If it has a parent AND that parent exists in our list
+    if (node.parentShapeId && nodeMap.has(node.parentShapeId)) {
+      const parent = nodeMap.get(node.parentShapeId)!;
+      parent.children.push(node);
+    } else {
+      // Otherwise, it's a root item
+      roots.push(node);
+    }
+  });
+
+  // Step C: Recursive Sort Function
+  const sortNodes = (nodes: ShapeNode[]) => {
+    nodes.sort((a, b) => {
+      // Primary Sort: Explicit Order
+      if (a.order !== b.order) {
+        return a.order - b.order;
+      }
+      // Secondary Sort: Creation Time (Oldest first = drawn first)
+      return a._creationTime - b._creationTime;
+    });
+
+    // Recursively sort children
+    nodes.forEach((node) => {
+      if (node.children.length > 0) {
+        sortNodes(node.children);
+      }
+    });
+  };
+
+  sortNodes(roots);
+
+  return roots;
+}

@@ -1,8 +1,7 @@
 import { create } from "zustand";
-import * as fabric from "fabric";
 import { Doc, Id } from "@workspace/backend/_generated/dataModel";
 
-type ActiveTool = Doc<"shapes">["type"] | "SELECT";
+export type ActiveTool = Doc<"shapes">["type"] | "SELECT";
 
 interface CanvasState {
   activeTool: ActiveTool;
