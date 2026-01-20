@@ -17,8 +17,8 @@ export const shapeInsertValidator = v.object({
   width: v.float64(),
   height: v.float64(),
   rotation: v.float64(),
-  scaleX: v.float64(),
-  scaleY: v.float64(),
+  scaleX: v.optional(v.float64()),
+  scaleY: v.optional(v.float64()),
 
   // --- Frame Logic ---
   clipsContent: v.optional(v.boolean()),
@@ -55,8 +55,8 @@ export const shapeInsertValidator = v.object({
   // arbitrary data for plugins or fabric.js specifics
   meta: v.optional(v.any()),
 
-  createdAt: v.number(),
-  updatedAt: v.number(),
+  createdAt: v.optional(v.number()),
+  updatedAt: v.optional(v.number()),
 });
 
 export function getNextFramePosition(frames: Doc<"layers">[]) {
