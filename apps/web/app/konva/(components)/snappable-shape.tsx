@@ -140,6 +140,7 @@ export const SnappableShape: React.FC<SnappableShapeProps> = ({
     x: shape.x,
     y: shape.y,
     fill: shape.fill,
+    type: shape.type,
     opacity: shape.opacity,
     rotation: shape.rotation,
     stroke: shape.stroke || "black",
