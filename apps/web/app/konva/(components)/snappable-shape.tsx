@@ -44,7 +44,7 @@ export const SnappableShape: React.FC<SnappableShapeProps> = ({
     const horizontal: number[] = [];
 
     // -- Parent Frame Stops --
-    const frameNode = layer.findOne(`#${parentFrame.id}`);
+    const frameNode = layer.findOne(`.frame-rect-${parentFrame.id}`);
     if (frameNode) {
       const frameBox = frameNode.getClientRect({ relativeTo: layer });
       vertical.push(
