@@ -2,11 +2,12 @@ import { useEffect, useRef } from "react";
 import Konva from "konva";
 import { debounce } from "lodash";
 import { Id } from "@workspace/backend/_generated/dataModel";
+import useCanvas from "../store";
 
 interface UseKeyboardControlsProps {
   stageRef: React.RefObject<Konva.Stage | null>;
   activeShapeId: Id<"shapes"> | undefined;
-  onDelete: (shapeId: Id<"shapes">) => void;
+  onDelete: (shapeId: Id<"shapes">[]) => void;
   onUpdate: (
     shapeId: Id<"shapes">,
     updates: { x?: number; y?: number },
@@ -21,17 +22,21 @@ export const useKeyboardControls = ({
   onUpdate,
   onDeselect,
 }: UseKeyboardControlsProps) => {
-  if (!stageRef) return;
+  const onUpdateRef = useRef(onUpdate);
+  const { selectedShapeIds } = useCanvas();
+
+  useEffect(() => {
+    onUpdateRef.current = onUpdate;
+  }, [onUpdate]);
+
   const debouncedUpdate = useRef(
     debounce((shapeId: Id<"shapes">, updates: { x: number; y: number }) => {
-      onUpdate(shapeId, updates);
-    }, 300),
+      onUpdateRef.current(shapeId, updates);
+    }, 1000),
   ).current;
 
   useEffect(() => {
-    return () => {
-      debouncedUpdate.cancel();
-    };
+    return () => debouncedUpdate.cancel();
   }, [debouncedUpdate]);
 
   useEffect(() => {
@@ -41,49 +46,47 @@ export const useKeyboardControls = ({
       const stage = stageRef.current;
       if (!stage) return;
 
-      const activeShape = stage.findOne(`#${activeShapeId.toString()}`);
+      let activeShape = stage.findOne(`#${activeShapeId}`);
       if (!activeShape) return;
 
-      // Delete shape
+      if (activeShape.attrs.type === "FRAME") {
+        if (activeShape.parent?.parent) activeShape = activeShape.parent.parent;
+      }
+
       if (e.key === "Delete") {
         e.preventDefault();
         debouncedUpdate.cancel();
-        onDelete(activeShapeId);
+
+        const idsToDelete =
+          selectedShapeIds.length > 0
+            ? selectedShapeIds
+            : activeShapeId
+              ? [activeShapeId]
+              : [];
+
+        if (idsToDelete.length > 0) {
+          onDelete(idsToDelete);
+        }
+
         onDeselect();
         return;
       }
 
       const moveAmount = e.shiftKey ? 10 : 1;
-      let newX = activeShape.x();
-      let newY = activeShape.y();
+      let x = activeShape.x();
+      let y = activeShape.y();
 
-      switch (e.key) {
-        case "ArrowUp":
-          e.preventDefault();
-          newY -= moveAmount;
-          break;
-        case "ArrowDown":
-          e.preventDefault();
-          newY += moveAmount;
-          break;
-        case "ArrowLeft":
-          e.preventDefault();
-          newX -= moveAmount;
-          break;
-        case "ArrowRight":
-          e.preventDefault();
-          newX += moveAmount;
-          break;
-        default:
-          return;
-      }
+      if (e.key === "ArrowUp") y -= moveAmount;
+      else if (e.key === "ArrowDown") y += moveAmount;
+      else if (e.key === "ArrowLeft") x -= moveAmount;
+      else if (e.key === "ArrowRight") x += moveAmount;
+      else return;
 
-      // Update position locally (instant visual feedback)
-      activeShape.position({ x: newX, y: newY });
+      e.preventDefault();
+
+      activeShape.position({ x, y });
       activeShape.getLayer()?.batchDraw();
-
-      // Debounced database update
-      debouncedUpdate(activeShapeId, { x: newX, y: newY });
+      debouncedUpdate(activeShapeId, { x, y });
     };
 
     window.addEventListener("keydown", handleKeyDown);
