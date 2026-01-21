@@ -47,6 +47,7 @@ export const ShapeRenderer: React.FC<ShapeRendererProps> = ({
           onClick={handleShapeSelect}
           onDragStart={handleShapeSelect}
           onTransformEnd={handleShapeUpdate}
+          onDragEnd={handleShapeUpdate}
         />
       );
     case "CIRCLE":
@@ -60,6 +61,7 @@ export const ShapeRenderer: React.FC<ShapeRendererProps> = ({
           onClick={handleShapeSelect}
           onDragStart={handleShapeSelect}
           onTransformEnd={handleShapeUpdate}
+          onDragEnd={handleShapeUpdate}
         />
       );
     case "FRAME":

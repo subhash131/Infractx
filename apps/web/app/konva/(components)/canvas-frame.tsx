@@ -1,15 +1,11 @@
 import Konva from "konva";
 import React, { useRef } from "react";
-import { Group, Rect, Text, Circle } from "react-konva";
+import { Group, Rect, Text } from "react-konva";
 import { FrameData, ShapeData, ShapeNode } from "./types";
 import { ShapeRenderer } from "./shape-render";
-import {
-  getObjectSnappingEdges,
-  getGuides,
-  drawGuides,
-} from "./frame-snapping-util";
 import { ActiveTool } from "./store";
 import { KonvaEventObject } from "konva/lib/Node";
+import { SnappableShape } from "./snappable-shape";
 
 interface CanvasFrameProps {
   frame: FrameData;
@@ -25,163 +21,6 @@ interface CanvasFrameProps {
   draggable: boolean;
   activeTool?: ActiveTool;
 }
-
-interface SnappableShapeProps {
-  shape: ShapeNode;
-  parentFrame: FrameData;
-  siblingShapes: ShapeNode[];
-  handleShapeUpdate: (e: Konva.KonvaEventObject<DragEvent>) => void;
-  handleShapeSelect: (e: Konva.KonvaEventObject<MouseEvent>) => void;
-  activeTool: string;
-}
-
-const SnappableShape: React.FC<SnappableShapeProps> = ({
-  shape,
-  parentFrame,
-  siblingShapes,
-  handleShapeUpdate,
-  handleShapeSelect,
-  activeTool,
-}) => {
-  // Helper to remove lines
-  const clearGuides = (layer: Konva.Layer) => {
-    layer.find(".guid-line").forEach((l) => l.destroy());
-  };
-
-  const handleDragMove = (e: Konva.KonvaEventObject<DragEvent>) => {
-    const node = e.target;
-    const layer = node.getLayer();
-    const stage = node.getStage();
-
-    if (!layer || !stage) return;
-
-    // 1. Cleanup old guides using helper
-    clearGuides(layer);
-
-    // 2. Find Snap Stops (Absolute Coordinates)
-    const vertical: number[] = [];
-    const horizontal: number[] = [];
-
-    // -- Parent Frame Stops --
-    const frameNode = layer.findOne(`#${parentFrame.id}`);
-    if (frameNode) {
-      const frameBox = frameNode.getClientRect({ relativeTo: layer });
-      vertical.push(
-        frameBox.x,
-        frameBox.x + frameBox.width,
-        frameBox.x + frameBox.width / 2,
-      );
-      horizontal.push(
-        frameBox.y,
-        frameBox.y + frameBox.height,
-        frameBox.y + frameBox.height / 2,
-      );
-    }
-
-    // -- Sibling Shapes Stops --
-    siblingShapes.forEach((sibling) => {
-      if (sibling._id === shape._id) return;
-
-      const siblingNode = layer.findOne(`#${sibling._id}`);
-      if (!siblingNode) return;
-
-      const siblingBox = siblingNode.getClientRect({ relativeTo: layer });
-
-      vertical.push(
-        siblingBox.x,
-        siblingBox.x + siblingBox.width,
-        siblingBox.x + siblingBox.width / 2,
-      );
-      horizontal.push(
-        siblingBox.y,
-        siblingBox.y + siblingBox.height,
-        siblingBox.y + siblingBox.height / 2,
-      );
-    });
-
-    // 3. Calculate Guides
-    const itemBounds = getObjectSnappingEdges(node);
-    if (!itemBounds) return;
-
-    const guides = getGuides(
-      { vertical, horizontal },
-      itemBounds,
-      stage.scaleX(),
-    );
-
-    if (!guides.length) return;
-
-    // Draw guides constrained to frame bounds
-    const frameBounds = frameNode
-      ? frameNode.getClientRect({ relativeTo: layer })
-      : undefined;
-
-    drawGuides(guides, layer, undefined, frameBounds);
-
-    // 4. Apply Snap using Absolute Positioning
-    const currentAbsPos = node.getAbsolutePosition();
-    const currentClientRect = node.getClientRect({ relativeTo: layer });
-
-    const anchorOffsetX = currentAbsPos.x - currentClientRect.x;
-    const anchorOffsetY = currentAbsPos.y - currentClientRect.y;
-
-    const newPos = {
-      x: currentAbsPos.x,
-      y: currentAbsPos.y,
-    };
-
-    guides.forEach((lg) => {
-      if (lg.orientation === "V") {
-        newPos.x = lg.lineGuide - lg.offset + anchorOffsetX;
-      } else {
-        newPos.y = lg.lineGuide - lg.offset + anchorOffsetY;
-      }
-    });
-
-    node.setAbsolutePosition(newPos);
-  };
-
-  // NEW: Handle Drag End to clean up lines and save state
-  const handleDragEnd = (e: Konva.KonvaEventObject<DragEvent>) => {
-    const node = e.target;
-    const layer = node.getLayer();
-
-    if (layer) {
-      clearGuides(layer); // Remove the red/magenta lines
-    }
-
-    // Trigger the update to your state manager (Redux/Zustand/etc)
-    handleShapeUpdate(e);
-  };
-
-  const commonProps = {
-    id: shape._id,
-    x: shape.x,
-    y: shape.y,
-    fill: shape.fill,
-    opacity: shape.opacity,
-    rotation: shape.rotation,
-    stroke: shape.stroke || "black",
-    strokeWidth: shape.strokeWidth || 0,
-    draggable: activeTool === "SELECT",
-    onDragMove: handleDragMove,
-    onDragEnd: handleDragEnd,
-    onClick: handleShapeSelect,
-    onDragStart: handleShapeSelect,
-    onTransformEnd: handleShapeUpdate,
-  };
-
-  switch (shape.type) {
-    case "RECT":
-      return (
-        <Rect {...commonProps} width={shape.width} height={shape.height} />
-      );
-    case "CIRCLE":
-      return <Circle {...commonProps} radius={shape.width / 2} />;
-    default:
-      return null;
-  }
-};
 
 export const CanvasFrame: React.FC<CanvasFrameProps> = ({
   frame,
@@ -223,28 +62,37 @@ export const CanvasFrame: React.FC<CanvasFrameProps> = ({
     const offsetX = rectNode.x();
     const offsetY = rectNode.y();
 
-    // 1. Calculate the new dimensions
+    // Calculate new dimensions and position
     const finalWidth = Math.max(5, rectNode.width() * scaleX);
     const finalHeight = Math.max(5, rectNode.height() * scaleY);
+    const newX = outerGroupNode.x() + offsetX;
+    const newY = outerGroupNode.y() + offsetY;
 
-    // 2. APPLY the new dimensions to the node immediately
+    // Update the nodes
+    outerGroupNode.x(newX);
+    outerGroupNode.y(newY);
     rectNode.width(finalWidth);
     rectNode.height(finalHeight);
-
-    // 3. Reset the transform properties
     rectNode.x(0);
     rectNode.y(0);
     rectNode.scaleX(1);
     rectNode.scaleY(1);
 
-    // 4. Update the clipping group to match
     innerGroupNode.clipX(0);
     innerGroupNode.clipY(0);
     innerGroupNode.clipWidth(finalWidth);
     innerGroupNode.clipHeight(finalHeight);
 
-    // 5. Persist to store
-    handleShapeUpdate(e);
+    const syntheticEvent = {
+      ...e,
+      target: outerGroupNode,
+    };
+
+    syntheticEvent.target.attrs["id"] = frame.id;
+    syntheticEvent.target.attrs.height = finalHeight;
+    syntheticEvent.target.attrs.width = finalWidth;
+
+    handleShapeUpdate(syntheticEvent as any);
   };
 
   return (
