@@ -9,16 +9,17 @@ import {
   drawGuides,
 } from "./frame-snapping-util";
 import { ActiveTool } from "./store";
+import { KonvaEventObject } from "konva/lib/Node";
 
 interface CanvasFrameProps {
   frame: FrameData;
   shapes: ShapeNode[];
   isSelected: boolean;
   onSelect: (e: Konva.KonvaEventObject<MouseEvent>) => void;
-  onUpdate: (id: string, attrs: Partial<FrameData>) => void;
   onShapeUpdate: (id: string, attrs: Partial<ShapeData>) => void;
+  handleTextChange: (shapeId: string, newText: string) => void;
   handleShapeUpdate: (
-    e: Konva.KonvaEventObject<DragEvent>,
+    e: Konva.KonvaEventObject<DragEvent | Event>,
     shapeId?: string,
   ) => void;
   draggable: boolean;
@@ -164,7 +165,7 @@ const SnappableShape: React.FC<SnappableShapeProps> = ({
     strokeWidth: shape.strokeWidth || 0,
     draggable: activeTool === "SELECT",
     onDragMove: handleDragMove,
-    onDragEnd: handleDragEnd, // <--- IMPORTANT ADDITION
+    onDragEnd: handleDragEnd,
     onClick: handleShapeSelect,
     onDragStart: handleShapeSelect,
     onTransformEnd: handleShapeUpdate,
@@ -186,8 +187,8 @@ export const CanvasFrame: React.FC<CanvasFrameProps> = ({
   frame,
   shapes,
   onSelect,
-  onUpdate,
   handleShapeUpdate,
+  handleTextChange,
   draggable,
   activeTool = "SELECT",
 }) => {
@@ -210,7 +211,7 @@ export const CanvasFrame: React.FC<CanvasFrameProps> = ({
     innerGroupNode.clipHeight(rectNode.height() * scaleY);
   };
 
-  const handleTransformEnd = () => {
+  const handleTransformEnd = (e: KonvaEventObject<Event>) => {
     const rectNode = rectRef.current;
     const outerGroupNode = outerGroupRef.current;
     const innerGroupNode = innerGroupRef.current;
@@ -222,25 +223,28 @@ export const CanvasFrame: React.FC<CanvasFrameProps> = ({
     const offsetX = rectNode.x();
     const offsetY = rectNode.y();
 
+    // 1. Calculate the new dimensions
     const finalWidth = Math.max(5, rectNode.width() * scaleX);
     const finalHeight = Math.max(5, rectNode.height() * scaleY);
 
+    // 2. APPLY the new dimensions to the node immediately
+    rectNode.width(finalWidth);
+    rectNode.height(finalHeight);
+
+    // 3. Reset the transform properties
     rectNode.x(0);
     rectNode.y(0);
     rectNode.scaleX(1);
     rectNode.scaleY(1);
 
+    // 4. Update the clipping group to match
     innerGroupNode.clipX(0);
     innerGroupNode.clipY(0);
     innerGroupNode.clipWidth(finalWidth);
     innerGroupNode.clipHeight(finalHeight);
 
-    onUpdate(frame.id, {
-      x: outerGroupNode.x() + offsetX,
-      y: outerGroupNode.y() + offsetY,
-      width: finalWidth,
-      height: finalHeight,
-    });
+    // 5. Persist to store
+    handleShapeUpdate(e);
   };
 
   return (
@@ -300,6 +304,7 @@ export const CanvasFrame: React.FC<CanvasFrameProps> = ({
                 activeTool={activeTool}
                 handleShapeSelect={onSelect}
                 handleShapeUpdate={handleShapeUpdate}
+                handleTextChange={handleTextChange}
               />
             );
           }

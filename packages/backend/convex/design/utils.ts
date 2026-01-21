@@ -39,6 +39,7 @@ export const shapeInsertValidator = v.object({
   fontStyle: v.optional(v.string()),
   underline: v.optional(v.boolean()),
   linethrough: v.optional(v.boolean()),
+  lineHeight: v.optional(v.float64()),
   overline: v.optional(v.boolean()),
 
   imageUrl: v.optional(v.string()), // For Type: IMAGE

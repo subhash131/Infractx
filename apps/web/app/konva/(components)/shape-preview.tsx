@@ -20,6 +20,7 @@ export const ShapePreview: React.FC<ShapePreviewProps> = ({ shape }) => {
   switch (activeTool) {
     case "FRAME":
     case "RECT":
+    case "TEXT":
       return (
         <Rect
           x={shape.x}

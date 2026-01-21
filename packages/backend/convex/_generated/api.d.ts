@@ -37,7 +37,6 @@ import type * as ai_uiDesign_types from "../ai/uiDesign/types.js";
 import type * as ai_uiDesign_utils from "../ai/uiDesign/utils.js";
 import type * as ai_workflowAction from "../ai/workflowAction.js";
 import type * as auth_auth from "../auth/auth.js";
-import type * as design_canvases from "../design/canvases.js";
 import type * as design_constants from "../design/constants.js";
 import type * as design_files from "../design/files.js";
 import type * as design_layers from "../design/layers.js";
@@ -84,7 +83,6 @@ declare const fullApi: ApiFromModules<{
   "ai/uiDesign/utils": typeof ai_uiDesign_utils;
   "ai/workflowAction": typeof ai_workflowAction;
   "auth/auth": typeof auth_auth;
-  "design/canvases": typeof design_canvases;
   "design/constants": typeof design_constants;
   "design/files": typeof design_files;
   "design/layers": typeof design_layers;

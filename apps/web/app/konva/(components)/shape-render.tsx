@@ -1,17 +1,19 @@
 import React from "react";
 import { Rect, Circle } from "react-konva";
-import { Doc, Id } from "@workspace/backend/_generated/dataModel";
+import { Id } from "@workspace/backend/_generated/dataModel";
 import { CanvasFrame } from "./canvas-frame";
 import Konva from "konva";
 import { ActiveTool } from "./store";
 import { ShapeNode } from "./types";
+import { TextInputNode } from "./text-input-node";
 
 interface ShapeRendererProps {
   shape: ShapeNode;
   activeShapeId?: Id<"shapes">;
   activeTool: ActiveTool;
-  handleShapeUpdate: (e: Konva.KonvaEventObject<DragEvent>) => void;
+  handleShapeUpdate: (e: Konva.KonvaEventObject<DragEvent | Event>) => void;
   handleShapeSelect: (e: Konva.KonvaEventObject<MouseEvent>) => void;
+  handleTextChange: (shapeId: string, newText: string) => void;
 }
 
 export const ShapeRenderer: React.FC<ShapeRendererProps> = ({
@@ -20,6 +22,7 @@ export const ShapeRenderer: React.FC<ShapeRendererProps> = ({
   activeTool,
   handleShapeUpdate,
   handleShapeSelect,
+  handleTextChange,
 }) => {
   const commonProps = {
     id: shape._id.toString(),
@@ -46,7 +49,6 @@ export const ShapeRenderer: React.FC<ShapeRendererProps> = ({
           onTransformEnd={handleShapeUpdate}
         />
       );
-
     case "CIRCLE":
       return (
         <Circle
@@ -60,7 +62,6 @@ export const ShapeRenderer: React.FC<ShapeRendererProps> = ({
           onTransformEnd={handleShapeUpdate}
         />
       );
-
     case "FRAME":
       return (
         <CanvasFrame
@@ -78,8 +79,20 @@ export const ShapeRenderer: React.FC<ShapeRendererProps> = ({
           onSelect={handleShapeSelect}
           onShapeUpdate={() => {}}
           handleShapeUpdate={handleShapeUpdate}
+          handleTextChange={handleTextChange}
           shapes={shape.children || []}
-          onUpdate={() => {}}
+        />
+      );
+    case "TEXT":
+      return (
+        <TextInputNode
+          key={shape._id}
+          shape={shape}
+          isSelected={activeShapeId === shape._id}
+          onSelect={handleShapeSelect}
+          handleShapeUpdate={handleShapeUpdate}
+          draggable={activeTool === "SELECT"}
+          onTextChange={handleTextChange}
         />
       );
 

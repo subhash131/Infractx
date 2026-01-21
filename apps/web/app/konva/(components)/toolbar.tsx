@@ -2,7 +2,7 @@ import React from "react";
 import { AiChat02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@workspace/ui/components/button";
-import { Circle, RectangleHorizontal, Square } from "lucide-react";
+import { Circle, RectangleHorizontal, Square, Text } from "lucide-react";
 import useCanvas from "./store";
 
 export const ToolBar = () => {
@@ -28,6 +28,15 @@ export const ToolBar = () => {
           >
             <RectangleHorizontal className="h-4 w-4" />
             Rect
+          </Button>
+          <Button
+            onClick={() => setActiveTool("TEXT")}
+            variant={activeTool === "TEXT" ? "default" : "outline"}
+            size="sm"
+            className="flex items-center gap-2"
+          >
+            <Text className="h-4 w-4" />
+            Text
           </Button>
           <Button
             onClick={() => setActiveTool("CIRCLE")}

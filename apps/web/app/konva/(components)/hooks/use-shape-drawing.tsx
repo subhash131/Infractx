@@ -34,6 +34,7 @@ export const useShapeDrawing = () => {
     switch (activeTool) {
       case "RECT":
       case "FRAME":
+      case "TEXT":
         setNewShape({
           startX: pos.x,
           startY: pos.y,
@@ -69,6 +70,7 @@ export const useShapeDrawing = () => {
     switch (activeTool) {
       case "RECT":
       case "FRAME":
+      case "TEXT":
         setNewShape((prev) => {
           if (!prev) return null;
           return {
