@@ -116,8 +116,8 @@ export const CanvasFrame: React.FC<CanvasFrameProps> = ({
         width={frame.width}
         fill={"#2196f3"}
         height={20}
-        fontSize={20}
-        y={-25}
+        fontSize={40}
+        y={-45}
         x={10}
       />
       <Group
@@ -126,7 +126,6 @@ export const CanvasFrame: React.FC<CanvasFrameProps> = ({
         clipY={0}
         clipWidth={frame.width}
         clipHeight={frame.height}
-        id={frame.id}
       >
         <Rect
           id={frame.id}
