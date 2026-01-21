@@ -76,27 +76,30 @@ export const updateShape = mutation({
 
 export const deleteShape = mutation({
   args: {
-    shapeId: v.id("shapes"),
+    shapeIds: v.array(v.id("shapes")),
   },
-  async handler(ctx, args): Promise<{ _id: Id<"shapes">; success: boolean }> {
-    const { shapeId } = args;
+  async handler(ctx, args) {
+    const { shapeIds } = args;
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
-    const shape = await ctx.db
-      .query("shapes")
-      .withIndex("by_id", (q) => q.eq("_id", shapeId))
-      .unique();
-    if (!shape) {
-      throw new ConvexError("Shape not found");
-    }
-    const children = await ctx.db
-      .query("shapes")
-      .withIndex("by_parent", (q) => q.eq("parentShapeId", shapeId))
-      .collect();
-    for (const child of children) {
-      await ctx.db.delete(child._id);
-    }
-    await ctx.db.delete(shapeId);
-    return { _id: shape._id, success: true };
+    shapeIds.forEach(async (shapeId) => {
+      const shape = await ctx.db
+        .query("shapes")
+        .withIndex("by_id", (q) => q.eq("_id", shapeId))
+        .unique();
+      if (!shape) {
+        throw new ConvexError("Shape not found");
+      }
+      const children = await ctx.db
+        .query("shapes")
+        .withIndex("by_parent", (q) => q.eq("parentShapeId", shapeId))
+        .collect();
+      for (const child of children) {
+        await ctx.db.delete(child._id);
+      }
+      await ctx.db.delete(shapeId);
+    });
+
+    return { success: true };
   },
 });

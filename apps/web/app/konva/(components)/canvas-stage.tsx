@@ -63,10 +63,8 @@ export const CanvasStage: React.FC = () => {
     const node = e.target;
     if (!node) return;
 
-    console.log({ node });
     const nodeType: Doc<"shapes">["type"] = node.attrs.type;
     const nodeId: Doc<"shapes">["type"] = node.attrs.id;
-    console.log({ nodeType });
     if (!nodeType || !nodeId) return;
 
     const updateAbleNode: boolean =
@@ -188,14 +186,14 @@ export const CanvasStage: React.FC = () => {
   useKeyboardControls({
     stageRef,
     activeShapeId,
-    onDelete: async (shapeId) => await deleteShape({ shapeId }),
+    onDelete: async (selectedShapeIds) =>
+      await deleteShape({ shapeIds: selectedShapeIds }),
     onUpdate: (shapeId, updates) =>
       updateShape({ shapeId, shapeObject: updates }),
     onDeselect: () => setActiveShapeId(undefined),
   });
   const handleDragMove = (e: Konva.KonvaEventObject<DragEvent>) => {
     const draggingNode = e.target;
-    console.log({ draggingNode, selectedShapeIds });
     if (draggingNode instanceof Konva.Transform) return;
     if (draggingNode.attrs.name?.includes("Frame")) return;
     if (selectedShapeIds.length > 1) return;
