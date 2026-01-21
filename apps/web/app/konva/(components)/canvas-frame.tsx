@@ -109,6 +109,7 @@ export const CanvasFrame: React.FC<CanvasFrameProps> = ({
       x={frame.x}
       y={frame.y}
       name="Frame"
+      type={frame.type}
     >
       <Text
         text={frame.name}
@@ -140,6 +141,7 @@ export const CanvasFrame: React.FC<CanvasFrameProps> = ({
           name={`frame-rect-${frame.id}`}
           onTransform={handleTransform}
           onTransformEnd={handleTransformEnd}
+          type={frame.type}
         />
         {shapes.map((childNode) => {
           // For nested FRAME types, use ShapeRenderer to preserve recursive rendering
@@ -170,7 +172,6 @@ export const CanvasFrame: React.FC<CanvasFrameProps> = ({
               />
             );
           }
-
           return null;
         })}
       </Group>

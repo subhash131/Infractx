@@ -11,7 +11,7 @@ import { useShapeDrawing } from "./hooks/use-shape-drawing";
 import useCanvas from "./store";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@workspace/backend/_generated/api";
-import { Id } from "@workspace/backend/_generated/dataModel";
+import { Doc, Id } from "@workspace/backend/_generated/dataModel";
 import { ShapeRenderer } from "./shape-render";
 import { useKeyboardControls } from "./hooks/use-keyboard-controls";
 import { buildShapeTree, calculateOverlap } from "./utils";
@@ -54,13 +54,16 @@ export const CanvasStage: React.FC = () => {
     shapeId?: string,
   ) => {
     const node = e.target;
-    if (
-      !(node instanceof Konva.Group) ||
-      !(node instanceof Konva.Rect) ||
-      !(node instanceof Konva.Circle)
-    )
-      return;
-    console.log("updating shape ::", node);
+
+    console.log({ node });
+    const nodeType: Doc<"shapes">["type"] = node.attrs.type;
+    console.log({ nodeType });
+    if (!nodeType) return;
+
+    const updateAbleNode: boolean =
+      nodeType === "RECT" || nodeType === "CIRCLE";
+
+    if (!updateAbleNode) return;
 
     e.cancelBubble = true;
 

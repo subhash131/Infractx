@@ -14,6 +14,7 @@ export interface FrameData {
   width: number;
   height: number;
   fill: string;
+  type: Doc<"shapes">["type"];
 }
 
 export interface FrameProps extends FrameData {

@@ -2,7 +2,6 @@ import React, { useRef, useEffect } from "react";
 import { Text, Transformer } from "react-konva";
 import Konva from "konva";
 import { ShapeNode } from "./types";
-import { debounce } from "lodash";
 
 interface TextInputNodeProps {
   shape: ShapeNode;
@@ -190,6 +189,7 @@ export const TextInputNode: React.FC<TextInputNodeProps> = ({
 
           handleShapeUpdate(e);
         }}
+        type={shape.type}
       />
       {isSelected && (
         <Transformer

@@ -40,6 +40,7 @@ export const ShapeRenderer: React.FC<ShapeRendererProps> = ({
         <Rect
           {...commonProps}
           {...shape}
+          type={shape.type}
           id={shape._id}
           width={shape.width}
           height={shape.height}
@@ -62,6 +63,7 @@ export const ShapeRenderer: React.FC<ShapeRendererProps> = ({
           onDragStart={handleShapeSelect}
           onTransformEnd={handleShapeUpdate}
           onDragEnd={handleShapeUpdate}
+          type={shape.type}
         />
       );
     case "FRAME":
@@ -75,6 +77,7 @@ export const ShapeRenderer: React.FC<ShapeRendererProps> = ({
             height: shape.height,
             id: shape._id.toString(),
             name: shape.name,
+            type: shape.type,
           }}
           isSelected={activeShapeId === shape._id}
           draggable={activeTool === "SELECT"}
