@@ -6,18 +6,41 @@ export type ActiveTool = Doc<"shapes">["type"] | "SELECT";
 interface CanvasState {
   activeTool: ActiveTool;
   activeShapeId?: Id<"shapes">;
+  selectedShapeIds: Id<"shapes">[];
 }
 
 interface CanvasActions {
   setActiveTool: (tool: ActiveTool) => void;
   setActiveShapeId: (shapeId?: Id<"shapes">) => void;
+  setSelectedShapeIds: (shapeIds: Id<"shapes">[]) => void;
+  toggleSelectedShapeId: (shapeId: Id<"shapes">) => void;
+  clearSelectedShapeIds: () => void;
 }
 
-const useCanvas = create<CanvasState & CanvasActions>((set, get) => ({
+const useCanvas = create<CanvasState & CanvasActions>((set) => ({
   activeTool: "SELECT",
   activeShapeId: undefined,
+  selectedShapeIds: [],
+
   setActiveTool: (tool) => set({ activeTool: tool }),
+
   setActiveShapeId: (shapeId) => set({ activeShapeId: shapeId }),
+
+  // Set the specific list (useful after Grouping to select the new group)
+  setSelectedShapeIds: (shapeIds) => set({ selectedShapeIds: shapeIds }),
+
+  // Handles Shift+Click logic (Add if missing, Remove if present)
+  toggleSelectedShapeId: (id) =>
+    set((state) => {
+      const exists = state.selectedShapeIds.includes(id);
+      return {
+        selectedShapeIds: exists
+          ? state.selectedShapeIds.filter((item) => item !== id)
+          : [...state.selectedShapeIds, id],
+      };
+    }),
+
+  clearSelectedShapeIds: () => set({ selectedShapeIds: [] }),
 }));
 
 export default useCanvas;

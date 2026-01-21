@@ -18,7 +18,14 @@ import { buildShapeTree, calculateOverlap } from "./utils";
 import { ShapeNode } from "./types";
 
 export const CanvasStage: React.FC = () => {
-  const { activeTool, setActiveShapeId, activeShapeId } = useCanvas();
+  const {
+    activeTool,
+    setActiveShapeId,
+    activeShapeId,
+    selectedShapeIds,
+    setSelectedShapeIds,
+    toggleSelectedShapeId,
+  } = useCanvas();
   const [activeTree, setActiveTree] = useState<ShapeNode[]>([]);
   const stageRef = useRef<Konva.Stage>(null);
   const transformerRef = useRef<Konva.Transformer>(null);
@@ -54,11 +61,13 @@ export const CanvasStage: React.FC = () => {
     shapeId?: string,
   ) => {
     const node = e.target;
+    if (!node) return;
 
     console.log({ node });
     const nodeType: Doc<"shapes">["type"] = node.attrs.type;
+    const nodeId: Doc<"shapes">["type"] = node.attrs.id;
     console.log({ nodeType });
-    if (!nodeType) return;
+    if (!nodeType || !nodeId) return;
 
     const updateAbleNode: boolean =
       nodeType === "RECT" || nodeType === "CIRCLE";
@@ -84,6 +93,7 @@ export const CanvasStage: React.FC = () => {
     node.height(newHeight);
 
     // 4. Send to DB (ensure you also save scaleX: 1)
+    setActiveShapeId(node.attrs.id);
     await updateShape({
       shapeId: node.attrs.id || shapeId,
       shapeObject: {
@@ -102,8 +112,63 @@ export const CanvasStage: React.FC = () => {
 
   const handleShapeSelect = (e: Konva.KonvaEventObject<MouseEvent>) => {
     e.cancelBubble = true;
-    setActiveShapeId(e.target.attrs.id);
+    const clickedId = e.target.attrs.id as Id<"shapes">;
+
+    if (activeTool !== "SELECT") return;
+
+    // 1. Shift Key: Toggle Selection (Add/Remove)
+    if (e.evt.shiftKey) {
+      toggleSelectedShapeId(clickedId);
+      return;
+    }
+
+    // 2. Clicked on an item that is ALREADY part of the group?
+    // CRITICAL FIX: Don't reset selection. Keeps the group active for dragging.
+    if (selectedShapeIds.includes(clickedId)) {
+      setActiveShapeId(clickedId); // Optional: Update active ID for sidebar properties
+      return;
+    }
+
+    // 3. New Selection (Exclusive)
+    // Only reset if clicking something totally new
+    setSelectedShapeIds([clickedId]);
+    setActiveShapeId(clickedId);
   };
+  useEffect(() => {
+    const stage = stageRef.current;
+    const transformer = transformerRef.current;
+
+    if (!stage || !transformer) return;
+
+    if (selectedShapeIds.length > 0) {
+      const nodes = selectedShapeIds
+        .map(
+          (id) => stage.findOne(`#${id}`) || stage.findOne(`.frame-rect-${id}`),
+        )
+        .filter((node): node is Konva.Node => node !== undefined);
+
+      transformer.nodes(nodes);
+      transformer.getLayer()?.batchDraw();
+      return;
+    }
+
+    if (activeShapeId) {
+      const node =
+        stage.findOne(`#${activeShapeId}`) ||
+        stage.findOne(`.frame-rect-${activeShapeId}`);
+      if (node) {
+        transformer.nodes([node]);
+      } else {
+        transformer.nodes([]);
+      }
+      transformer.getLayer()?.batchDraw();
+      return;
+    }
+
+    // 3. Clear Selection
+    transformer.nodes([]);
+    transformer.getLayer()?.batchDraw();
+  }, [selectedShapeIds, activeShapeId]);
 
   useEffect(() => {
     const stage = stageRef.current;
@@ -130,7 +195,10 @@ export const CanvasStage: React.FC = () => {
   });
   const handleDragMove = (e: Konva.KonvaEventObject<DragEvent>) => {
     const draggingNode = e.target;
+    console.log({ draggingNode, selectedShapeIds });
+    if (draggingNode instanceof Konva.Transform) return;
     if (draggingNode.attrs.name?.includes("Frame")) return;
+    if (selectedShapeIds.length > 1) return;
 
     const stage = stageRef.current;
     if (!stage) return;
