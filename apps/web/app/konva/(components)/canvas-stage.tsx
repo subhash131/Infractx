@@ -14,7 +14,7 @@ import { api } from "@workspace/backend/_generated/api";
 import { Id } from "@workspace/backend/_generated/dataModel";
 import { ShapeRenderer } from "./shape-render";
 import { useKeyboardControls } from "./hooks/use-keyboard-controls";
-import { buildShapeTree } from "./utils";
+import { buildShapeTree, calculateOverlap } from "./utils";
 import { ShapeNode } from "./types";
 
 export const CanvasStage: React.FC = () => {
@@ -41,7 +41,6 @@ export const CanvasStage: React.FC = () => {
   }, [shapes]);
 
   const handleTextChange = async (shapeId: string, newText: string) => {
-    console.log({ shapeId, newText });
     await updateShape({
       shapeId: shapeId as Id<"shapes">,
       shapeObject: {
@@ -55,7 +54,7 @@ export const CanvasStage: React.FC = () => {
     shapeId?: string,
   ) => {
     const node = e.target;
-    console.log(node);
+    console.log("updating shape ::", node);
     e.cancelBubble = true;
 
     // 1. Calculate new dimensions based on the current scale
@@ -85,6 +84,7 @@ export const CanvasStage: React.FC = () => {
         rotation: node.rotation(),
         scaleX: 1, // Explicitly save the reset scale
         scaleY: 1,
+        parentShapeId: node.attrs.parentId,
       },
     });
   };
@@ -117,6 +117,78 @@ export const CanvasStage: React.FC = () => {
       updateShape({ shapeId, shapeObject: updates }),
     onDeselect: () => setActiveShapeId(undefined),
   });
+  const handleDragMove = (e: Konva.KonvaEventObject<DragEvent>) => {
+    const draggingNode = e.target;
+    if (draggingNode.attrs.name?.includes("Frame")) return;
+
+    const stage = stageRef.current;
+    if (!stage) return;
+
+    const frames = stage.find((node: Konva.Node) => {
+      return node.name() && node.name().startsWith("frame-rect-");
+    });
+
+    let highlightNode: string | null = null;
+    let parentId: string | null = null;
+    let bestOverlap = 0;
+    let targetFrameRect: Konva.Node | null = null;
+
+    frames.forEach((frameNode) => {
+      // Don't check against self if the dragged node happens to be a frame
+      if (frameNode.parent?.id() === draggingNode.id()) return;
+
+      const overlap = calculateOverlap(draggingNode, frameNode);
+
+      // Check threshold > 70%
+      if (overlap > 70 && overlap > bestOverlap) {
+        bestOverlap = overlap;
+        highlightNode = frameNode.attrs.id;
+        parentId = frameNode.attrs.id;
+        targetFrameRect = frameNode;
+      } else if (overlap < 20 && bestOverlap < 70) {
+        // Only set to remove from frame if no good frame match exists
+        highlightNode = draggingNode.attrs.id;
+        parentId = null;
+        targetFrameRect = null;
+      }
+    });
+
+    // Handle reparenting with position transformation
+    if (parentId && targetFrameRect) {
+      // Get the parent Group of the frame rectangle
+      const targetFrameGroup = (targetFrameRect as Konva.Node).parent;
+
+      if (targetFrameGroup && draggingNode.parent !== targetFrameGroup) {
+        // Moving into a frame
+        const absolutePos = draggingNode.getAbsolutePosition();
+        draggingNode.moveTo(targetFrameGroup);
+        const frameGroupPos = targetFrameGroup.getAbsolutePosition();
+        draggingNode.position({
+          x: absolutePos.x - frameGroupPos.x,
+          y: absolutePos.y - frameGroupPos.y,
+        });
+        draggingNode.setAttrs({
+          ...draggingNode.attrs,
+          parentId,
+        });
+      }
+    } else if (
+      parentId === null &&
+      draggingNode.parent?.attrs.name?.startsWith("frame-rect-")
+    ) {
+      // Moving out of a frame back to layer
+      // if (stage) {
+      //   const absolutePos = draggingNode.getAbsolutePosition();
+      //   draggingNode.moveTo(stage);
+      //   draggingNode.position(absolutePos);
+      //   draggingNode.attrs.parentId = null;
+      // }
+    }
+
+    if (highlightNode) {
+      if (activeShapeId !== highlightNode) setActiveShapeId(highlightNode);
+    }
+  };
 
   return (
     <Stage
@@ -134,6 +206,7 @@ export const CanvasStage: React.FC = () => {
       y={stagePos.y}
       draggable={activeTool === "SELECT"}
       style={{ background: "#1E1E1E" }}
+      onDragMove={handleDragMove}
     >
       <Layer>
         <GridPattern />

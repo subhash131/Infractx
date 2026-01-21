@@ -9,7 +9,7 @@ export const shapeInsertValidator = v.object({
   name: v.string(),
 
   // hierarchy
-  parentShapeId: v.optional(v.id("shapes")), // Null = Root Layer
+  parentShapeId: v.optional(v.union(v.id("shapes"), v.null())), // Null = Root Layer
 
   // --- Geometry ---
   x: v.float64(),
