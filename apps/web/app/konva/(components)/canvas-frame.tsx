@@ -108,7 +108,7 @@ export const CanvasFrame: React.FC<CanvasFrameProps> = ({
       height={frame.height}
       x={frame.x}
       y={frame.y}
-      name="outerGroupRef"
+      name="Frame"
     >
       <Text
         text={frame.name}
@@ -126,7 +126,6 @@ export const CanvasFrame: React.FC<CanvasFrameProps> = ({
         clipWidth={frame.width}
         clipHeight={frame.height}
         id={frame.id}
-        name="innerGroupRef"
       >
         <Rect
           id={frame.id}
