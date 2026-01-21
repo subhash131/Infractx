@@ -19,7 +19,7 @@ export const useCanvasEvents = (
   setSelectedElements: (elements: fabric.FabricObject[]) => void,
   setActiveObject: (obj: fabric.FabricObject | null) => void,
   updateObject: ReactMutation<typeof api.design.layers.updateObject>,
-  removeObject: ReactMutation<typeof api.design.layers.deleteObject>
+  removeObject: ReactMutation<typeof api.design.layers.deleteObject>,
 ) => {
   const isPanning = useRef(false);
   const lastPos = useRef({ x: 0, y: 0 });
@@ -41,7 +41,7 @@ export const useCanvasEvents = (
       canvas,
       scaleFactor,
       setZoom,
-      setPan
+      setPan,
     );
 
     const { handleMouseDown, handleMouseMove, handleMouseUp } =
@@ -51,7 +51,7 @@ export const useCanvasEvents = (
         isSpacePressed,
         isPanning,
         lastPos,
-        setPan
+        setPan,
       );
     const { handleTouchStart, handleTouchMove, handleTouchEnd } =
       createTouchHandlers(
@@ -61,7 +61,7 @@ export const useCanvasEvents = (
         initialZoom,
         lastPos,
         setZoom,
-        setPan
+        setPan,
       );
 
     const {
@@ -95,7 +95,7 @@ export const useCanvasEvents = (
       }
 
       // Delete
-      if (e.code === "Delete" || e.code === "Backspace") {
+      if (e.code === "Delete") {
         if (activeObject?._id) {
           removeObject({ id: activeObject._id });
         }
@@ -206,7 +206,7 @@ export const useCanvasEvents = (
           delayedSetActiveObject(modifiedObject);
         }
       },
-      300
+      300,
     );
 
     // Resize handler

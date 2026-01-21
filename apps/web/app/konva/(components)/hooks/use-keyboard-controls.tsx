@@ -45,7 +45,7 @@ export const useKeyboardControls = ({
       if (!activeShape) return;
 
       // Delete shape
-      if (e.key === "Delete" || e.key === "Backspace") {
+      if (e.key === "Delete") {
         e.preventDefault();
         debouncedUpdate.cancel();
         onDelete(activeShapeId);

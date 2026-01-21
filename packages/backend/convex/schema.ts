@@ -44,26 +44,6 @@ export default defineSchema({
     updatedAt: v.number(),
   }).index("by_design", ["designId"]),
 
-  // Canvas documents store the main canvas state
-  canvases: defineTable({
-    // Metadata
-    pageId: v.id("pages"),
-    name: v.string(),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-
-    // Canvas dimensions and settings
-    width: v.number(),
-    height: v.number(),
-    backgroundColor: v.optional(v.string()),
-
-    // Canvas state
-    zoom: v.number(),
-    order: v.number(),
-    offsetX: v.number(),
-    offsetY: v.number(),
-  }).index("by_page", ["pageId"]),
-
   // Canvas objects store individual elements (rectangles, circles, text, images, etc.)
   //Old - for fabric-js
   layers: defineTable({

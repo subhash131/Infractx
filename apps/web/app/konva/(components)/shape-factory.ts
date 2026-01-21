@@ -29,6 +29,12 @@ export const createShapeObject = (
         type: "RECT",
         name: "Rectangle",
       };
+    case "TEXT":
+      return {
+        ...baseShape,
+        type: "TEXT",
+        name: "Text",
+      };
     case "CIRCLE":
       return {
         ...baseShape,

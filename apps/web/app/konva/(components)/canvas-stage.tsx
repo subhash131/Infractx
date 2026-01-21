@@ -1,6 +1,6 @@
 "use client";
 import React, { useEffect, useRef, useState } from "react";
-import { Layer, Stage, Transformer } from "react-konva";
+import { Layer, Stage, Text, Transformer } from "react-konva";
 import Konva from "konva";
 
 import { GridPattern } from "./grid-pattern";
@@ -16,6 +16,7 @@ import { ShapeRenderer } from "./shape-render";
 import { useKeyboardControls } from "./hooks/use-keyboard-controls";
 import { buildShapeTree } from "./utils";
 import { ShapeNode } from "./types";
+import { TextInputNode } from "./text-input-node";
 
 export const CanvasStage: React.FC = () => {
   const { activeTool, setActiveShapeId, activeShapeId } = useCanvas();
@@ -39,6 +40,16 @@ export const CanvasStage: React.FC = () => {
       setActiveTree(tree);
     }
   }, [shapes]);
+
+  const handleTextChange = async (shapeId: string, newText: string) => {
+    console.log({ shapeId, newText });
+    await updateShape({
+      shapeId: shapeId as Id<"shapes">,
+      shapeObject: {
+        text: newText,
+      },
+    });
+  };
 
   const handleShapeUpdate = async (
     e: Konva.KonvaEventObject<DragEvent | Event>,
@@ -133,6 +144,7 @@ export const CanvasStage: React.FC = () => {
             handleShapeSelect={handleShapeSelect}
             activeShapeId={activeShapeId}
             activeTool={activeTool}
+            handleTextChange={handleTextChange}
           />
         ))}
 
