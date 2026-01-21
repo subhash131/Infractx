@@ -1,12 +1,12 @@
 "use client";
 import React, { useEffect, useRef, useState } from "react";
-import { Layer, Stage, Text, Transformer } from "react-konva";
+import { Layer, Stage, Transformer } from "react-konva";
 import Konva from "konva";
 
 import { GridPattern } from "./grid-pattern";
 import { ShapePreview } from "./shape-preview";
 
-import { useCanvasZoom } from "./hooks/use-canvas-zoom";
+import { useSmoothCanvasZoom } from "./hooks/use-canvas-zoom";
 import { useShapeDrawing } from "./hooks/use-shape-drawing";
 import useCanvas from "./store";
 import { useMutation, useQuery } from "convex/react";
@@ -20,9 +20,9 @@ import { ShapeNode } from "./types";
 export const CanvasStage: React.FC = () => {
   const { activeTool, setActiveShapeId, activeShapeId } = useCanvas();
   const [activeTree, setActiveTree] = useState<ShapeNode[]>([]);
-  const { stageScale, stagePos, handleWheel } = useCanvasZoom();
   const stageRef = useRef<Konva.Stage>(null);
   const transformerRef = useRef<Konva.Transformer>(null);
+  const { handleWheel } = useSmoothCanvasZoom(stageRef);
 
   const { newShape, handlePointerDown, handlePointerMove, handleMouseUp } =
     useShapeDrawing();
@@ -54,7 +54,14 @@ export const CanvasStage: React.FC = () => {
     shapeId?: string,
   ) => {
     const node = e.target;
+    if (
+      !(node instanceof Konva.Group) ||
+      !(node instanceof Konva.Rect) ||
+      !(node instanceof Konva.Circle)
+    )
+      return;
     console.log("updating shape ::", node);
+
     e.cancelBubble = true;
 
     // 1. Calculate new dimensions based on the current scale
@@ -84,7 +91,8 @@ export const CanvasStage: React.FC = () => {
         rotation: node.rotation(),
         scaleX: 1, // Explicitly save the reset scale
         scaleY: 1,
-        parentShapeId: node.attrs.parentId,
+        parentShapeId:
+          node.attrs.name === "Frame" ? undefined : node.attrs.parentId,
       },
     });
   };
@@ -112,7 +120,7 @@ export const CanvasStage: React.FC = () => {
   useKeyboardControls({
     stageRef,
     activeShapeId,
-    onDelete: (shapeId) => deleteShape({ shapeId }),
+    onDelete: async (shapeId) => await deleteShape({ shapeId }),
     onUpdate: (shapeId, updates) =>
       updateShape({ shapeId, shapeObject: updates }),
     onDeselect: () => setActiveShapeId(undefined),
@@ -176,7 +184,7 @@ export const CanvasStage: React.FC = () => {
       parentId === null &&
       draggingNode.parent?.attrs.name?.startsWith("frame-rect-")
     ) {
-      // Moving out of a frame back to layer
+      // TODO: Moving out of a frame back to layer
       // if (stage) {
       //   const absolutePos = draggingNode.getAbsolutePosition();
       //   draggingNode.moveTo(stage);
@@ -190,6 +198,14 @@ export const CanvasStage: React.FC = () => {
     }
   };
 
+  useEffect(() => {
+    if (stageRef.current) {
+      // load from DB
+      stageRef.current.position({ x: 10, y: 10 });
+      stageRef.current.scale({ x: 0.4, y: 0.4 });
+    }
+  }, []);
+
   return (
     <Stage
       ref={stageRef}
@@ -200,10 +216,6 @@ export const CanvasStage: React.FC = () => {
       onMouseUp={handleMouseUp}
       onTouchEnd={handleMouseUp}
       onWheel={handleWheel}
-      scaleX={stageScale}
-      scaleY={stageScale}
-      x={stagePos.x}
-      y={stagePos.y}
       draggable={activeTool === "SELECT"}
       style={{ background: "#1E1E1E" }}
       onDragMove={handleDragMove}
