@@ -16,7 +16,6 @@ import { ShapeRenderer } from "./shape-render";
 import { useKeyboardControls } from "./hooks/use-keyboard-controls";
 import { buildShapeTree } from "./utils";
 import { ShapeNode } from "./types";
-import { TextInputNode } from "./text-input-node";
 
 export const CanvasStage: React.FC = () => {
   const { activeTool, setActiveShapeId, activeShapeId } = useCanvas();
@@ -56,6 +55,8 @@ export const CanvasStage: React.FC = () => {
     shapeId?: string,
   ) => {
     const node = e.target;
+    console.log(node);
+    e.cancelBubble = true;
 
     // 1. Calculate new dimensions based on the current scale
     const scaleX = node.scaleX();
