@@ -2,10 +2,10 @@ import Konva from "konva";
 import React, { useRef } from "react";
 import { Group, Rect, Text } from "react-konva";
 import { FrameData, ShapeData, ShapeNode } from "./types";
-import { ShapeRenderer } from "./shape-render";
 import { ActiveTool } from "./store";
 import { KonvaEventObject } from "konva/lib/Node";
-import { SnappableShape } from "./snappable-shape";
+import { ShapeRenderer } from "./shape-renderer";
+import { Id } from "@workspace/backend/_generated/dataModel";
 
 interface CanvasFrameProps {
   frame: FrameData;
@@ -21,6 +21,7 @@ interface CanvasFrameProps {
   handleDblClick: (e: Konva.KonvaEventObject<MouseEvent>) => void;
   draggable: boolean;
   activeTool?: ActiveTool;
+  activeShapeId?: Id<"shapes">;
 }
 
 export const CanvasFrame: React.FC<CanvasFrameProps> = ({
@@ -32,6 +33,7 @@ export const CanvasFrame: React.FC<CanvasFrameProps> = ({
   handleDblClick,
   draggable,
   activeTool = "SELECT",
+  activeShapeId,
 }) => {
   const outerGroupRef = useRef<Konva.Group>(null);
   const innerGroupRef = useRef<Konva.Group>(null);
@@ -64,13 +66,11 @@ export const CanvasFrame: React.FC<CanvasFrameProps> = ({
     const offsetX = rectNode.x();
     const offsetY = rectNode.y();
 
-    // Calculate new dimensions and position
     const finalWidth = Math.max(5, rectNode.width() * scaleX);
     const finalHeight = Math.max(5, rectNode.height() * scaleY);
     const newX = outerGroupNode.x() + offsetX;
     const newY = outerGroupNode.y() + offsetY;
 
-    // Update the nodes
     outerGroupNode.x(newX);
     outerGroupNode.y(newY);
     rectNode.width(finalWidth);
@@ -145,36 +145,25 @@ export const CanvasFrame: React.FC<CanvasFrameProps> = ({
           type={frame.type}
         />
         {shapes.map((childNode) => {
-          // For nested FRAME types, use ShapeRenderer to preserve recursive rendering
-          if (childNode.type === "FRAME") {
-            return (
-              <ShapeRenderer
-                key={childNode._id}
-                shape={childNode}
-                activeTool={activeTool}
-                handleShapeSelect={onSelect}
-                handleShapeUpdate={handleShapeUpdate}
-                handleTextChange={handleTextChange}
-                handleDblClick={handleDblClick}
-              />
-            );
-          }
-
-          // For RECT and CIRCLE, use snappable version
-          if (childNode.type === "RECT" || childNode.type === "CIRCLE") {
-            return (
-              <SnappableShape
-                key={childNode._id}
-                shape={childNode}
-                parentFrame={frame}
-                siblingShapes={shapes}
-                handleShapeUpdate={handleShapeUpdate}
-                handleShapeSelect={onSelect}
-                activeTool={activeTool}
-              />
-            );
-          }
-          return null;
+          return (
+            <ShapeRenderer
+              key={childNode._id}
+              shape={childNode}
+              // Pass context for snapping
+              parentFrame={frame}
+              // Filter the current node, or else the shape ID will be messed up
+              siblingShapes={shapes.filter(
+                (sibling) => sibling._id !== childNode._id,
+              )}
+              // Standard props
+              handleShapeUpdate={handleShapeUpdate}
+              handleShapeSelect={onSelect}
+              handleDblClick={handleDblClick}
+              handleTextChange={handleTextChange}
+              activeTool={activeTool}
+              activeShapeId={activeShapeId}
+            />
+          );
         })}
       </Group>
     </Group>
