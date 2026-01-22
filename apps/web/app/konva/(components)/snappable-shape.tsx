@@ -149,7 +149,6 @@ export const SnappableShape: React.FC<SnappableShapeProps> = ({
     onDragMove: handleDragMove,
     onDragEnd: handleDragEnd,
     onClick: handleShapeSelect,
-    onDragStart: handleShapeSelect,
     onTransformEnd: handleShapeUpdate,
   };
 

@@ -13,12 +13,16 @@ interface UseKeyboardControlsProps {
     updates: { x?: number; y?: number },
   ) => void;
   onDeselect: () => void;
+  onGroup: () => void;
+  onUngroup: () => void;
 }
 
 export const useKeyboardControls = ({
   stageRef,
   activeShapeId,
   onDelete,
+  onGroup,
+  onUngroup,
   onUpdate,
   onDeselect,
 }: UseKeyboardControlsProps) => {
@@ -51,6 +55,20 @@ export const useKeyboardControls = ({
 
       if (activeShape.attrs.type === "FRAME") {
         if (activeShape.parent?.parent) activeShape = activeShape.parent.parent;
+      }
+      const isCtrlOrCmd = e.ctrlKey || e.metaKey;
+
+      if (isCtrlOrCmd && !e.shiftKey && e.key.toLowerCase() === "g") {
+        e.preventDefault();
+        onGroup();
+        return;
+      }
+
+      // Ungroup: Ctrl + Shift + G
+      if (isCtrlOrCmd && e.shiftKey && e.key.toLowerCase() === "g") {
+        e.preventDefault();
+        onUngroup();
+        return;
       }
 
       if (e.key === "Delete") {
@@ -91,5 +109,14 @@ export const useKeyboardControls = ({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [activeShapeId, onDelete, onDeselect, stageRef, debouncedUpdate]);
+  }, [
+    activeShapeId,
+    onDelete,
+    onDeselect,
+    stageRef,
+    debouncedUpdate,
+    onGroup,
+    onUngroup,
+    selectedShapeIds,
+  ]);
 };

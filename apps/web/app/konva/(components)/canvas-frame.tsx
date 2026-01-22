@@ -18,6 +18,7 @@ interface CanvasFrameProps {
     e: Konva.KonvaEventObject<DragEvent | Event>,
     shapeId?: string,
   ) => void;
+  handleDblClick: (e: Konva.KonvaEventObject<MouseEvent>) => void;
   draggable: boolean;
   activeTool?: ActiveTool;
 }
@@ -28,6 +29,7 @@ export const CanvasFrame: React.FC<CanvasFrameProps> = ({
   onSelect,
   handleShapeUpdate,
   handleTextChange,
+  handleDblClick,
   draggable,
   activeTool = "SELECT",
 }) => {
@@ -153,6 +155,7 @@ export const CanvasFrame: React.FC<CanvasFrameProps> = ({
                 handleShapeSelect={onSelect}
                 handleShapeUpdate={handleShapeUpdate}
                 handleTextChange={handleTextChange}
+                handleDblClick={handleDblClick}
               />
             );
           }
