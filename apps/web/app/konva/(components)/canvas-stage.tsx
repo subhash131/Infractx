@@ -111,10 +111,23 @@ export const CanvasStage: React.FC = () => {
   const handleShapeSelect = (e: Konva.KonvaEventObject<MouseEvent>) => {
     const clickedId = e.target.attrs.id as Id<"shapes">;
     if (activeTool !== "SELECT") return;
-    // 1. Set Active shape
     const stage = stageRef.current;
     if (!stage) return;
     const shape = stage.findOne(`#${clickedId}`);
+    if (shape?.attrs.type === "FRAME") return;
+
+    // 1. Shift Key: Toggle Selection (Add/Remove)
+    if (e.evt.shiftKey) {
+      toggleSelectedShapeId(clickedId);
+      return;
+    }
+
+    // 2. New Selection (Exclusive)
+    // Only reset if clicking something totally new
+    setSelectedShapeIds([clickedId]);
+
+    // 3. Set Active shape
+
     if (shape?.parent?.attrs.type === "GROUP") {
       setActiveShapeId(shape?.parent?.attrs.id);
       setSelectedShapeIds([shape?.parent?.attrs.id]);
