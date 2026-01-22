@@ -12,7 +12,7 @@ import useCanvas from "./store";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@workspace/backend/_generated/api";
 import { Doc, Id } from "@workspace/backend/_generated/dataModel";
-import { ShapeRenderer } from "./shape-render";
+import { ShapeRenderer } from "./shape-renderer";
 import { useKeyboardControls } from "./hooks/use-keyboard-controls";
 import { buildShapeTree, calculateOverlap } from "./utils";
 import { ShapeNode } from "./types";
@@ -114,20 +114,20 @@ export const CanvasStage: React.FC = () => {
     const stage = stageRef.current;
     if (!stage) return;
     const shape = stage.findOne(`#${clickedId}`);
-    if (shape?.attrs.type === "FRAME") return;
+    const isMultiSelect = e.evt.shiftKey;
+
+    console.log({
+      selectedShape: shape,
+      isFrame: shape?.attrs.type === "FRAME" && isMultiSelect,
+    });
+    if (shape?.attrs.type === "FRAME" && isMultiSelect) return;
 
     // 1. Shift Key: Toggle Selection (Add/Remove)
     if (e.evt.shiftKey) {
       toggleSelectedShapeId(clickedId);
       return;
     }
-
-    // 2. New Selection (Exclusive)
-    // Only reset if clicking something totally new
-    setSelectedShapeIds([clickedId]);
-
-    // 3. Set Active shape
-
+    // 2. Set Active shape
     if (shape?.parent?.attrs.type === "GROUP") {
       setActiveShapeId(shape?.parent?.attrs.id);
       setSelectedShapeIds([shape?.parent?.attrs.id]);
