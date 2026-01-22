@@ -51,12 +51,7 @@ export const ShapeRenderer: React.FC<ShapeRendererProps> = ({
 
   const listeners = shouldListen
     ? {
-        onClick: (e: Konva.KonvaEventObject<MouseEvent>) => {
-          // CRITICAL: If I am a selected child, don't let the Group hear this click!
-          // Otherwise, the Group will re-select itself.
-          if (isGroupChild) return;
-          handleShapeSelect(e);
-        },
+        onClick: handleShapeSelect,
         onTransformEnd: handleShapeUpdate,
         onDragEnd: handleShapeUpdate,
       }
