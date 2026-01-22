@@ -27,7 +27,7 @@ export const shapeInsertValidator = v.object({
   fill: v.string(),
   stroke: v.optional(v.string()),
   strokeWidth: v.float64(),
-  opacity: v.float64(),
+  opacity: v.optional(v.float64()),
   cornerRadius: v.optional(v.float64()),
 
   // --- Specific Data ---
@@ -50,7 +50,7 @@ export const shapeInsertValidator = v.object({
   radius: v.optional(v.float64()), // For CIRCLE
 
   // --- Metadata ---
-  order: v.float64(),
+  order: v.optional(v.float64()),
   locked: v.optional(v.boolean()),
   visible: v.optional(v.boolean()),
 

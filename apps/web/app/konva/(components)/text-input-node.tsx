@@ -191,25 +191,6 @@ export const TextInputNode: React.FC<TextInputNodeProps> = ({
         }}
         type={shape.type}
       />
-      {isSelected && (
-        <Transformer
-          ref={trRef}
-          boundBoxFunc={(oldBox, newBox) => {
-            if (newBox.width < 5 || newBox.height < 5) {
-              return oldBox;
-            }
-            return newBox;
-          }}
-          enabledAnchors={[
-            "top-left",
-            "top-right",
-            "bottom-left",
-            "bottom-right",
-            "middle-left",
-            "middle-right",
-          ]}
-        />
-      )}
     </>
   );
 };
