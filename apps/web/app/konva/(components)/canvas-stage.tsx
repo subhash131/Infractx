@@ -17,6 +17,8 @@ import { useKeyboardControls } from "./hooks/use-keyboard-controls";
 import { buildShapeTree, calculateOverlap } from "./utils";
 import { ShapeNode } from "./types";
 
+import { useShapeGrouping } from "./hooks/use-shape-grouping";
+
 export const CanvasStage: React.FC = () => {
   const {
     activeTool,
@@ -39,7 +41,15 @@ export const CanvasStage: React.FC = () => {
   });
   const updateShape = useMutation(api.design.shapes.updateShape);
   const deleteShape = useMutation(api.design.shapes.deleteShape);
-  const createShape = useMutation(api.design.shapes.createShape);
+
+  const { handleGroup, handleUngroup } = useShapeGrouping({
+    activeShapeId,
+    selectedShapeIds,
+    setActiveShapeId,
+    setSelectedShapeIds,
+    shapes,
+    stageRef,
+  });
 
   useEffect(() => {
     if (shapes) {
@@ -118,16 +128,20 @@ export const CanvasStage: React.FC = () => {
     const shape = stage.findOne(`#${clickedId}`);
     const isMultiSelect = e.evt.shiftKey;
     if (!shape) return;
-
-    console.log("handleShapeSelect ::", shape.id(), shape.parent?.id());
+    e.cancelBubble = true;
 
     if (shape?.attrs.type === "FRAME" && isMultiSelect) return;
     if (shape?.attrs.name === "frame") return;
     if (e.evt.shiftKey) {
       // 1. Shift Key: Toggle Selection (Add/Remove)
-      toggleSelectedShapeId(clickedId);
+      let shapeId = clickedId;
+      if (shape.parent?.attrs.type === "GROUP") {
+        shapeId = shape.parent.attrs.id;
+      }
+      toggleSelectedShapeId(shapeId);
       return;
     }
+
     // 2. Set Active shape
     if (shape?.parent?.attrs.type === "GROUP") {
       setActiveShapeId(shape?.parent?.attrs.id);
@@ -141,144 +155,33 @@ export const CanvasStage: React.FC = () => {
   useEffect(() => {
     const stage = stageRef.current;
     const transformer = transformerRef.current;
-
     if (!stage || !transformer) return;
 
-    if (selectedShapeIds.length > 0) {
-      const nodes = selectedShapeIds
-        .map(
-          (id) => stage.findOne(`#${id}`) || stage.findOne(`.frame-rect-${id}`),
-        )
-        .filter((node): node is Konva.Node => node !== undefined);
+    // Determine which IDs to transform (priority: selectedShapeIds > activeShapeId)
+    const idsToTransform =
+      selectedShapeIds.length > 0
+        ? selectedShapeIds
+        : activeShapeId
+          ? [activeShapeId]
+          : [];
 
-      transformer.nodes(nodes);
+    // Clear transformer if nothing selected
+    if (idsToTransform.length === 0) {
+      transformer.nodes([]);
       transformer.getLayer()?.batchDraw();
       return;
     }
 
-    if (activeShapeId) {
-      const node =
-        stage.findOne(`#${activeShapeId}`) ||
-        stage.findOne(`.frame-rect-${activeShapeId}`);
-      if (node) {
-        transformer.nodes([node]);
-      } else {
-        transformer.nodes([]);
-      }
-      transformer.getLayer()?.batchDraw();
-      return;
-    }
+    // Find and attach nodes
+    const nodes = idsToTransform
+      .map(
+        (id) => stage.findOne(`#${id}`) || stage.findOne(`.frame-rect-${id}`),
+      )
+      .filter((node): node is Konva.Node => node !== undefined);
 
-    // 3. Clear Selection
-    transformer.nodes([]);
+    transformer.nodes(nodes);
     transformer.getLayer()?.batchDraw();
   }, [selectedShapeIds, activeShapeId]);
-
-  useEffect(() => {
-    const stage = stageRef.current;
-    const transformer = transformerRef.current;
-
-    if (!activeShapeId || !stage || !transformer) return;
-    const targetNode =
-      stage.findOne(`.frame-rect-${activeShapeId}`) ||
-      stage.findOne(`#${activeShapeId}`);
-
-    if (targetNode) {
-      transformer.nodes([targetNode]);
-      transformer.getLayer()?.batchDraw();
-    }
-  }, [activeShapeId]);
-
-  const handleGroup = async () => {
-    // 1. Validation: Need at least 2 shapes to group
-    if (selectedShapeIds.length < 2 || !shapes) return;
-
-    const selectedShapes = shapes.filter((s) =>
-      selectedShapeIds.includes(s._id),
-    );
-    if (selectedShapes.length === 0) return;
-
-    // 2. Calculate Bounding Box of selection
-    let minX = Infinity;
-    let minY = Infinity;
-
-    selectedShapes.forEach((s) => {
-      minX = Math.min(minX, s.x);
-      minY = Math.min(minY, s.y);
-    });
-
-    // 3. Create the Group container at top-left of selection
-    const group = await createShape({
-      shapeObject: {
-        type: "GROUP",
-        pageId: "kh7124p2k7ycr4wbf1n710gpc57zeqxt" as Id<"pages">,
-        x: minX,
-        y: minY,
-        width: 100,
-        height: 100,
-        rotation: 0,
-        scaleX: 1,
-        scaleY: 1,
-        text: "",
-        fill: "",
-        stroke: "",
-        strokeWidth: 0,
-        name: "Group",
-      },
-    });
-
-    // 4. Move children into group (Absolute -> Relative coords)
-    const updates = selectedShapes.map((shape) =>
-      updateShape({
-        shapeId: shape._id,
-        shapeObject: {
-          parentShapeId: group._id,
-          x: shape.x - minX,
-          y: shape.y - minY, // Make relative to group
-        },
-      }),
-    );
-
-    await Promise.all(updates);
-
-    // 5. Select the new Group
-    setSelectedShapeIds([group._id]);
-    setActiveShapeId(group._id);
-  };
-
-  const handleUngroup = async () => {
-    const stage = stageRef.current;
-    // 1. Get the group object directly from your data using activeShapeId
-    const groupShape = stage?.findOne(`#${activeShapeId}`);
-
-    // Safety checks: Must exist and must be a GROUP
-    if (!groupShape || groupShape.attrs.type !== "GROUP") return;
-
-    // 2. Find the children of THIS group
-    const hasChildren = groupShape.hasChildren();
-    if (!hasChildren) return;
-    const children = (groupShape as Konva.Group).children;
-    console.log({ children });
-
-    // 3. Move children to the Group's parent (Root or Frame)
-    // We adjust X/Y because children were relative to the group, now they become absolute (or relative to frame)
-    const updates = children.map((child) => {
-      const newParentId = groupShape.parent?.attrs.id;
-      return updateShape({
-        shapeId: child.attrs.id as Id<"shapes">,
-        shapeObject: {
-          parentShapeId: newParentId ? newParentId : null,
-          x: groupShape.x() + child.x(),
-          y: groupShape.y() + child.y(),
-        },
-      });
-    });
-
-    await Promise.all(updates);
-
-    // 4. Delete the Group
-    await deleteShape({ shapeIds: [groupShape.attrs.id] });
-  };
 
   useKeyboardControls({
     stageRef,
@@ -291,7 +194,6 @@ export const CanvasStage: React.FC = () => {
     onGroup: handleGroup,
     onUngroup: handleUngroup,
   });
-  
   const handleDragMove = (e: Konva.KonvaEventObject<DragEvent>) => {
     const draggingNode = e.target;
     e.cancelBubble = true;
@@ -448,7 +350,6 @@ export const CanvasStage: React.FC = () => {
               if (!node) return;
 
               // 2. Check if the attached node is a Circle
-              //TODO:
               if (node.getClassName() === "Circle") {
                 if (
                   anchor.hasName("middle-left") ||
