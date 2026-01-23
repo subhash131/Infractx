@@ -110,8 +110,7 @@ export const CanvasFrame: React.FC<CanvasFrameProps> = ({
       height={frame.height}
       x={frame.x}
       y={frame.y}
-      name="Frame"
-      type={frame.type}
+      name="frame"
     >
       <Text
         text={frame.name}
@@ -149,8 +148,6 @@ export const CanvasFrame: React.FC<CanvasFrameProps> = ({
             <ShapeRenderer
               key={childNode._id}
               shape={childNode}
-              // Pass context for snapping
-              parentFrame={frame}
               // Filter the current node, or else the shape ID will be messed up
               siblingShapes={shapes.filter(
                 (sibling) => sibling._id !== childNode._id,
@@ -162,6 +159,7 @@ export const CanvasFrame: React.FC<CanvasFrameProps> = ({
               handleTextChange={handleTextChange}
               activeTool={activeTool}
               activeShapeId={activeShapeId}
+              parentFrameId={frame.id as Id<"shapes">}
             />
           );
         })}

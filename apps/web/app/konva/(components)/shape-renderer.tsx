@@ -5,7 +5,7 @@ import { Id } from "@workspace/backend/_generated/dataModel";
 import { CanvasFrame } from "./canvas-frame";
 import { TextInputNode } from "./text-input-node";
 import { ActiveTool } from "./store";
-import { ShapeNode, FrameData } from "./types";
+import { ShapeNode } from "./types";
 import {
   getGuides,
   getObjectSnappingEdges,
@@ -21,7 +21,7 @@ interface ShapeRendererProps {
   handleTextChange: (shapeId: string, newText: string) => void;
   handleDblClick: (e: Konva.KonvaEventObject<MouseEvent>) => void;
   // New optional props for snapping context
-  parentFrame?: FrameData;
+  parentFrameId?: Id<"shapes">;
   siblingShapes?: ShapeNode[];
 }
 
@@ -33,7 +33,7 @@ export const ShapeRenderer: React.FC<ShapeRendererProps> = ({
   handleShapeSelect,
   handleTextChange,
   handleDblClick,
-  parentFrame,
+  parentFrameId,
   siblingShapes = [],
 }) => {
   // --- Selection & Draggability Logic ---
@@ -56,6 +56,8 @@ export const ShapeRenderer: React.FC<ShapeRendererProps> = ({
 
   const handleDragMove = (e: Konva.KonvaEventObject<DragEvent>) => {
     const node = e.target;
+    console.log("handleDragMove ::", node.id(), node.parent?.id());
+
     const layer = node.getLayer();
     const stage = node.getStage();
 
@@ -70,8 +72,8 @@ export const ShapeRenderer: React.FC<ShapeRendererProps> = ({
 
     // -- Parent Frame Stops --
     let frameNode: Konva.Node | undefined;
-    if (parentFrame) {
-      frameNode = layer.findOne(`.frame-rect-${parentFrame.id}`);
+    if (parentFrameId) {
+      frameNode = layer.findOne(`.frame-rect-${parentFrameId}`);
       if (frameNode) {
         const frameBox = frameNode.getClientRect({ relativeTo: layer });
         vertical.push(
@@ -158,20 +160,18 @@ export const ShapeRenderer: React.FC<ShapeRendererProps> = ({
     if (layer) {
       clearGuides(layer);
     }
+    console.log("DragEnd ::", node.id(), node.parent?.id());
     handleShapeUpdate(e);
   };
 
   // --- Listeners ---
-  const shouldListen = !isGroupChild || isSelected;
-  const listeners = shouldListen
-    ? {
-        onClick: handleShapeSelect,
-        onTransformEnd: handleShapeUpdate,
-        // Use our snapping handlers:
-        onDragMove: handleDragMove,
-        onDragEnd: handleDragEnd,
-      }
-    : {};
+  const listeners = {
+    onClick: handleShapeSelect,
+    onTransformEnd: handleShapeUpdate,
+    // Use our snapping handlers:
+    onDragMove: handleDragMove,
+    onDragEnd: handleDragEnd,
+  };
 
   // --- Render ---
   const commonProps = {
@@ -184,6 +184,8 @@ export const ShapeRenderer: React.FC<ShapeRendererProps> = ({
     stroke: shape.stroke || "black",
     strokeWidth: shape.strokeWidth || 0,
     draggable: isDraggable,
+    type: shape.type,
+    parentId: shape.parentShapeId,
   };
 
   switch (shape.type) {
@@ -228,12 +230,6 @@ export const ShapeRenderer: React.FC<ShapeRendererProps> = ({
               handleTextChange={handleTextChange}
               activeShapeId={activeShapeId}
               handleDblClick={handleDblClick}
-              // Pass context down (Groups inside Frames share the frame context)
-              parentFrame={parentFrame}
-              // Filter the current node, or else the shape ID will be messed up
-              siblingShapes={shape.children.filter(
-                (sibling) => sibling._id !== s._id,
-              )}
             />
           ))}
         </Group>
