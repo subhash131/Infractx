@@ -16,11 +16,11 @@ export interface SnapConfig {
 }
 
 const DEFAULT_CONFIG: SnapConfig = {
-  visualThreshold: 1.5,
-  snapDistanceLimit: 2,
+  visualThreshold: 1,
+  snapDistanceLimit: 0.7,
   guideStroke: "#FF0000",
-  guideWidth: 1,
-  guideDash: [6, 4],
+  guideWidth: 0.5,
+  guideDash: [6, 0],
 };
 
 export const getObjectSnappingEdges = (node: Konva.Node) => {

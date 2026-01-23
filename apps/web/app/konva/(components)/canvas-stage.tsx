@@ -66,12 +66,13 @@ export const CanvasStage: React.FC = () => {
 
     const nodeType: Doc<"shapes">["type"] = node.attrs.type;
     const nodeId: Doc<"shapes">["type"] = node.attrs.id;
-    if (!nodeType || !nodeId) return;
+    if (!shapeId && (!nodeType || !nodeId)) return;
 
-    const updateAbleNode: boolean =
-      nodeType === "RECT" || nodeType === "CIRCLE" || nodeType === "GROUP";
-
-    if (!updateAbleNode) return;
+    console.log("shape update", {
+      nodeType,
+      nodeId,
+      parentNodeId: node.parent?.id(),
+    });
 
     e.cancelBubble = true;
 
@@ -92,6 +93,7 @@ export const CanvasStage: React.FC = () => {
     node.height(newHeight);
 
     // 4. Send to DB (ensure you also save scaleX: 1)
+    console.log("updating shape::", node.id(), node.parent?.id());
     await updateShape({
       shapeId: node.attrs.id || shapeId,
       shapeObject: {
@@ -115,15 +117,14 @@ export const CanvasStage: React.FC = () => {
     if (!stage) return;
     const shape = stage.findOne(`#${clickedId}`);
     const isMultiSelect = e.evt.shiftKey;
+    if (!shape) return;
 
-    console.log({
-      selectedShape: shape,
-      isFrame: shape?.attrs.type === "FRAME" && isMultiSelect,
-    });
+    console.log("handleShapeSelect ::", shape.id(), shape.parent?.id());
+
     if (shape?.attrs.type === "FRAME" && isMultiSelect) return;
-
-    // 1. Shift Key: Toggle Selection (Add/Remove)
+    if (shape?.attrs.name === "frame") return;
     if (e.evt.shiftKey) {
+      // 1. Shift Key: Toggle Selection (Add/Remove)
       toggleSelectedShapeId(clickedId);
       return;
     }
@@ -290,13 +291,19 @@ export const CanvasStage: React.FC = () => {
     onGroup: handleGroup,
     onUngroup: handleUngroup,
   });
+  
   const handleDragMove = (e: Konva.KonvaEventObject<DragEvent>) => {
     const draggingNode = e.target;
     e.cancelBubble = true;
 
-    console.log({ draggingNode });
+    console.log("Dragging::", draggingNode.id(), draggingNode.parent?.id());
     if (!draggingNode.attrs.type) return; // Avoid system shapes like transformer
     if (selectedShapeIds.length > 1) return;
+    if (
+      draggingNode.parent?.attrs.type &&
+      draggingNode.parent?.attrs.type !== "FRAME"
+    )
+      return;
 
     const stage = stageRef.current;
     if (!stage) return;
@@ -305,7 +312,6 @@ export const CanvasStage: React.FC = () => {
       return node.name() && node.name().startsWith("frame-rect-");
     });
 
-    let highlightNode: string | null = null;
     let parentId: string | null = null;
     let bestOverlap = 0;
     let targetFrameRect: Konva.Node | null = null;
@@ -315,21 +321,19 @@ export const CanvasStage: React.FC = () => {
       if (frameNode.parent?.id() === draggingNode.id()) return;
 
       const overlap = calculateOverlap(draggingNode, frameNode);
+      console.log({ overlap });
 
       // Check threshold > 70%
       if (overlap > 70 && overlap > bestOverlap) {
         bestOverlap = overlap;
-        highlightNode = frameNode.attrs.id;
         parentId = frameNode.attrs.id;
         targetFrameRect = frameNode;
       } else if (overlap < 20 && bestOverlap < 70) {
         // Only set to remove from frame if no good frame match exists
-        highlightNode = draggingNode.attrs.id;
         parentId = null;
         targetFrameRect = null;
       }
     });
-
     // Handle reparenting with position transformation
     if (parentId && targetFrameRect) {
       // Get the parent Group of the frame rectangle
@@ -361,10 +365,7 @@ export const CanvasStage: React.FC = () => {
       //   draggingNode.attrs.parentId = null;
       // }
     }
-
-    if (highlightNode) {
-      // if (activeShapeId !== highlightNode) setActiveShapeId(highlightNode);
-    }
+    console.log("Dragging End::", draggingNode.id(), draggingNode.parent?.id());
   };
 
   useEffect(() => {

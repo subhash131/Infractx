@@ -32,7 +32,7 @@ export function buildShapeTree(shapes: Doc<"shapes">[]): ShapeNode[] {
   const sortNodes = (nodes: ShapeNode[]) => {
     nodes.sort((a, b) => {
       // Primary Sort: Explicit Order
-      if (a.order !== b.order) {
+      if (a.order && b.order && a.order !== b.order) {
         return a.order - b.order;
       }
       // Secondary Sort: Creation Time (Oldest first = drawn first)
