@@ -81,3 +81,32 @@ export const calculateOverlap = (
   // 3. Return Percentage (0 to 100)
   return (intersectionArea / draggerArea) * 100;
 };
+
+export function getTopMostGroup(node: Konva.Node): Konva.Node {
+  let current: Konva.Node = node;
+
+  while (current.parent && current.parent.attrs?.type === "GROUP") {
+    current = current.parent;
+  }
+
+  return current;
+}
+
+export function resolveDblClickTarget(
+  node: Konva.Node,
+  activeShapeId?: string,
+): Konva.Node {
+  const parent = node.parent;
+
+  // Must be a group
+  if (
+    parent &&
+    parent.attrs?.type === "GROUP" &&
+    parent.parent?.attrs?.id === activeShapeId
+  ) {
+    return parent;
+  }
+
+  // Otherwise select the clicked node itself
+  return node;
+}
