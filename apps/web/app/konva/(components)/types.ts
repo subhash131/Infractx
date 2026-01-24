@@ -48,7 +48,7 @@ export interface ShapeData {
   height?: number;
   fill?: string;
   opacity?: number;
-  parentId?: string;
+  parentShapeId?: string;
 }
 
 export type ShapeNode = Doc<"shapes"> & {

@@ -117,12 +117,12 @@ export const useShapeGrouping = ({
     // 3. Move children to the Group's parent (Root or Frame)
     // We adjust X/Y because children were relative to the group, now they become absolute (or relative to frame)
     const updates = children.map((child) => {
-      const newParentId = groupShape.attrs.parentId;
+      const newParentShapeId = groupShape.attrs.parentShapeId;
 
       return updateShape({
         shapeId: child.attrs.id as Id<"shapes">,
         shapeObject: {
-          parentShapeId: newParentId ? newParentId : null,
+          parentShapeId: newParentShapeId ? newParentShapeId : null,
           x: groupShape.x() + child.x(),
           y: groupShape.y() + child.y(),
         },
