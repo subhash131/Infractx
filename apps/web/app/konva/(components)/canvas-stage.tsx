@@ -1,8 +1,7 @@
 "use client";
+import Konva from "konva";
 import React, { useEffect, useRef, useState } from "react";
 import { Layer, Stage, Transformer } from "react-konva";
-import Konva from "konva";
-
 import { GridPattern } from "./grid-pattern";
 import { ShapePreview } from "./shape-preview";
 
@@ -11,14 +10,16 @@ import { useShapeDrawing } from "./hooks/use-shape-drawing";
 import useCanvas from "./store";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@workspace/backend/_generated/api";
-import { Doc, Id } from "@workspace/backend/_generated/dataModel";
+import { Id } from "@workspace/backend/_generated/dataModel";
 import { ShapeRenderer } from "./shape-renderer";
 import { useKeyboardControls } from "./hooks/use-keyboard-controls";
-import { buildShapeTree, calculateOverlap } from "./utils";
+import { buildShapeTree } from "./utils";
 import { ShapeNode } from "./types";
 
 import { useShapeGrouping } from "./hooks/use-shape-grouping";
 import { useShapeOperations } from "./hooks/use-shape-operations";
+import { CanvasTransformer } from "./canvas-transformer";
+import { CanvasSection } from "./canvas-section";
 
 export const CanvasStage: React.FC = () => {
   const {
@@ -162,47 +163,7 @@ export const CanvasStage: React.FC = () => {
         ))}
 
         {newShape && <ShapePreview shape={newShape} />}
-
-        {activeShapeId && (
-          <Transformer
-            ref={transformerRef}
-            boundBoxFunc={(oldBox, newBox) => {
-              if (newBox.width < 10 || newBox.height < 10) return oldBox;
-              return newBox;
-            }}
-            rotateEnabled={false}
-            rotateLineVisible={false}
-            borderStroke="#2196f3"
-            borderStrokeWidth={1}
-            anchorStroke="#2196f3"
-            anchorFill="white"
-            anchorSize={8}
-            anchorCornerRadius={2}
-            draggable={false}
-            anchorStyleFunc={(anchor) => {
-              // 1. Get the node this transformer is attached to
-              // anchor.getParent() is the Transformer itself
-              const transformer = anchor.getParent();
-              if (!transformer) return;
-              const node = (transformer as any).nodes()[0];
-              if (!node) return;
-
-              // 2. Check if the attached node is a Circle
-              if (node.getClassName() === "Circle") {
-                if (
-                  anchor.hasName("middle-left") ||
-                  anchor.hasName("middle-right") ||
-                  anchor.hasName("top-center") ||
-                  anchor.hasName("bottom-center") ||
-                  anchor.hasName("rotater")
-                ) {
-                  anchor.width(0);
-                  anchor.height(0);
-                }
-              }
-            }}
-          />
-        )}
+        {activeShapeId && <CanvasTransformer transformerRef={transformerRef} />}
       </Layer>
     </Stage>
   );
