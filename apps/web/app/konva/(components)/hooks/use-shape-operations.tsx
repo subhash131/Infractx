@@ -221,7 +221,7 @@ export const useShapeOperations = ({
       }
       // CASE 2: Moving OUT of a Frame
       else if (draggedOut) {
-        // ✅ FIX: Get the actual Layer instead of "framesParent"
+        // Get the actual Layer instead of "framesParent"
         // This ensures we don't try to move the shape to the Stage
         const layer = draggingNode.getLayer();
 

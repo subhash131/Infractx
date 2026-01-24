@@ -80,13 +80,9 @@ export const useShapeGrouping = ({
 
     await Promise.all(updates);
 
-    // 5. Select the new Group - Batch state updates together
-    // This prevents double useEffect execution
-    const groupId = group._id;
-
     // Update both states in a synchronous manner
-    setActiveShapeId(groupId);
-    setSelectedShapeIds([groupId]);
+    setActiveShapeId(undefined);
+    setSelectedShapeIds([]);
   }, [
     selectedShapeIds,
     shapes,
