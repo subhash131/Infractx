@@ -35,6 +35,7 @@ export const useShapeDrawing = () => {
       case "RECT":
       case "FRAME":
       case "TEXT":
+      case "SECTION":
         setNewShape({
           startX: pos.x,
           startY: pos.y,
@@ -71,6 +72,7 @@ export const useShapeDrawing = () => {
       case "RECT":
       case "FRAME":
       case "TEXT":
+      case "SECTION":
         setNewShape((prev) => {
           if (!prev) return null;
           return {

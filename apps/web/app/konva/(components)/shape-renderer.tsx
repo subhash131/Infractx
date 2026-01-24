@@ -11,6 +11,7 @@ import {
   getObjectSnappingEdges,
   drawGuides,
 } from "./frame-snapping-util";
+import { CanvasSection } from "./canvas-section";
 
 interface ShapeRendererProps {
   shape: ShapeNode;
@@ -257,6 +258,31 @@ export const ShapeRenderer: React.FC<ShapeRendererProps> = ({
           handleDblClick={handleDblClick}
           activeTool={activeTool}
           // Frame is a top-level object usually, but if nested, pass context
+          activeShapeId={activeShapeId}
+        />
+      );
+    case "SECTION":
+      return (
+        <CanvasSection
+          frame={{
+            fill: shape.fill,
+            x: shape.x,
+            y: shape.y,
+            width: shape.width,
+            height: shape.height,
+            id: shape._id.toString(),
+            name: shape.name,
+            type: shape.type,
+          }}
+          shapes={shape.children || []}
+          isSelected={isSelected}
+          draggable={activeTool === "SELECT"}
+          onSelect={handleShapeSelect}
+          onShapeUpdate={() => {}}
+          handleShapeUpdate={handleShapeUpdate}
+          handleTextChange={handleTextChange}
+          handleDblClick={handleDblClick}
+          activeTool={activeTool}
           activeShapeId={activeShapeId}
         />
       );

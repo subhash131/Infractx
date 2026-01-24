@@ -21,6 +21,7 @@ export const ShapePreview: React.FC<ShapePreviewProps> = ({ shape }) => {
     case "FRAME":
     case "RECT":
     case "TEXT":
+    case "SECTION":
       return (
         <Rect
           x={shape.x}
