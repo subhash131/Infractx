@@ -49,6 +49,13 @@ export const createShapeObject = (
         name: "Frame",
         fill: "#fafafa",
       };
+    case "SECTION":
+      return {
+        ...baseShape,
+        type: "SECTION",
+        name: "Section",
+        fill: "#fafafa",
+      };
     default:
       return null;
   }

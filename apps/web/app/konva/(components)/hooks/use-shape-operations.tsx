@@ -69,6 +69,7 @@ export const useShapeOperations = ({
           rotation: node.rotation(),
           scaleX: 1,
           scaleY: 1,
+          // Frame cannot have a parent!
           parentShapeId:
             node.attrs.name === "Frame" ? undefined : node.attrs.parentId,
         },
@@ -128,6 +129,7 @@ export const useShapeOperations = ({
       e.cancelBubble = true;
 
       console.log("Dragging::", draggingNode.id(), draggingNode.parent?.id());
+      console.log("node:", draggingNode.attrs.name);
 
       if (!draggingNode.attrs.type) return; // Avoid system shapes like transformer
       if (selectedShapeIds.length > 1) return;
@@ -151,6 +153,7 @@ export const useShapeOperations = ({
       frames.forEach((frameNode) => {
         // Don't check against self if the dragged node happens to be a frame
         if (frameNode.parent?.id() === draggingNode.id()) return;
+        if (frameNode.id() === draggingNode.attrs.parentId) return;
 
         const overlap = calculateOverlap(draggingNode, frameNode);
         console.log({ overlap });

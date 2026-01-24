@@ -16,6 +16,16 @@ export interface FrameData {
   fill: string;
   type: Doc<"shapes">["type"];
 }
+export interface SectionData {
+  id: string;
+  name: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  fill: string;
+  type: Doc<"shapes">["type"];
+}
 
 export interface FrameProps extends FrameData {
   isSelected: boolean;
