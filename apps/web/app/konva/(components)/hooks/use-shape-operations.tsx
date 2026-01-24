@@ -71,7 +71,7 @@ export const useShapeOperations = ({
           scaleY: 1,
           // Frame cannot have a parent!
           parentShapeId:
-            node.attrs.name === "Frame" ? undefined : node.attrs.parentId,
+            node.attrs.name === "Frame" ? undefined : node.attrs.parentShapeId,
         },
       });
     },
@@ -146,14 +146,14 @@ export const useShapeOperations = ({
         return node.name() && node.name().startsWith("frame-rect-");
       });
 
-      let parentId: string | null = null;
+      let parentShapeId: string | null = null;
       let bestOverlap = 0;
       let targetFrameRect: Konva.Node | null = null;
 
       frames.forEach((frameNode) => {
         // Don't check against self if the dragged node happens to be a frame
         if (frameNode.parent?.id() === draggingNode.id()) return;
-        if (frameNode.id() === draggingNode.attrs.parentId) return;
+        if (frameNode.id() === draggingNode.attrs.parentShapeId) return;
 
         const overlap = calculateOverlap(draggingNode, frameNode);
         console.log({ overlap });
@@ -161,17 +161,17 @@ export const useShapeOperations = ({
         // Check threshold > 70%
         if (overlap > 70 && overlap > bestOverlap) {
           bestOverlap = overlap;
-          parentId = frameNode.attrs.id;
+          parentShapeId = frameNode.attrs.id;
           targetFrameRect = frameNode;
         } else if (overlap < 20 && bestOverlap < 70) {
           // Only set to remove from frame if no good frame match exists
-          parentId = null;
+          parentShapeId = null;
           targetFrameRect = null;
         }
       });
 
       // Handle reparenting with position transformation
-      if (parentId && targetFrameRect) {
+      if (parentShapeId && targetFrameRect) {
         // Get the parent Group of the frame rectangle
         const targetFrameGroup = (targetFrameRect as Konva.Node).parent;
 
@@ -186,11 +186,11 @@ export const useShapeOperations = ({
           });
           draggingNode.setAttrs({
             ...draggingNode.attrs,
-            parentId,
+            parentShapeId,
           });
         }
       } else if (
-        parentId === null &&
+        parentShapeId === null &&
         draggingNode.parent?.attrs.name?.startsWith("frame-rect-")
       ) {
         // TODO: Moving out of a frame back to layer
@@ -198,7 +198,7 @@ export const useShapeOperations = ({
         //   const absolutePos = draggingNode.getAbsolutePosition();
         //   draggingNode.moveTo(stage);
         //   draggingNode.position(absolutePos);
-        //   draggingNode.attrs.parentId = null;
+        //   draggingNode.attrs.parentShapeId = null;
         // }
       }
 

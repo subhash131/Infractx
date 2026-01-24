@@ -186,7 +186,7 @@ export const ShapeRenderer: React.FC<ShapeRendererProps> = ({
     strokeWidth: shape.strokeWidth || 0,
     draggable: isDraggable,
     type: shape.type,
-    parentId: shape.parentShapeId,
+    parentShapeId: shape.parentShapeId,
   };
 
   switch (shape.type) {
