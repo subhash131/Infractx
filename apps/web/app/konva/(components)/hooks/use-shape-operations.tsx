@@ -73,7 +73,11 @@ export const useShapeOperations = ({
           scaleY: 1,
           // Frame cannot have a parent!
           parentShapeId:
-            node.attrs.name === "Frame" ? undefined : node.attrs.parentShapeId,
+            node.attrs.name === "Frame"
+              ? undefined
+              : node.attrs.parentShapeId
+                ? node.attrs.parentShapeId
+                : null, // if not parent
         },
       });
     },
@@ -147,26 +151,28 @@ export const useShapeOperations = ({
       activeShapeId,
     ],
   );
-
   const handleDragMove = useCallback(
     (e: Konva.KonvaEventObject<DragEvent>) => {
+      let draggedOut: boolean = false;
       const draggingNode = getTopMostGroup(e.target);
       e.cancelBubble = true;
 
-      console.log("Dragging::", draggingNode.id(), draggingNode.parent?.id());
-      console.log("node:", draggingNode.attrs.name);
-
-      if (!draggingNode.attrs.type) return; // Avoid system shapes like transformer
+      if (!draggingNode.attrs.type) return;
       if (selectedShapeIds.length > 1) return;
+
+      // Allow dragging if it's a child of a frame OR the layer
+      // (Your previous check might have been too strict here, ensured it's safe)
       if (
         draggingNode.parent?.attrs.type &&
-        draggingNode.parent?.attrs.type !== "FRAME"
+        draggingNode.parent?.attrs.type !== "FRAME" &&
+        draggingNode.parent?.nodeType !== "Layer"
       )
         return;
 
       const stage = stageRef.current;
       if (!stage) return;
 
+      // ... (Your existing overlap logic) ...
       const frames = stage.find((node: Konva.Node) => {
         return node.name() && node.name().startsWith("frame-rect-");
       });
@@ -174,64 +180,70 @@ export const useShapeOperations = ({
       let parentShapeId: string | null = null;
       let bestOverlap = 0;
       let targetFrameRect: Konva.Node | null = null;
+      // console.log({ frames });
 
       frames.forEach((frameNode) => {
-        // Don't check against self if the dragged node happens to be a frame
         if (frameNode.parent?.id() === draggingNode.id()) return;
-        if (frameNode.id() === draggingNode.attrs.parentShapeId) return;
+        console.log({ frameNode });
 
         const overlap = calculateOverlap(draggingNode, frameNode);
         console.log({ overlap });
 
-        // Check threshold > 70%
         if (overlap > 70 && overlap > bestOverlap) {
+          if (frameNode.id() === draggingNode.attrs.parentShapeId) return;
           bestOverlap = overlap;
           parentShapeId = frameNode.attrs.id;
           targetFrameRect = frameNode;
-        } else if (overlap < 20 && bestOverlap < 70) {
-          // Only set to remove from frame if no good frame match exists
+        } else if (overlap < 20 && bestOverlap < 70 && !draggedOut) {
+          draggedOut = true;
           parentShapeId = null;
           targetFrameRect = null;
         }
       });
 
-      // Handle reparenting with position transformation
+      // CASE 1: Moving INTO a Frame
       if (parentShapeId && targetFrameRect) {
-        // Get the parent Group of the frame rectangle
         const targetFrameGroup = (targetFrameRect as Konva.Node).parent;
 
         if (targetFrameGroup && draggingNode.parent !== targetFrameGroup) {
-          // Moving into a frame
           const absolutePos = draggingNode.getAbsolutePosition();
           draggingNode.moveTo(targetFrameGroup);
-          const frameGroupPos = targetFrameGroup.getAbsolutePosition();
-          draggingNode.position({
-            x: absolutePos.x - frameGroupPos.x,
-            y: absolutePos.y - frameGroupPos.y,
-          });
+
+          // When moving INTO a group, we often set relative position
+          // But setting absolutePosition is safer/easier to keep it under cursor
+          draggingNode.absolutePosition(absolutePos);
+
           draggingNode.setAttrs({
             ...draggingNode.attrs,
             parentShapeId,
           });
         }
-      } else if (
-        parentShapeId === null &&
-        draggingNode.parent?.attrs.name?.startsWith("frame-rect-")
-      ) {
-        // TODO: Moving out of a frame back to layer
-        // if (stage) {
-        //   const absolutePos = draggingNode.getAbsolutePosition();
-        //   draggingNode.moveTo(stage);
-        //   draggingNode.position(absolutePos);
-        //   draggingNode.attrs.parentShapeId = null;
-        // }
       }
+      // CASE 2: Moving OUT of a Frame
+      else if (draggedOut) {
+        // ✅ FIX: Get the actual Layer instead of "framesParent"
+        // This ensures we don't try to move the shape to the Stage
+        const layer = draggingNode.getLayer();
 
-      console.log(
-        "Dragging End::",
-        draggingNode.id(),
-        draggingNode.parent?.id(),
-      );
+        if (layer) {
+          // 1. Snapshot global position
+          const absolutePos = draggingNode.getAbsolutePosition();
+
+          // 2. Move to the root of the Layer
+          draggingNode.moveTo(layer);
+
+          // 3. Restore global position
+          draggingNode.absolutePosition(absolutePos);
+
+          // 4. Update attributes (Optimistic update)
+          draggingNode.setAttrs({
+            ...draggingNode.attrs,
+            parentShapeId: null, // Clear the relationship
+          });
+
+          console.log("Moved shape out of frame to Layer", draggingNode);
+        }
+      }
     },
     [stageRef, selectedShapeIds],
   );
