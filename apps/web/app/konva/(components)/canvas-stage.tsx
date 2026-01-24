@@ -60,6 +60,7 @@ export const CanvasStage: React.FC = () => {
   } = useShapeOperations({
     stageRef,
     activeTool,
+    activeShapeId,
     selectedShapeIds,
     setActiveShapeId,
     setSelectedShapeIds,

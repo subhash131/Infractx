@@ -4,11 +4,12 @@ import Konva from "konva";
 import { useMutation } from "convex/react";
 import { api } from "@workspace/backend/_generated/api";
 import { Doc, Id } from "@workspace/backend/_generated/dataModel";
-import { calculateOverlap } from "../utils";
+import { calculateOverlap, getTopMostGroup } from "../utils";
 
 interface UseShapeOperationsProps {
   stageRef: React.RefObject<Konva.Stage | null>;
   activeTool: string;
+  activeShapeId: Id<"shapes"> | undefined;
   selectedShapeIds: Id<"shapes">[];
   setActiveShapeId: (id: Id<"shapes"> | undefined) => void;
   setSelectedShapeIds: (ids: Id<"shapes">[]) => void;
@@ -18,6 +19,7 @@ interface UseShapeOperationsProps {
 export const useShapeOperations = ({
   stageRef,
   activeTool,
+  activeShapeId,
   selectedShapeIds,
   setActiveShapeId,
   setSelectedShapeIds,
@@ -80,39 +82,61 @@ export const useShapeOperations = ({
 
   const handleShapeSelect = useCallback(
     (e: Konva.KonvaEventObject<MouseEvent>) => {
-      const clickedId = e.target.attrs.id as Id<"shapes">;
       if (activeTool !== "SELECT") return;
 
       const stage = stageRef.current;
-      if (!stage) return;
+      const clickedNode = e.target;
 
-      const shape = stage.findOne(`#${clickedId}`);
+      if (!stage || !clickedNode) return;
+
+      // 1. Basic Checks
       const isMultiSelect = e.evt.shiftKey;
-
-      if (!shape) return;
       e.cancelBubble = true;
 
-      if (shape?.attrs.type === "FRAME" && isMultiSelect) return;
-      if (shape?.attrs.name === "frame") return;
+      // Ignore Frames/Backgrounds
+      if (clickedNode.attrs.type === "FRAME" && isMultiSelect) return;
+      if (clickedNode.attrs.name === "frame") return;
 
-      if (e.evt.shiftKey) {
-        // Shift Key: Toggle Selection (Add/Remove)
-        let shapeId = clickedId;
-        if (shape.parent?.attrs.type === "GROUP") {
-          shapeId = shape.parent.attrs.id;
+      // 2. Logic for Standard Selection (No Shift)
+      if (!isMultiSelect) {
+        // CRITICAL FIX: Check if we are clicking inside the currently active group.
+        // If activeShapeId is defined, and the clicked node is a descendant of it,
+        // we DO NOT want to reset to the top-most group. We want to respect the current depth.
+        if (activeShapeId) {
+          // Check if the clicked node is the active shape or a child of it
+
+          let current: Konva.Node | null = clickedNode;
+          let isClickingInsideActive = false;
+
+          // Traverse up from clicked node to see if we hit the activeShapeId
+          while (current && current.nodeType !== "Layer") {
+            if (current.attrs.id === activeShapeId) {
+              isClickingInsideActive = true;
+              break;
+            }
+            current = current.getParent();
+          }
+
+          // If we are clicking within the current selection, STOP here.
+          // This allows handleDblClick to take over without interference.
+          if (isClickingInsideActive) {
+            return;
+          }
         }
-        toggleSelectedShapeId(shapeId);
+
+        // If we are NOT inside the active selection, THEN select the top-most group
+        const targetNode = getTopMostGroup(clickedNode);
+        const targetId = targetNode.attrs.id as Id<"shapes">;
+
+        setActiveShapeId(targetId);
+        setSelectedShapeIds([targetId]);
         return;
       }
 
-      // Set Active shape
-      if (shape?.parent?.attrs.type === "GROUP") {
-        setActiveShapeId(shape?.parent?.attrs.id);
-        setSelectedShapeIds([shape?.parent?.attrs.id]);
-      } else {
-        setActiveShapeId(clickedId);
-        setSelectedShapeIds([clickedId]);
-      }
+      // 3. Logic for Multi-Select (Shift Key) - (Unchanged)
+      const targetNode = getTopMostGroup(clickedNode);
+      const targetId = targetNode.attrs.id as Id<"shapes">;
+      toggleSelectedShapeId(targetId);
     },
     [
       activeTool,
@@ -120,12 +144,13 @@ export const useShapeOperations = ({
       toggleSelectedShapeId,
       setActiveShapeId,
       setSelectedShapeIds,
+      activeShapeId,
     ],
   );
 
   const handleDragMove = useCallback(
     (e: Konva.KonvaEventObject<DragEvent>) => {
-      const draggingNode = e.target;
+      const draggingNode = getTopMostGroup(e.target);
       e.cancelBubble = true;
 
       console.log("Dragging::", draggingNode.id(), draggingNode.parent?.id());
@@ -213,23 +238,57 @@ export const useShapeOperations = ({
 
   const handleDblClick = useCallback(
     (e: Konva.KonvaEventObject<MouseEvent>) => {
-      const clickedId = e.target.attrs.id;
-      if (!clickedId) return;
-
-      console.log({ handleDblClick: clickedId });
-
+      const clickedNode = e.target;
       const stage = stageRef.current;
-      const shape = stage?.findOne(`#${clickedId}`);
+      if (!clickedNode || !stage) return;
 
-      if (shape) {
-        // Explicitly select the CHILD ID, ignoring the parent group
-        setActiveShapeId(clickedId);
-        setSelectedShapeIds([clickedId]);
+      e.cancelBubble = true;
+
+      // Build Ancestry Path
+      const ancestryPath: Konva.Node[] = [clickedNode];
+      let parent = clickedNode.getParent();
+
+      while (
+        parent &&
+        parent.nodeType !== "Layer" &&
+        parent.nodeType !== "Stage"
+      ) {
+        ancestryPath.unshift(parent);
+        parent = parent.getParent();
+      }
+
+      const activeIndex = ancestryPath.findIndex(
+        (node) => node.attrs.id === activeShapeId,
+      );
+
+      let nextNodeToSelect: Konva.Node | undefined;
+
+      if (activeIndex !== -1) {
+        // CASE 1: We are in the chain
+        if (activeIndex < ancestryPath.length - 1) {
+          // Go deeper
+          nextNodeToSelect = ancestryPath[activeIndex + 1];
+        } else {
+          // We are at the bottom (Leaf node).
+          // STAY HERE. Do not jump back to top.
+          nextNodeToSelect = ancestryPath[activeIndex];
+        }
+      } else {
+        // CASE 2: Nothing in this chain is selected. Start at top.
+        nextNodeToSelect = ancestryPath[0];
+      }
+
+      if (!nextNodeToSelect) return;
+      const nextId = nextNodeToSelect.attrs.id as Id<"shapes">;
+
+      if (nextId && nextId !== activeShapeId) {
+        console.log(`Drilling down: ${activeShapeId} -> ${nextId}`);
+        setActiveShapeId(nextId);
+        setSelectedShapeIds([nextId]);
       }
     },
-    [stageRef, setActiveShapeId, setSelectedShapeIds],
+    [stageRef, activeShapeId, setActiveShapeId, setSelectedShapeIds],
   );
-
   return {
     handleShapeUpdate,
     handleShapeSelect,

@@ -44,13 +44,7 @@ export const ShapeRenderer: React.FC<ShapeRendererProps> = ({
   // Must be SELECT tool AND (It's a standalone shape OR It is the specific child we selected)
   const isDraggable = activeTool === "SELECT" && (!isGroupChild || isSelected);
 
-  // Disable Group drag if a child is active
-  const hasActiveChild =
-    shape.type === "GROUP" &&
-    shape.children?.some((child) => child._id === activeShapeId);
-
   // --- Snapping Logic ---
-
   const clearGuides = (layer: Konva.Layer) => {
     layer.find(".guid-line").forEach((l) => l.destroy());
   };
@@ -219,7 +213,7 @@ export const ShapeRenderer: React.FC<ShapeRendererProps> = ({
           type={shape.type}
           onDblClick={handleDblClick}
           // Groups are draggable unless we are editing a child
-          draggable={activeTool === "SELECT" && !hasActiveChild}
+          draggable={activeTool === "SELECT" && shape._id === activeShapeId}
         >
           {shape.children.map((s) => (
             <ShapeRenderer
