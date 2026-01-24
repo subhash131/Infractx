@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { Doc, Id } from "../_generated/dataModel";
 import { DESIGN_TOOLS_TYPE } from "./constants";
+import { MutationCtx } from "../_generated/server";
 
 export const shapeInsertValidator = v.object({
   // --- Identity & Hierarchy ---
@@ -135,4 +136,25 @@ export function buildFrameTemplateTree(
   }
 
   return build(frameId);
+}
+
+// 1. Define a recursive helper function
+export async function deleteShapeRecursive(
+  ctx: MutationCtx,
+  shapeId: Id<"shapes">,
+) {
+  // Find all immediate children of this shape
+  const children = await ctx.db
+    .query("shapes")
+    .withIndex("by_parent", (q) => q.eq("parentShapeId", shapeId))
+    .collect();
+
+  // Recursively call this function for every child found
+  // We use a for...of loop to ensure we await each deletion properly
+  for (const child of children) {
+    await deleteShapeRecursive(ctx, child._id);
+  }
+
+  // Finally, delete the current shape itself
+  await ctx.db.delete(shapeId);
 }
