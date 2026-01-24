@@ -43,6 +43,21 @@ export const CanvasTransformer = ({
             anchor.width(0);
             anchor.height(0);
           }
+        } else if (node.getClassName() === "Group") {
+          if (
+            anchor.hasName("middle-left") ||
+            anchor.hasName("middle-right") ||
+            anchor.hasName("top-center") ||
+            anchor.hasName("top-right") ||
+            anchor.hasName("top-left") ||
+            anchor.hasName("bottom-left") ||
+            anchor.hasName("bottom-right") ||
+            anchor.hasName("bottom-center") ||
+            anchor.hasName("rotater")
+          ) {
+            anchor.width(0);
+            anchor.height(0);
+          }
         }
       }}
     />
