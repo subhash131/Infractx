@@ -1,14 +1,14 @@
 import Konva from "konva";
 import React, { useRef } from "react";
 import { Group, Rect, Text } from "react-konva";
-import { FrameData, ShapeData, ShapeNode } from "./types";
+import { SectionData, ShapeData, ShapeNode } from "./types";
 import { ActiveTool } from "./store";
 import { KonvaEventObject } from "konva/lib/Node";
 import { ShapeRenderer } from "./shape-renderer";
 import { Id } from "@workspace/backend/_generated/dataModel";
 
-interface CanvasFrameProps {
-  frame: FrameData;
+interface CanvasSectionProps {
+  section: SectionData;
   shapes: ShapeNode[];
   isSelected: boolean;
   onSelect: (e: Konva.KonvaEventObject<MouseEvent>) => void;
@@ -24,14 +24,13 @@ interface CanvasFrameProps {
   activeShapeId?: Id<"shapes">;
 }
 
-export const CanvasSection: React.FC<CanvasFrameProps> = ({
-  frame,
+export const CanvasSection: React.FC<CanvasSectionProps> = ({
+  section,
   shapes,
   onSelect,
   handleShapeUpdate,
   handleTextChange,
   handleDblClick,
-  draggable,
   activeTool = "SELECT",
   activeShapeId,
 }) => {
@@ -90,7 +89,7 @@ export const CanvasSection: React.FC<CanvasFrameProps> = ({
       target: outerGroupNode,
     };
 
-    syntheticEvent.target.attrs["id"] = frame.id;
+    syntheticEvent.target.attrs["id"] = section.id;
     syntheticEvent.target.attrs.height = finalHeight;
     syntheticEvent.target.attrs.width = finalWidth;
 
@@ -99,33 +98,33 @@ export const CanvasSection: React.FC<CanvasFrameProps> = ({
 
   return (
     <Group
-      {...frame}
+      {...section}
       ref={outerGroupRef}
-      draggable={draggable}
+      draggable={activeShapeId === section.id}
       onClick={onSelect}
       onDragEnd={(e) => {
         if (!e || !handleShapeUpdate) return;
-        handleShapeUpdate(e, frame.id);
+        handleShapeUpdate(e, section.id);
       }}
-      width={frame.width}
-      height={frame.height}
-      x={frame.x}
-      y={frame.y}
+      width={section.width}
+      height={section.height}
+      x={section.x}
+      y={section.y}
       name="section"
       type="SECTION"
-      id={frame.id}
+      id={section.id}
     >
       <Rect
-        {...frame}
-        id={frame.id}
+        {...section}
+        id={section.id}
         ref={rectRef}
         x={0}
         y={0}
         fill={"red"}
-        name={`section-rect-${frame.id}`}
+        name={`section-rect-${section.id}`}
         onTransform={handleTransform}
         onTransformEnd={handleTransformEnd}
-        type={frame.type}
+        type={section.type}
       />
       {shapes.map((childNode) => {
         return (
@@ -143,7 +142,7 @@ export const CanvasSection: React.FC<CanvasFrameProps> = ({
             handleTextChange={handleTextChange}
             activeTool={activeTool}
             activeShapeId={activeShapeId}
-            parentFrameId={frame.id as Id<"shapes">}
+            parentSectionId={section.id as Id<"shapes">}
           />
         );
       })}
