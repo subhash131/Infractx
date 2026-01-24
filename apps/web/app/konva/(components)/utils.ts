@@ -83,10 +83,18 @@ export const calculateOverlap = (
 };
 
 export function getTopMostGroup(node: Konva.Node): Konva.Node {
-  let current: Konva.Node = node;
+  let current = node;
 
-  while (current.parent && current.parent.attrs?.type === "GROUP") {
-    current = current.parent;
+  while (current.parent) {
+    const parent = current.parent;
+    const parentType = parent.attrs?.type;
+    // We continue climbing up if the parent is a GROUP or a SECTION
+    if (parentType === "GROUP" || parentType === "SECTION") {
+      current = parent;
+    } else {
+      // If we hit a Layer or Stage (or something undefined), we stop.
+      break;
+    }
   }
 
   return current;

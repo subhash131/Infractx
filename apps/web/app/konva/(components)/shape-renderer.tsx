@@ -23,6 +23,7 @@ interface ShapeRendererProps {
   handleDblClick: (e: Konva.KonvaEventObject<MouseEvent>) => void;
   // New optional props for snapping context
   parentFrameId?: Id<"shapes">;
+  parentSectionId?: Id<"shapes">;
   siblingShapes?: ShapeNode[];
 }
 
@@ -251,14 +252,13 @@ export const ShapeRenderer: React.FC<ShapeRendererProps> = ({
           handleTextChange={handleTextChange}
           handleDblClick={handleDblClick}
           activeTool={activeTool}
-          // Frame is a top-level object usually, but if nested, pass context
           activeShapeId={activeShapeId}
         />
       );
     case "SECTION":
       return (
         <CanvasSection
-          frame={{
+          section={{
             fill: shape.fill,
             x: shape.x,
             y: shape.y,
