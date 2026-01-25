@@ -8,7 +8,7 @@ import { ActiveTool } from "./store";
 import { ShapeNode } from "./types";
 
 import { CanvasSection } from "./canvas-section";
-import { useShapeDrag } from "./hooks/use-shape-drag";
+import { useShapeOperations } from "./hooks/use-shape-operations";
 
 interface ShapeRendererProps {
   shape: ShapeNode;
@@ -22,6 +22,7 @@ interface ShapeRendererProps {
   parentFrameId?: Id<"shapes">;
   parentSectionId?: Id<"shapes">;
   siblingShapes?: ShapeNode[];
+  stageRef: React.RefObject<Konva.Stage | null>;
 }
 
 export const ShapeRenderer: React.FC<ShapeRendererProps> = ({
@@ -32,8 +33,8 @@ export const ShapeRenderer: React.FC<ShapeRendererProps> = ({
   handleShapeSelect,
   handleTextChange,
   handleDblClick,
-  parentFrameId,
   siblingShapes = [],
+  stageRef,
 }) => {
   // --- Selection & Draggability Logic ---
   const isSelected = activeShapeId === shape._id;
@@ -42,11 +43,9 @@ export const ShapeRenderer: React.FC<ShapeRendererProps> = ({
   // Must be SELECT tool AND (It's a standalone shape OR It is the specific child we selected)
   const isDraggable = activeTool === "SELECT" && (!isGroupChild || isSelected);
 
-  const { handleDragEnd, handleDragMove } = useShapeDrag({
-    shape,
-    parentFrameId,
-    siblingShapes,
-    onDragEnd: handleShapeUpdate,
+  if (!stageRef) return;
+  const { handleDragEnd, handleDragMove } = useShapeOperations({
+    stageRef,
   });
 
   // --- Listeners ---
@@ -115,6 +114,7 @@ export const ShapeRenderer: React.FC<ShapeRendererProps> = ({
               handleTextChange={handleTextChange}
               activeShapeId={activeShapeId}
               handleDblClick={handleDblClick}
+              stageRef={stageRef}
             />
           ))}
         </Group>
@@ -133,7 +133,6 @@ export const ShapeRenderer: React.FC<ShapeRendererProps> = ({
             type: shape.type,
           }}
           shapes={shape.children || []}
-          isSelected={isSelected}
           draggable={activeTool === "SELECT"}
           onSelect={handleShapeSelect}
           onShapeUpdate={() => {}}
@@ -142,6 +141,7 @@ export const ShapeRenderer: React.FC<ShapeRendererProps> = ({
           handleDblClick={handleDblClick}
           activeTool={activeTool}
           activeShapeId={activeShapeId}
+          stageRef={stageRef}
         />
       );
     case "SECTION":
@@ -159,8 +159,6 @@ export const ShapeRenderer: React.FC<ShapeRendererProps> = ({
             parentShapeId: shape.parentShapeId,
           }}
           shapes={shape.children || []}
-          isSelected={isSelected}
-          draggable={activeTool === "SELECT"}
           onSelect={handleShapeSelect}
           onShapeUpdate={() => {}}
           handleShapeUpdate={handleShapeUpdate}
@@ -168,8 +166,10 @@ export const ShapeRenderer: React.FC<ShapeRendererProps> = ({
           handleDblClick={handleDblClick}
           activeTool={activeTool}
           activeShapeId={activeShapeId}
-          parentFrameId={shape.parentShapeId as Id<"shapes">}
           siblingShapes={siblingShapes}
+          stageRef={stageRef}
+          handleDragEnd={handleDragEnd}
+          handleDragMove={handleDragMove}
         />
       );
     case "TEXT":
