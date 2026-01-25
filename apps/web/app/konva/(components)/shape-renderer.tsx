@@ -14,7 +14,10 @@ interface ShapeRendererProps {
   shape: ShapeNode;
   activeShapeId?: Id<"shapes">;
   activeTool: ActiveTool;
-  handleShapeUpdate: (e: Konva.KonvaEventObject<DragEvent | Event>) => void;
+  handleShapeUpdate: (
+    e: Konva.KonvaEventObject<DragEvent | Event>,
+    shapeId?: string,
+  ) => void;
   handleShapeSelect: (e: Konva.KonvaEventObject<MouseEvent>) => void;
   handleTextChange: (shapeId: string, newText: string) => void;
   handleDblClick: (e: Konva.KonvaEventObject<MouseEvent>) => void;
@@ -90,6 +93,7 @@ export const ShapeRenderer: React.FC<ShapeRendererProps> = ({
           radius={shape.radius || shape.width / 2}
           onDblClick={handleDblClick}
           {...listeners}
+          onTransformEnd={handleShapeUpdate}
         />
       );
     case "GROUP":

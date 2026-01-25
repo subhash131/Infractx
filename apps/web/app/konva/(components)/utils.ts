@@ -108,10 +108,10 @@ export function getTopMostGroup(node: Konva.Node): Konva.Node {
     if (parentType === "GROUP") {
       current = parent;
     } else if (parentType === "SECTION") {
-      const secRect = (parent as Konva.Group)
+      const sectionBackground = (parent as Konva.Group)
         .getChildren()
         .filter((child) => child.id() === parent.name().split("-")[1])[0];
-      if (secRect) current = secRect;
+      if (sectionBackground) current = sectionBackground;
       break;
     } else {
       // If parent is none of these (unlikely in standard Konva), break to be safe
@@ -141,4 +141,17 @@ export function getContainer(node: Konva.Node): Konva.Node {
 
   // If no FRAME found, return the top-most node (the one directly on the Layer)
   return current;
+}
+
+export function checkActiveNode(node: Konva.Node): Konva.Node {
+  let actualNode = node;
+  if (node.attrs.type === "SECTION") {
+    if (node instanceof Konva.Group) {
+      const sectionBg = (node as Konva.Group)
+        .getChildren()
+        .filter((n) => actualNode.attrs.name.split("-")[1] === n.id())[0];
+      if (sectionBg) actualNode = sectionBg;
+    }
+  }
+  return actualNode;
 }
