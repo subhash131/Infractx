@@ -98,7 +98,6 @@ export const CanvasSection: React.FC<CanvasSectionProps> = ({
 
   return (
     <Group
-      {...section}
       ref={outerGroupRef}
       draggable={activeShapeId === section.id}
       onClick={onSelect}
@@ -111,8 +110,7 @@ export const CanvasSection: React.FC<CanvasSectionProps> = ({
       x={section.x}
       y={section.y}
       name="section"
-      type="SECTION"
-      id={section.id}
+      type={section.type}
     >
       <Rect
         {...section}
