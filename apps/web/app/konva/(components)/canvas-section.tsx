@@ -115,12 +115,12 @@ export const CanvasSection: React.FC<CanvasSectionProps> = ({
       draggable={activeShapeId === section.id}
       onClick={onSelect}
       onDragMove={handleDragMove}
-      onDragEnd={handleDragEnd}
+      onDragEnd={(e) => handleShapeUpdate(e, section.id)}
       width={section.width}
       height={section.height}
       x={section.x}
       y={section.y}
-      name="section"
+      name={`section-${section.id}`}
       type={section.type}
       parentShapeId={section.parentShapeId}
     >
@@ -130,7 +130,8 @@ export const CanvasSection: React.FC<CanvasSectionProps> = ({
         ref={rectRef}
         x={0}
         y={0}
-        fill={"red"}
+        fill={"blue"}
+        stroke={"#f0f0f0"}
         name={`section-rect-${section.id}`}
         onTransform={handleTransform}
         onTransformEnd={handleTransformEnd}
