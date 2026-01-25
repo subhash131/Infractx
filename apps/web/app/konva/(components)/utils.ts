@@ -122,6 +122,7 @@ export function getTopMostGroup(node: Konva.Node): Konva.Node {
   return current;
 }
 
+// Get Immediate parent Frame or section of the shape
 export function getContainer(node: Konva.Node): Konva.Node {
   let current = node;
 
@@ -130,7 +131,7 @@ export function getContainer(node: Konva.Node): Konva.Node {
     const parent = current.getParent();
 
     // If we found a FRAME, stop and return it
-    if (parent?.attrs.type === "FRAME") {
+    if (parent?.attrs.type === "FRAME" || parent?.attrs.type === "SECTION") {
       return parent;
     }
 

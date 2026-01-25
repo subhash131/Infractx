@@ -156,15 +156,31 @@ export const useShapeOperations = ({ stageRef }: UseShapeOperationsProps) => {
     (e: Konva.KonvaEventObject<DragEvent>) => {
       e.cancelBubble = true;
       // Get the actual movable node (Group or Shape)
-      const draggingNode = getTopMostGroup(e.target);
+      const stage = stageRef.current;
+      if (!stage) return;
+      let draggingNode: Konva.Node = e.target;
 
-      if (!draggingNode.attrs.type || draggingNode.attrs.type === "FRAME")
-        return;
       if (selectedShapeIds.length > 1) return;
 
-      const stage = stageRef.current;
+      if (activeShapeId) {
+        const activeNode = stage.findOne(`#${activeShapeId}`);
+        // Ensure the active node exists and is related to what we are dragging
+        if (activeNode) {
+          draggingNode = activeNode;
+        }
+      } else {
+        // Fallback: If nothing selected, find the group, BUT stop at containers
+        draggingNode = getTopMostGroup(e.target);
+
+        // Safety: If getTopMostGroup grabbed a Section/Frame, but we actually clicked a child...
+        // We usually want to revert to the child.
+        // (However, relying on activeShapeId above is the most robust fix)
+      }
+      if (!draggingNode.attrs.type || draggingNode.attrs.type === "FRAME")
+        return;
+
       const layer = draggingNode.getLayer();
-      if (!stage || !layer) return;
+      if (!layer) return;
 
       // =========================================================
       // PART A: SNAPPING LOGIC
