@@ -6,6 +6,7 @@ import Konva from "konva";
 
 interface UseShapeGroupingProps {
   selectedShapeIds: Id<"shapes">[];
+  pageId: Id<"pages">;
   shapes: Doc<"shapes">[] | undefined;
   activeShapeId: Id<"shapes"> | undefined;
   stageRef: React.RefObject<Konva.Stage | null>;
@@ -15,6 +16,7 @@ interface UseShapeGroupingProps {
 
 export const useShapeGrouping = ({
   selectedShapeIds,
+  pageId,
   shapes,
   activeShapeId,
   stageRef,
@@ -54,7 +56,7 @@ export const useShapeGrouping = ({
     const group = await createShape({
       shapeObject: {
         type: "GROUP",
-        pageId: "kh7124p2k7ycr4wbf1n710gpc57zeqxt" as Id<"pages">,
+        pageId,
         x: minX,
         y: minY,
         width: 100,
