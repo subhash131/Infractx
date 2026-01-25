@@ -38,31 +38,29 @@ export const CanvasSection: React.FC<CanvasSectionProps> = ({
   handleDragMove,
   stageRef,
 }) => {
-  const outerGroupRef = useRef<Konva.Group>(null);
-  const innerGroupRef = useRef<Konva.Group>(null);
+  const groupRef = useRef<Konva.Group>(null);
   const rectRef = useRef<Konva.Rect>(null);
 
   const handleTransform = () => {
     const rectNode = rectRef.current;
-    const innerGroupNode = innerGroupRef.current;
+    const groupNode = groupRef.current;
 
-    if (!rectNode || !innerGroupNode) return;
+    if (!rectNode || !groupNode) return;
 
     const scaleX = rectNode.scaleX();
     const scaleY = rectNode.scaleY();
 
-    innerGroupNode.clipX(rectNode.x());
-    innerGroupNode.clipY(rectNode.y());
-    innerGroupNode.clipWidth(rectNode.width() * scaleX);
-    innerGroupNode.clipHeight(rectNode.height() * scaleY);
+    groupNode.clipX(rectNode.x());
+    groupNode.clipY(rectNode.y());
+    groupNode.clipWidth(rectNode.width() * scaleX);
+    groupNode.clipHeight(rectNode.height() * scaleY);
   };
 
   const handleTransformEnd = (e: KonvaEventObject<Event>) => {
     const rectNode = rectRef.current;
-    const outerGroupNode = outerGroupRef.current;
-    const innerGroupNode = innerGroupRef.current;
+    const groupNode = groupRef.current;
 
-    if (!rectNode || !outerGroupNode || !innerGroupNode) return;
+    if (!rectNode || !groupNode) return;
 
     const scaleX = rectNode.scaleX();
     const scaleY = rectNode.scaleY();
@@ -71,11 +69,11 @@ export const CanvasSection: React.FC<CanvasSectionProps> = ({
 
     const finalWidth = Math.max(5, rectNode.width() * scaleX);
     const finalHeight = Math.max(5, rectNode.height() * scaleY);
-    const newX = outerGroupNode.x() + offsetX;
-    const newY = outerGroupNode.y() + offsetY;
+    const newX = groupNode.x() + offsetX;
+    const newY = groupNode.y() + offsetY;
 
-    outerGroupNode.x(newX);
-    outerGroupNode.y(newY);
+    groupNode.x(newX);
+    groupNode.y(newY);
     rectNode.width(finalWidth);
     rectNode.height(finalHeight);
     rectNode.x(0);
@@ -83,26 +81,26 @@ export const CanvasSection: React.FC<CanvasSectionProps> = ({
     rectNode.scaleX(1);
     rectNode.scaleY(1);
 
-    innerGroupNode.clipX(0);
-    innerGroupNode.clipY(0);
-    innerGroupNode.clipWidth(finalWidth);
-    innerGroupNode.clipHeight(finalHeight);
+    groupNode.clipX(0);
+    groupNode.clipY(0);
+    groupNode.clipWidth(finalWidth);
+    groupNode.clipHeight(finalHeight);
 
     const syntheticEvent = {
       ...e,
-      target: outerGroupNode,
+      target: groupNode,
     };
 
-    syntheticEvent.target.attrs["id"] = section.id;
     syntheticEvent.target.attrs.height = finalHeight;
     syntheticEvent.target.attrs.width = finalWidth;
+    syntheticEvent.target.attrs.type = "SECTION";
 
-    handleShapeUpdate(syntheticEvent as any);
+    handleShapeUpdate(syntheticEvent as any, section.id);
   };
 
   return (
     <Group
-      ref={outerGroupRef}
+      ref={groupRef}
       draggable={activeShapeId === section.id}
       onClick={onSelect}
       onDragMove={handleDragMove}

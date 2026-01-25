@@ -3,7 +3,12 @@ import Konva from "konva";
 import { useMutation } from "convex/react";
 import { api } from "@workspace/backend/_generated/api";
 import { Doc, Id } from "@workspace/backend/_generated/dataModel";
-import { calculateOverlap, getContainer, getTopMostGroup } from "../utils";
+import {
+  calculateOverlap,
+  checkActiveNode,
+  getContainer,
+  getTopMostGroup,
+} from "../utils";
 import {
   getGuides,
   getObjectSnappingEdges,
@@ -34,12 +39,15 @@ export const useShapeOperations = ({ stageRef }: UseShapeOperationsProps) => {
 
   // --- 1. HANDLE SHAPE UPDATE (Resize/Transform End) ---
   const handleShapeUpdate = useCallback(
-    async (e: Konva.KonvaEventObject<DragEvent | Event>, shapeId?: string) => {
+    async (
+      e: Konva.KonvaEventObject<DragEvent | Event>,
+      shapeId?: Id<"shapes">,
+    ) => {
       const node = e.target;
       if (!node) return;
 
       const nodeType: Doc<"shapes">["type"] = node.attrs.type;
-      const nodeId: Doc<"shapes">["type"] = node.attrs.id;
+      const nodeId: Id<"shapes"> = node.attrs.id;
       if (!shapeId && (!nodeType || !nodeId)) return;
 
       e.cancelBubble = true;
@@ -78,6 +86,7 @@ export const useShapeOperations = ({ stageRef }: UseShapeOperationsProps) => {
             node.attrs.name === "Frame"
               ? undefined
               : node.attrs.parentShapeId || null,
+          radius: node instanceof Konva.Circle ? node.radius() : undefined,
         },
       });
 
@@ -156,103 +165,94 @@ export const useShapeOperations = ({ stageRef }: UseShapeOperationsProps) => {
     (e: Konva.KonvaEventObject<DragEvent>) => {
       e.cancelBubble = true;
       // Get the actual movable node (Group or Shape)
-      const stage = stageRef.current;
-      if (!stage) return;
-      let draggingNode: Konva.Node = e.target;
+      const draggingNode = getTopMostGroup(e.target);
 
-      if (selectedShapeIds.length > 1) return;
-
-      if (activeShapeId) {
-        const activeNode = stage.findOne(`#${activeShapeId}`);
-        // Ensure the active node exists and is related to what we are dragging
-        if (activeNode) {
-          draggingNode = activeNode;
-        }
-      } else {
-        // Fallback: If nothing selected, find the group, BUT stop at containers
-        draggingNode = getTopMostGroup(e.target);
-
-        // Safety: If getTopMostGroup grabbed a Section/Frame, but we actually clicked a child...
-        // We usually want to revert to the child.
-        // (However, relying on activeShapeId above is the most robust fix)
-      }
       if (!draggingNode.attrs.type || draggingNode.attrs.type === "FRAME")
         return;
+      if (selectedShapeIds.length > 1) return;
 
+      const stage = stageRef.current;
       const layer = draggingNode.getLayer();
-      if (!layer) return;
+      if (!stage || !layer) return;
 
       // =========================================================
       // PART A: SNAPPING LOGIC
       // =========================================================
-      clearGuides(layer);
+      const shouldSnap =
+        activeShapeId && checkActiveNode(draggingNode).id() === activeShapeId;
+      if (shouldSnap) {
+        clearGuides(layer);
 
-      // Find candidates for snapping (Frames, Sections, other Shapes)
-      // Exclude self, children, and parents
-      const snapCandidates = stage.find((n: Konva.Node) => {
-        const type = n.attrs.type;
-        const isCandidateType =
-          type === "FRAME" ||
-          type === "SECTION" ||
-          type === "RECT" ||
-          type === "CIRCLE";
-        const isSelfOrRelated =
-          n === draggingNode ||
-          n.isAncestorOf(draggingNode) ||
-          draggingNode.isAncestorOf(n);
-        return isCandidateType && !isSelfOrRelated;
-      });
+        // Find candidates for snapping (Frames, Sections, other Shapes)
+        // Exclude self, children, and parents
+        const snapCandidates = stage.find((n: Konva.Node) => {
+          const type = n.attrs.type;
+          const isCandidateType =
+            type === "FRAME" ||
+            type === "SECTION" ||
+            type === "RECT" ||
+            type === "CIRCLE";
+          const isSelfOrRelated =
+            n === draggingNode ||
+            n.isAncestorOf(draggingNode) ||
+            draggingNode.isAncestorOf(n);
+          return isCandidateType && !isSelfOrRelated;
+        });
 
-      const vertical: number[] = [];
-      const horizontal: number[] = [];
+        const vertical: number[] = [];
+        const horizontal: number[] = [];
 
-      snapCandidates.forEach((node) => {
-        const box = node.getClientRect({ relativeTo: layer });
-        vertical.push(box.x, box.x + box.width, box.x + box.width / 2);
-        horizontal.push(box.y, box.y + box.height, box.y + box.height / 2);
-      });
+        snapCandidates.forEach((node) => {
+          const box = node.getClientRect({ relativeTo: layer });
+          vertical.push(box.x, box.x + box.width, box.x + box.width / 2);
+          horizontal.push(box.y, box.y + box.height, box.y + box.height / 2);
+        });
 
-      const itemBounds = getObjectSnappingEdges(draggingNode);
-      if (itemBounds) {
-        const guides = getGuides(
-          { vertical, horizontal },
-          itemBounds,
-          stage.scaleX(),
-        );
+        const itemBounds = getObjectSnappingEdges(draggingNode);
+        if (itemBounds) {
+          const guides = getGuides(
+            { vertical, horizontal },
+            itemBounds,
+            stage.scaleX(),
+          );
 
-        if (guides.length) {
-          let snapBounds = undefined;
-          const containerNode = getContainer(draggingNode);
-          console.log({ containerNode });
-          if (
-            containerNode !== draggingNode &&
-            containerNode.attrs.name === "frame"
-          ) {
-            snapBounds = containerNode.getClientRect({ relativeTo: layer });
-            console.log({ snapBounds });
-          }
-          drawGuides(guides, layer, undefined, snapBounds);
-
-          // Apply Snapping (Position Correction)
-          const currentAbsPos = draggingNode.getAbsolutePosition();
-          const currentClientRect = draggingNode.getClientRect({
-            relativeTo: layer,
-          });
-          const anchorOffsetX = currentAbsPos.x - currentClientRect.x;
-          const anchorOffsetY = currentAbsPos.y - currentClientRect.y;
-
-          const newPos = { x: currentAbsPos.x, y: currentAbsPos.y };
-
-          guides.forEach((lg) => {
-            if (lg.orientation === "V") {
-              newPos.x = lg.lineGuide - lg.offset + anchorOffsetX;
-            } else {
-              newPos.y = lg.lineGuide - lg.offset + anchorOffsetY;
+          if (guides.length) {
+            let snapBounds = undefined;
+            const containerNode = getContainer(draggingNode);
+            console.log({ containerNode });
+            if (
+              containerNode !== draggingNode &&
+              containerNode.attrs.name === "frame"
+            ) {
+              snapBounds = containerNode.getClientRect({ relativeTo: layer });
+              console.log({ snapBounds });
             }
-          });
+            drawGuides(guides, layer, undefined, snapBounds);
 
-          draggingNode.setAbsolutePosition(newPos);
+            // Apply Snapping (Position Correction)
+            const currentAbsPos = draggingNode.getAbsolutePosition();
+            const currentClientRect = draggingNode.getClientRect({
+              relativeTo: layer,
+            });
+            const anchorOffsetX = currentAbsPos.x - currentClientRect.x;
+            const anchorOffsetY = currentAbsPos.y - currentClientRect.y;
+
+            const newPos = { x: currentAbsPos.x, y: currentAbsPos.y };
+
+            guides.forEach((lg) => {
+              if (lg.orientation === "V") {
+                newPos.x = lg.lineGuide - lg.offset + anchorOffsetX;
+              } else {
+                newPos.y = lg.lineGuide - lg.offset + anchorOffsetY;
+              }
+            });
+
+            draggingNode.setAbsolutePosition(newPos);
+          }
         }
+      } else {
+        // If we are NOT snapping (e.g. passive drag), ensure old guides are gone
+        clearGuides(layer);
       }
 
       // =========================================================
