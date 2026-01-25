@@ -171,55 +171,114 @@ export const useShapeOperations = ({
       // 1. Basic Validation
       if (!draggingNode.attrs.type) return;
       if (selectedShapeIds.length > 1) return;
-      if (
-        draggingNode.parent?.attrs.type &&
-        draggingNode.parent?.attrs.type !== "FRAME"
-      )
-        return;
+
+      // Prevent dragging a Frame into a Section (optional safety check based on your rules)
+      if (draggingNode.attrs.type === "FRAME") return;
 
       const stage = stageRef.current;
       if (!stage) return;
 
-      // 2. Find all Frames
+      // =========================================================
+      // BLOCK A: Find Best Frame (Existing Logic)
+      // =========================================================
       const frames = stage.find((node: Konva.Node) => {
         return node.name() && node.name().startsWith("frame-rect-");
       });
 
-      // 3. Find the SINGLE BEST overlap candidate
       let bestFrame: Konva.Node | null = null;
-      let maxOverlap = 0;
+      let maxFrameOverlap = 0;
 
       frames.forEach((frameNode: Konva.Node) => {
         const overlap = calculateOverlap(draggingNode, frameNode);
-        if (overlap > maxOverlap) {
-          maxOverlap = overlap;
+        if (overlap > maxFrameOverlap) {
+          maxFrameOverlap = overlap;
           bestFrame = frameNode;
         }
       });
 
-      if (!bestFrame) return;
+      // =========================================================
+      // BLOCK B: Find Best Section (New Logic)
+      // =========================================================
+      const sections = stage.find((node: Konva.Node) => {
+        return node.name() && node.name().startsWith("section-rect-");
+      });
 
-      // 4. Determine Action
+      let bestSection: Konva.Node | null = null;
+      let maxSectionOverlap = 0;
+
+      sections.forEach((sectionNode: Konva.Node) => {
+        // Prevent a section from trying to eat itself or its parents if you drag a Section
+        if (draggingNode === sectionNode.parent) return;
+
+        const overlap = calculateOverlap(draggingNode, sectionNode);
+        if (overlap > maxSectionOverlap) {
+          maxSectionOverlap = overlap;
+          bestSection = sectionNode;
+        }
+      });
+
+      // =========================================================
+      // BLOCK C: Resolve Hierarchy (The "Major Problem" Solver)
+      // =========================================================
+
+      let finalTargetNode: Konva.Node | null = null;
+      let targetType: "FRAME" | "SECTION" | null = null;
+
+      // Thresholds
+      const MIN_OVERLAP = 70;
+
+      // 1. Determine who wins: Section or Frame?
+      const isFrameValid = bestFrame && maxFrameOverlap > MIN_OVERLAP;
+      const isSectionValid = bestSection && maxSectionOverlap > MIN_OVERLAP;
+
+      if (isSectionValid && isFrameValid) {
+        // CONFLICT: We are over both a Frame and a Section.
+        // Since Sections can be children of Frames, the Section is the "more specific" (deeper) target.
+        // Therefore, Section wins.
+        finalTargetNode = bestSection;
+        targetType = "SECTION";
+      } else if (isSectionValid) {
+        finalTargetNode = bestSection;
+        targetType = "SECTION";
+      } else if (isFrameValid) {
+        finalTargetNode = bestFrame;
+        targetType = "FRAME";
+      }
+
+      // =========================================================
+      // BLOCK D: Execution (Move Into or Move Out)
+      // =========================================================
+
       const currentParentId = draggingNode.attrs.parentShapeId;
-      const bestFrameId = (bestFrame as Konva.Node)?.id() ?? null;
 
-      // CASE A: Move INTO a new frame
-      if (bestFrame && maxOverlap > 70) {
-        if (currentParentId !== bestFrameId) {
-          const targetFrameGroup = (bestFrame as Konva.Node).parent;
-          if (targetFrameGroup) {
-            const absolutePos = draggingNode.getAbsolutePosition();
-            draggingNode.moveTo(targetFrameGroup);
-            draggingNode.absolutePosition(absolutePos);
-            draggingNode.setAttrs({
-              ...draggingNode.attrs,
-              parentShapeId: bestFrameId,
-            });
-          }
+      // CASE 1: Move INTO a Target (Section or Frame)
+      if (finalTargetNode) {
+        // Get the container group (assuming rect is inside a Group)
+        const targetGroup = (finalTargetNode as Konva.Node).parent;
+        const targetId = (finalTargetNode as Konva.Node).id(); // Ensure your rects have IDs corresponding to the container
+
+        if (targetGroup && currentParentId !== targetId) {
+          const absolutePos = draggingNode.getAbsolutePosition();
+          draggingNode.moveTo(targetGroup);
+          draggingNode.absolutePosition(absolutePos);
+          draggingNode.setAttrs({
+            ...draggingNode.attrs,
+            parentShapeId: targetId,
+          });
+          console.log(`Moved into ${targetType}:`, targetId);
         }
       }
-      // CASE B: Move OUT to Layer
-      else if (currentParentId && maxOverlap < 20) {
+      // CASE 2: Move OUT to Layer (Only if no valid target found)
+      else if (currentParentId) {
+        // Check if we have really left the current parent (overlap < 20)
+        // We check overlap against the *current parent* specifically to avoid flickering
+        // But simplified: if we found NO finalTargetNode above, we are likely in the 'void' or 'layer' space.
+
+        // Safety check: Don't drop to layer if we simply missed the 70% threshold but are still largely inside.
+        // You might want to keep the < 20 check logic here relative to the *current* parent.
+
+        // Find the node object of the current parent to check low overlap
+        // (This part is optional if you just want to drop to layer whenever not over a valid target)
         const layer = draggingNode.getLayer();
         if (layer) {
           const absolutePos = draggingNode.getAbsolutePosition();
@@ -229,7 +288,7 @@ export const useShapeOperations = ({
             ...draggingNode.attrs,
             parentShapeId: null,
           });
-          console.log("Moved shape out to Layer");
+          console.log("Moved out to Layer");
         }
       }
     },
@@ -244,11 +303,9 @@ export const useShapeOperations = ({
 
       e.cancelBubble = true;
 
-      // Build Ancestry Path
+      // 1. Build Ancestry Path
       const ancestryPath: Konva.Node[] = [clickedNode];
       let parent = clickedNode.getParent();
-      if (clickedNode.attrs.type === "SECTION" && parent)
-        parent = parent?.getParent();
 
       while (
         parent &&
@@ -259,29 +316,53 @@ export const useShapeOperations = ({
         parent = parent.getParent();
       }
 
-      const activeIndex = ancestryPath.findIndex(
-        (node) => node.attrs.id === activeShapeId,
-      );
+      // 2. Find Active Index (Modified for Sections)
+      const activeIndex = ancestryPath.findIndex((node) => {
+        // Standard Check: IDs match
+        if (node.attrs.id === activeShapeId) return true;
+
+        // Special Check: Section Group
+        // If the node is a Section, its Name is "section-{id}", but activeShapeId is just "{id}"
+        if (
+          node.attrs.type === "SECTION" &&
+          activeShapeId &&
+          node.attrs.name === `section-${activeShapeId}`
+        ) {
+          return true;
+        }
+
+        return false;
+      });
 
       let nextNodeToSelect: Konva.Node | undefined;
 
       if (activeIndex !== -1) {
-        // CASE 1: We are in the chain
+        // CASE 1: We are in the chain (Drill Down)
         if (activeIndex < ancestryPath.length - 1) {
-          // Go deeper
           nextNodeToSelect = ancestryPath[activeIndex + 1];
         } else {
-          // We are at the bottom (Leaf node).
-          // STAY HERE. Do not jump back to top.
+          // At the bottom (Leaf) -> Stay here
           nextNodeToSelect = ancestryPath[activeIndex];
         }
       } else {
-        // CASE 2: Nothing in this chain is selected. Start at top.
+        // CASE 2: New selection -> Start at Top
         nextNodeToSelect = ancestryPath[0];
       }
 
       if (!nextNodeToSelect) return;
-      const nextId = nextNodeToSelect.attrs.id as Id<"shapes">;
+
+      // --- SPECIAL SECTION HANDLING FOR ID EXTRACTION ---
+      // If we are about to select a Section Group, we MUST select its ID (from the suffix)
+      // or its boundary rect ID, not the Group's ID.
+      let nextId = nextNodeToSelect.attrs.id as Id<"shapes">;
+
+      if (nextNodeToSelect.attrs.type === "SECTION") {
+        // Extract "123" from "section-123"
+        const sectionId = nextNodeToSelect.attrs.name.split(
+          "-",
+        )[1] as Id<"shapes">;
+        nextId = sectionId;
+      }
 
       if (nextId && nextId !== activeShapeId) {
         console.log(`Drilling down: ${activeShapeId} -> ${nextId}`);

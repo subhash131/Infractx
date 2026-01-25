@@ -85,49 +85,39 @@ export const calculateOverlap = (
 export function getTopMostGroup(node: Konva.Node): Konva.Node {
   let current = node;
 
-  // 1. Special Check for SECTION
-  // If we selected a Section directly (not a child of it), we check its context.
-  // We explicitly check the grandparent to decide if we should stop here.
-  const grandParentType = current.getParent()?.getParent()?.attrs.type;
-
-  if (current.attrs.type === "SECTION" && grandParentType !== "GROUP") {
-    console.log("Selected Top-Level Section:", current);
+  // 1. Special Check: Direct Selection of a Section Component
+  // Sometimes a Section is a group containing a header and a content group.
+  // If we clicked the Section directly, we just return it.
+  if (current.attrs.type === "SECTION") {
     return current;
   }
 
   // 2. Climbing Loop
-  // Handles clicking on children (like a background Rect) or nested Groups
+  // We climb up until we hit a Section, a Top-Level Group, or the Layer.
   while (current.parent) {
     const parent = current.parent;
     const parentType = parent.attrs?.type;
 
-    // We climb if the parent is a GROUP or a SECTION
-    if (parentType === "GROUP" || parentType === "SECTION") {
+    // Stop climbing if we hit the Layer or Stage
+    if (parent.nodeType === "Layer" || parent.nodeType === "Stage") {
+      break;
+    }
+
+    // If the parent is a GROUP or SECTION, we move up to it.
+    // We treat SECTION as a hard stop (Top Most).
+    if (parentType === "GROUP") {
       current = parent;
+    } else if (parentType === "SECTION") {
+      const secRect = (parent as Konva.Group)
+        .getChildren()
+        .filter((child) => child.id() === parent.name().split("-")[1])[0];
+      if (secRect) current = secRect;
+      break;
     } else {
-      // Stop if we hit Layer, Stage, or other types
+      // If parent is none of these (unlikely in standard Konva), break to be safe
       break;
     }
   }
 
   return current;
-}
-
-export function resolveDblClickTarget(
-  node: Konva.Node,
-  activeShapeId?: string,
-): Konva.Node {
-  const parent = node.parent;
-
-  // Must be a group
-  if (
-    parent &&
-    parent.attrs?.type === "GROUP" &&
-    parent.parent?.attrs?.id === activeShapeId
-  ) {
-    return parent;
-  }
-
-  // Otherwise select the clicked node itself
-  return node;
 }
