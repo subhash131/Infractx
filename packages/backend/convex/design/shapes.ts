@@ -74,7 +74,7 @@ export const updateShape = mutation({
   },
 });
 
-export const deleteShape = mutation({
+export const deleteShapeRecursively = mutation({
   args: {
     shapeIds: v.array(v.id("shapes")),
   },
@@ -96,6 +96,20 @@ export const deleteShape = mutation({
         }
       }),
     );
+
+    return { success: true };
+  },
+});
+export const deleteShapeById = mutation({
+  args: {
+    shapeId: v.id("shapes"),
+  },
+  async handler(ctx, args) {
+    const { shapeId } = args;
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    await ctx.db.delete("shapes", shapeId);
 
     return { success: true };
   },
