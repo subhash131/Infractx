@@ -60,7 +60,7 @@ export const useShapeOperations = ({
       node.height(newHeight);
 
       // 4. Send to DB
-      console.log("updating shape::", node.id(), node.parent?.id());
+      console.log("updating shape::", node);
       await updateShape({
         shapeId: node.attrs.id || shapeId,
         shapeObject: {
@@ -253,6 +253,8 @@ export const useShapeOperations = ({
       // Build Ancestry Path
       const ancestryPath: Konva.Node[] = [clickedNode];
       let parent = clickedNode.getParent();
+      if (clickedNode.attrs.type === "SECTION" && parent)
+        parent = parent?.getParent();
 
       while (
         parent &&

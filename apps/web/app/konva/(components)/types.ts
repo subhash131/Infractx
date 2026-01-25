@@ -1,4 +1,4 @@
-import { Doc } from "@workspace/backend/_generated/dataModel";
+import { Doc, Id } from "@workspace/backend/_generated/dataModel";
 
 export interface Guide {
   lineGuide: number;
@@ -25,6 +25,7 @@ export interface SectionData {
   height: number;
   fill: string;
   type: Doc<"shapes">["type"];
+  parentShapeId?: Id<"shapes"> | null;
 }
 
 export interface FrameProps extends FrameData {

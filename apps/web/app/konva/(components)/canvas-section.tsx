@@ -111,6 +111,7 @@ export const CanvasSection: React.FC<CanvasSectionProps> = ({
       y={section.y}
       name="section"
       type={section.type}
+      parentShapeId={section.parentShapeId}
     >
       <Rect
         {...section}

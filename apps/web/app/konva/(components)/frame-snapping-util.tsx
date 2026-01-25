@@ -17,7 +17,7 @@ export interface SnapConfig {
 
 const DEFAULT_CONFIG: SnapConfig = {
   visualThreshold: 1,
-  snapDistanceLimit: 0.7,
+  snapDistanceLimit: 0.1,
   guideStroke: "#FF0000",
   guideWidth: 0.5,
   guideDash: [6, 0],
