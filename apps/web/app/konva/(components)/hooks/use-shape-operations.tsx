@@ -165,7 +165,16 @@ export const useShapeOperations = ({ stageRef }: UseShapeOperationsProps) => {
     (e: Konva.KonvaEventObject<DragEvent>) => {
       e.cancelBubble = true;
       // Get the actual movable node (Group or Shape)
-      const draggingNode = getTopMostGroup(e.target);
+
+      const target = e.target;
+      const isIndependentShape =
+        target.attrs.type === "RECT" ||
+        target.attrs.type === "CIRCLE" ||
+        target.attrs.type === "TEXT";
+
+      const draggingNode = isIndependentShape
+        ? target
+        : getTopMostGroup(target);
 
       if (!draggingNode.attrs.type || draggingNode.attrs.type === "FRAME")
         return;
