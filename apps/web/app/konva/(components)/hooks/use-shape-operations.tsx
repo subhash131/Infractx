@@ -1,32 +1,38 @@
-// hooks/use-shape-operations.ts
 import { useCallback } from "react";
 import Konva from "konva";
 import { useMutation } from "convex/react";
 import { api } from "@workspace/backend/_generated/api";
 import { Doc, Id } from "@workspace/backend/_generated/dataModel";
-import { calculateOverlap, getTopMostGroup } from "../utils";
+import { calculateOverlap, getContainer, getTopMostGroup } from "../utils";
+import {
+  getGuides,
+  getObjectSnappingEdges,
+  drawGuides,
+} from "../frame-snapping-util";
+import useCanvas from "../store";
 
 interface UseShapeOperationsProps {
   stageRef: React.RefObject<Konva.Stage | null>;
-  activeTool: string;
-  activeShapeId: Id<"shapes"> | undefined;
-  selectedShapeIds: Id<"shapes">[];
-  setActiveShapeId: (id: Id<"shapes"> | undefined) => void;
-  setSelectedShapeIds: (ids: Id<"shapes">[]) => void;
-  toggleSelectedShapeId: (id: Id<"shapes">) => void;
 }
 
-export const useShapeOperations = ({
-  stageRef,
-  activeTool,
-  activeShapeId,
-  selectedShapeIds,
-  setActiveShapeId,
-  setSelectedShapeIds,
-  toggleSelectedShapeId,
-}: UseShapeOperationsProps) => {
+export const useShapeOperations = ({ stageRef }: UseShapeOperationsProps) => {
   const updateShape = useMutation(api.design.shapes.updateShape);
   const deleteShapeById = useMutation(api.design.shapes.deleteShapeById);
+  const {
+    activeTool,
+    selectedShapeIds,
+    setActiveShapeId,
+    setSelectedShapeIds,
+    toggleSelectedShapeId,
+    activeShapeId,
+  } = useCanvas();
+
+  // Helper to clear guides
+  const clearGuides = useCallback((layer: Konva.Layer) => {
+    layer.find(".guid-line").forEach((l) => l.destroy());
+  }, []);
+
+  // --- 1. HANDLE SHAPE UPDATE (Resize/Transform End) ---
   const handleShapeUpdate = useCallback(
     async (e: Konva.KonvaEventObject<DragEvent | Event>, shapeId?: string) => {
       const node = e.target;
@@ -36,32 +42,21 @@ export const useShapeOperations = ({
       const nodeId: Doc<"shapes">["type"] = node.attrs.id;
       if (!shapeId && (!nodeType || !nodeId)) return;
 
-      console.log("shape update", {
-        nodeType,
-        nodeId,
-        parentNodeId: node.parent?.id(),
-      });
-
       e.cancelBubble = true;
 
-      // 1. Calculate new dimensions based on the current scale
+      // Reset scale to 1 and adjust width/height
       const scaleX = node.scaleX();
       const scaleY = node.scaleY();
-
-      // 2. Reset the scale back to 1
       node.scaleX(1);
       node.scaleY(1);
 
       const newWidth = Math.max(5, node.width() * scaleX);
       const newHeight = Math.max(5, node.height() * scaleY);
 
-      // 3. OPTIMISTIC UPDATE: Apply the new size to the node IMMEDIATELY.
       node.width(newWidth);
       node.height(newHeight);
 
-      // 4. Send to DB
-      console.log("updating shape::", node);
-
+      // Clean up empty groups
       if (
         node.attrs.type === "GROUP" &&
         (node as Konva.Group).children.length <= 1
@@ -79,50 +74,51 @@ export const useShapeOperations = ({
           rotation: node.rotation(),
           scaleX: 1,
           scaleY: 1,
-          // Frame cannot have a parent!
           parentShapeId:
             node.attrs.name === "Frame"
               ? undefined
-              : node.attrs.parentShapeId
-                ? node.attrs.parentShapeId
-                : null, // if not parent
+              : node.attrs.parentShapeId || null,
         },
       });
-      // clear transformer to avoid incorrect selection of shapes..!
+
+      // Cleanup UI states
       setActiveShapeId(undefined);
       setSelectedShapeIds([]);
+
+      // Clear snapping guides if any remain
+      const layer = node.getLayer();
+      if (layer) clearGuides(layer);
     },
-    [updateShape],
+    [
+      updateShape,
+      setActiveShapeId,
+      setSelectedShapeIds,
+      deleteShapeById,
+      clearGuides,
+    ],
   );
 
+  // --- 2. HANDLE SELECTION (Single & Double Click) ---
   const handleShapeSelect = useCallback(
     (e: Konva.KonvaEventObject<MouseEvent>) => {
       if (activeTool !== "SELECT") return;
 
       const stage = stageRef.current;
       const clickedNode = e.target;
-
       if (!stage || !clickedNode) return;
 
-      // 1. Basic Checks
       const isMultiSelect = e.evt.shiftKey;
       e.cancelBubble = true;
 
-      if (clickedNode.attrs.type === "FRAME" && isMultiSelect) return; // avoid frame multiselect
-      if (clickedNode.attrs.name === "frame") return; //avoid frame outer group select
+      if (clickedNode.attrs.type === "FRAME" && isMultiSelect) return;
+      if (clickedNode.attrs.name === "frame") return;
 
-      // 2. Logic for Standard Selection (No Shift)
+      // Standard Selection
       if (!isMultiSelect) {
-        // CRITICAL FIX: Check if we are clicking inside the currently active group.
-        // If activeShapeId is defined, and the clicked node is a descendant of it,
-        // we DO NOT want to reset to the top-most group. We want to respect the current depth.
         if (activeShapeId) {
-          // Check if the clicked node is the active shape or a child of it
-
+          // Check if clicking inside active group to allow drill-down
           let current: Konva.Node | null = clickedNode;
           let isClickingInsideActive = false;
-
-          // Traverse up from clicked node to see if we hit the activeShapeId
           while (current && current.nodeType !== "Layer") {
             if (current.attrs.id === activeShapeId) {
               isClickingInsideActive = true;
@@ -130,25 +126,17 @@ export const useShapeOperations = ({
             }
             current = current.getParent();
           }
-
-          // If we are clicking within the current selection, STOP here.
-          // This allows handleDblClick to take over without interference.
-          if (isClickingInsideActive) {
-            return;
-          }
+          if (isClickingInsideActive) return;
         }
 
-        // If we are NOT inside the active selection, THEN select the top-most group
         const targetNode = getTopMostGroup(clickedNode);
-        console.log({ targetNode });
         const targetId = targetNode.attrs.id as Id<"shapes">;
-
         setActiveShapeId(targetId);
         setSelectedShapeIds([targetId]);
         return;
       }
 
-      // 3. Logic for Multi-Select (Shift Key) - (Unchanged)
+      // Multi-Select
       const targetNode = getTopMostGroup(clickedNode);
       const targetId = targetNode.attrs.id as Id<"shapes">;
       toggleSelectedShapeId(targetId);
@@ -156,157 +144,232 @@ export const useShapeOperations = ({
     [
       activeTool,
       stageRef,
-      toggleSelectedShapeId,
+      activeShapeId,
       setActiveShapeId,
       setSelectedShapeIds,
-      activeShapeId,
+      toggleSelectedShapeId,
     ],
   );
 
+  // --- 3. HANDLE DRAG MOVE (Snapping + Reparenting) ---
   const handleDragMove = useCallback(
     (e: Konva.KonvaEventObject<DragEvent>) => {
       e.cancelBubble = true;
+      // Get the actual movable node (Group or Shape)
       const draggingNode = getTopMostGroup(e.target);
 
-      // 1. Basic Validation
-      if (!draggingNode.attrs.type) return;
+      if (!draggingNode.attrs.type || draggingNode.attrs.type === "FRAME")
+        return;
       if (selectedShapeIds.length > 1) return;
 
-      // Prevent dragging a Frame into a Section (optional safety check based on your rules)
-      if (draggingNode.attrs.type === "FRAME") return;
-
       const stage = stageRef.current;
-      if (!stage) return;
+      const layer = draggingNode.getLayer();
+      if (!stage || !layer) return;
 
       // =========================================================
-      // BLOCK A: Find Best Frame (Existing Logic)
+      // PART A: SNAPPING LOGIC
       // =========================================================
-      const frames = stage.find((node: Konva.Node) => {
-        return node.name() && node.name().startsWith("frame-rect-");
+      clearGuides(layer);
+
+      // Find candidates for snapping (Frames, Sections, other Shapes)
+      // Exclude self, children, and parents
+      const snapCandidates = stage.find((n: Konva.Node) => {
+        const type = n.attrs.type;
+        const isCandidateType =
+          type === "FRAME" ||
+          type === "SECTION" ||
+          type === "RECT" ||
+          type === "CIRCLE";
+        const isSelfOrRelated =
+          n === draggingNode ||
+          n.isAncestorOf(draggingNode) ||
+          draggingNode.isAncestorOf(n);
+        return isCandidateType && !isSelfOrRelated;
       });
 
-      let bestFrame: Konva.Node | null = null;
-      let maxFrameOverlap = 0;
+      const vertical: number[] = [];
+      const horizontal: number[] = [];
 
-      frames.forEach((frameNode: Konva.Node) => {
-        const overlap = calculateOverlap(draggingNode, frameNode);
-        if (overlap > maxFrameOverlap) {
-          maxFrameOverlap = overlap;
-          bestFrame = frameNode;
+      snapCandidates.forEach((node) => {
+        const box = node.getClientRect({ relativeTo: layer });
+        vertical.push(box.x, box.x + box.width, box.x + box.width / 2);
+        horizontal.push(box.y, box.y + box.height, box.y + box.height / 2);
+      });
+
+      const itemBounds = getObjectSnappingEdges(draggingNode);
+      if (itemBounds) {
+        const guides = getGuides(
+          { vertical, horizontal },
+          itemBounds,
+          stage.scaleX(),
+        );
+
+        if (guides.length) {
+          let snapBounds = undefined;
+          const containerNode = getContainer(draggingNode);
+          console.log({ containerNode });
+          if (
+            containerNode !== draggingNode &&
+            containerNode.attrs.name === "frame"
+          ) {
+            snapBounds = containerNode.getClientRect({ relativeTo: layer });
+            console.log({ snapBounds });
+          }
+          drawGuides(guides, layer, undefined, snapBounds);
+
+          // Apply Snapping (Position Correction)
+          const currentAbsPos = draggingNode.getAbsolutePosition();
+          const currentClientRect = draggingNode.getClientRect({
+            relativeTo: layer,
+          });
+          const anchorOffsetX = currentAbsPos.x - currentClientRect.x;
+          const anchorOffsetY = currentAbsPos.y - currentClientRect.y;
+
+          const newPos = { x: currentAbsPos.x, y: currentAbsPos.y };
+
+          guides.forEach((lg) => {
+            if (lg.orientation === "V") {
+              newPos.x = lg.lineGuide - lg.offset + anchorOffsetX;
+            } else {
+              newPos.y = lg.lineGuide - lg.offset + anchorOffsetY;
+            }
+          });
+
+          draggingNode.setAbsolutePosition(newPos);
         }
-      });
+      }
 
       // =========================================================
-      // BLOCK B: Find Best Section (New Logic)
+      // PART B: REPARENTING LOGIC (Using new Snapped Position)
       // =========================================================
-      const sections = stage.find((node: Konva.Node) => {
-        return node.name() && node.name().startsWith("section-rect-");
-      });
 
-      let bestSection: Konva.Node | null = null;
-      let maxSectionOverlap = 0;
+      const frames = stage.find((node: Konva.Node) =>
+        node.name()?.startsWith("frame-rect-"),
+      );
+      const sections = stage.find((node: Konva.Node) =>
+        node.name()?.startsWith("section-rect-"),
+      );
 
-      sections.forEach((sectionNode: Konva.Node) => {
-        // Prevent a section from trying to eat itself or its parents if you drag a Section
-        if (draggingNode === sectionNode.parent) return;
+      const currentParentId = draggingNode.attrs.parentShapeId;
+      let currentParentBoundary: Konva.Node | undefined;
 
-        const overlap = calculateOverlap(draggingNode, sectionNode);
-        if (overlap > maxSectionOverlap) {
-          maxSectionOverlap = overlap;
-          bestSection = sectionNode;
+      // Resolve current parent boundary
+      if (currentParentId) {
+        currentParentBoundary = [...frames, ...sections].find(
+          (n) => n.id() === currentParentId,
+        );
+
+        if (!currentParentBoundary) {
+          const parentGroup = stage.findOne(`#${currentParentId}`);
+          if (parentGroup && parentGroup.getType() === "Group") {
+            const suffix = parentGroup.name().split("-")[1] || parentGroup.id();
+            currentParentBoundary = (parentGroup as Konva.Group)
+              .getChildren()
+              .find(
+                (child) =>
+                  child.name().includes("rect") || child.id() === suffix,
+              );
+          }
         }
-      });
+      }
 
-      // =========================================================
-      // BLOCK C: Resolve Hierarchy (The "Major Problem" Solver)
-      // =========================================================
+      // Calculate Overlaps
+      const calculateBestTarget = (candidates: Konva.Node[]) => {
+        let best: Konva.Node | null = null;
+        let maxOverlap = 0;
+        candidates.forEach((node) => {
+          if (draggingNode === node || draggingNode === node.parent) return;
+          const overlap = calculateOverlap(draggingNode, node);
+          if (overlap > maxOverlap) {
+            maxOverlap = overlap;
+            best = node;
+          }
+        });
+        return { best, maxOverlap };
+      };
 
-      let finalTargetNode: Konva.Node | null = null;
+      const { best: bestSection, maxOverlap: maxSectionOverlap } =
+        calculateBestTarget(sections);
+      const { best: bestFrame, maxOverlap: maxFrameOverlap } =
+        calculateBestTarget(frames);
+
+      // Determine Target
+      const ENTER_THRESHOLD = 70;
+      const LEAVE_THRESHOLD = 20;
+      let potentialTarget: Konva.Node | null = null;
       let targetType: "FRAME" | "SECTION" | null = null;
 
-      // Thresholds
-      const MIN_OVERLAP = 70;
-
-      // 1. Determine who wins: Section or Frame?
-      const isFrameValid = bestFrame && maxFrameOverlap > MIN_OVERLAP;
-      const isSectionValid = bestSection && maxSectionOverlap > MIN_OVERLAP;
-
-      if (isSectionValid && isFrameValid) {
-        // CONFLICT: We are over both a Frame and a Section.
-        // Since Sections can be children of Frames, the Section is the "more specific" (deeper) target.
-        // Therefore, Section wins.
-        finalTargetNode = bestSection;
+      if (bestSection && maxSectionOverlap > ENTER_THRESHOLD) {
+        potentialTarget = bestSection;
         targetType = "SECTION";
-      } else if (isSectionValid) {
-        finalTargetNode = bestSection;
-        targetType = "SECTION";
-      } else if (isFrameValid) {
-        finalTargetNode = bestFrame;
+      } else if (bestFrame && maxFrameOverlap > ENTER_THRESHOLD) {
+        potentialTarget = bestFrame;
         targetType = "FRAME";
       }
 
-      // =========================================================
-      // BLOCK D: Execution (Move Into or Move Out)
-      // =========================================================
-
-      const currentParentId = draggingNode.attrs.parentShapeId;
-
-      // CASE 1: Move INTO a Target (Section or Frame)
-      if (finalTargetNode) {
-        // Get the container group (assuming rect is inside a Group)
-        const targetGroup = (finalTargetNode as Konva.Node).parent;
-        const targetId = (finalTargetNode as Konva.Node).id(); // Ensure your rects have IDs corresponding to the container
-
-        if (targetGroup && currentParentId !== targetId) {
-          const absolutePos = draggingNode.getAbsolutePosition();
-          draggingNode.moveTo(targetGroup);
-          draggingNode.absolutePosition(absolutePos);
-          draggingNode.setAttrs({
-            ...draggingNode.attrs,
-            parentShapeId: targetId,
-          });
-          console.log(`Moved into ${targetType}:`, targetId);
+      // Action: Enter
+      if (potentialTarget) {
+        const newParentId = (potentialTarget as Konva.Node).id();
+        if (newParentId !== currentParentId) {
+          const targetGroup = (potentialTarget as Konva.Node).parent;
+          if (targetGroup) {
+            const absPos = draggingNode.getAbsolutePosition();
+            draggingNode.moveTo(targetGroup);
+            draggingNode.absolutePosition(absPos);
+            draggingNode.setAttrs({
+              ...draggingNode.attrs,
+              parentShapeId: newParentId,
+            });
+            console.log(`Moved INTO ${targetType}`);
+            return;
+          }
         }
       }
-      // CASE 2: Move OUT to Layer (Only if no valid target found)
-      else if (currentParentId) {
-        // Check if we have really left the current parent (overlap < 20)
-        // We check overlap against the *current parent* specifically to avoid flickering
-        // But simplified: if we found NO finalTargetNode above, we are likely in the 'void' or 'layer' space.
 
-        // Safety check: Don't drop to layer if we simply missed the 70% threshold but are still largely inside.
-        // You might want to keep the < 20 check logic here relative to the *current* parent.
-
-        // Find the node object of the current parent to check low overlap
-        // (This part is optional if you just want to drop to layer whenever not over a valid target)
+      // Action: Leave
+      if (currentParentBoundary) {
+        const currentOverlap = calculateOverlap(
+          draggingNode,
+          currentParentBoundary,
+        );
+        if (currentOverlap < LEAVE_THRESHOLD) {
+          const layer = draggingNode.getLayer();
+          if (layer) {
+            const absPos = draggingNode.getAbsolutePosition();
+            draggingNode.moveTo(layer);
+            draggingNode.absolutePosition(absPos);
+            draggingNode.setAttrs({
+              ...draggingNode.attrs,
+              parentShapeId: null,
+            });
+            console.log("Moved OUT to Layer");
+          }
+        }
+      } else if (currentParentId && !currentParentBoundary) {
+        // Orphan cleanup
         const layer = draggingNode.getLayer();
         if (layer) {
-          const absolutePos = draggingNode.getAbsolutePosition();
+          const absPos = draggingNode.getAbsolutePosition();
           draggingNode.moveTo(layer);
-          draggingNode.absolutePosition(absolutePos);
-          draggingNode.setAttrs({
-            ...draggingNode.attrs,
-            parentShapeId: null,
-          });
-          console.log("Moved out to Layer");
+          draggingNode.absolutePosition(absPos);
+          draggingNode.setAttrs({ ...draggingNode.attrs, parentShapeId: null });
         }
       }
     },
-    [stageRef, selectedShapeIds],
+    [stageRef, selectedShapeIds, clearGuides],
   );
 
+  // --- 4. HANDLE DOUBLE CLICK ---
   const handleDblClick = useCallback(
     (e: Konva.KonvaEventObject<MouseEvent>) => {
       const clickedNode = e.target;
-      const stage = stageRef.current;
-      if (!clickedNode || !stage) return;
+      if (!clickedNode) return;
 
       e.cancelBubble = true;
 
-      // 1. Build Ancestry Path
+      // Build Ancestry
       const ancestryPath: Konva.Node[] = [clickedNode];
       let parent = clickedNode.getParent();
-
       while (
         parent &&
         parent.nodeType !== "Layer" &&
@@ -316,13 +379,10 @@ export const useShapeOperations = ({
         parent = parent.getParent();
       }
 
-      // 2. Find Active Index (Modified for Sections)
+      // Find Active Index
       const activeIndex = ancestryPath.findIndex((node) => {
-        // Standard Check: IDs match
         if (node.attrs.id === activeShapeId) return true;
-
-        // Special Check: Section Group
-        // If the node is a Section, its Name is "section-{id}", but activeShapeId is just "{id}"
+        // Section Name Check
         if (
           node.attrs.type === "SECTION" &&
           activeShapeId &&
@@ -330,34 +390,21 @@ export const useShapeOperations = ({
         ) {
           return true;
         }
-
         return false;
       });
 
       let nextNodeToSelect: Konva.Node | undefined;
-
-      if (activeIndex !== -1) {
-        // CASE 1: We are in the chain (Drill Down)
-        if (activeIndex < ancestryPath.length - 1) {
-          nextNodeToSelect = ancestryPath[activeIndex + 1];
-        } else {
-          // At the bottom (Leaf) -> Stay here
-          nextNodeToSelect = ancestryPath[activeIndex];
-        }
+      if (activeIndex !== -1 && activeIndex < ancestryPath.length - 1) {
+        nextNodeToSelect = ancestryPath[activeIndex + 1];
       } else {
-        // CASE 2: New selection -> Start at Top
-        nextNodeToSelect = ancestryPath[0];
+        nextNodeToSelect = ancestryPath[activeIndex] || ancestryPath[0];
       }
 
       if (!nextNodeToSelect) return;
 
-      // --- SPECIAL SECTION HANDLING FOR ID EXTRACTION ---
-      // If we are about to select a Section Group, we MUST select its ID (from the suffix)
-      // or its boundary rect ID, not the Group's ID.
+      // Extract ID (Handle Section Suffix)
       let nextId = nextNodeToSelect.attrs.id as Id<"shapes">;
-
       if (nextNodeToSelect.attrs.type === "SECTION") {
-        // Extract "123" from "section-123"
         const sectionId = nextNodeToSelect.attrs.name.split(
           "-",
         )[1] as Id<"shapes">;
@@ -372,10 +419,88 @@ export const useShapeOperations = ({
     },
     [stageRef, activeShapeId, setActiveShapeId, setSelectedShapeIds],
   );
+
+  const handleDragEnd = useCallback(
+    async (e: Konva.KonvaEventObject<DragEvent | Event>) => {
+      const node = e.target;
+      if (!node) return;
+
+      const nodeType = node.attrs.type;
+      const nodeId = node.attrs.id;
+
+      // Basic validation
+      if (!nodeType || !nodeId) return;
+
+      e.cancelBubble = true;
+
+      // 1. CLEAR SNAPPING GUIDES
+      // Crucial cleanup step after dragging finishes
+      const layer = node.getLayer();
+      if (layer) clearGuides(layer);
+
+      // 2. NORMALIZE SCALE (Fix transform artifacts)
+      // Convert scaleX/Y back to 1 and update width/height explicitly
+      const scaleX = node.scaleX();
+      const scaleY = node.scaleY();
+      node.scaleX(1);
+      node.scaleY(1);
+
+      const newWidth = Math.max(5, node.width() * scaleX);
+      const newHeight = Math.max(5, node.height() * scaleY);
+
+      node.width(newWidth);
+      node.height(newHeight);
+
+      // 3. CLEANUP EMPTY GROUPS
+      // If a group is left with 1 or 0 children, remove it
+      if (
+        node.attrs.type === "GROUP" &&
+        (node as Konva.Group).children.length <= 1
+      ) {
+        await deleteShapeById({ shapeId: node.id() as Id<"shapes"> });
+      }
+
+      // 4. PERSIST TO DATABASE
+      // This saves the position (x, y) and the new parent (parentShapeId)
+      // that was set optimistically during handleDragMove.
+      console.log("Saving shape update:", node.attrs.id);
+
+      await updateShape({
+        shapeId: node.attrs.id,
+        shapeObject: {
+          x: node.x(),
+          y: node.y(),
+          width: newWidth,
+          height: newHeight,
+          rotation: node.rotation(),
+          scaleX: 1,
+          scaleY: 1,
+          // Read the parent ID that was set during 'handleDragMove'
+          parentShapeId:
+            node.attrs.name === "Frame"
+              ? undefined
+              : node.attrs.parentShapeId || null,
+        },
+      });
+
+      // 5. RESET SELECTION STATE
+      setActiveShapeId(undefined);
+      setSelectedShapeIds([]);
+    },
+    [
+      updateShape,
+      deleteShapeById,
+      setActiveShapeId,
+      setSelectedShapeIds,
+      clearGuides,
+    ],
+  );
+
   return {
-    handleShapeUpdate,
-    handleShapeSelect,
-    handleDragMove,
-    handleDblClick,
+    handleShapeUpdate, // DragEnd/TransformEnd
+    handleShapeSelect, // Click
+    handleDragMove, // DragMove (Snap + Reparent)
+    handleDblClick, // DblClick
+    handleDragEnd,
   };
 };

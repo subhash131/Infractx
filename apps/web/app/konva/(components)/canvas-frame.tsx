@@ -10,7 +10,6 @@ import { Id } from "@workspace/backend/_generated/dataModel";
 interface CanvasFrameProps {
   frame: FrameData;
   shapes: ShapeNode[];
-  isSelected: boolean;
   onSelect: (e: Konva.KonvaEventObject<MouseEvent>) => void;
   onShapeUpdate: (id: string, attrs: Partial<ShapeData>) => void;
   handleTextChange: (shapeId: string, newText: string) => void;
@@ -22,6 +21,7 @@ interface CanvasFrameProps {
   draggable: boolean;
   activeTool?: ActiveTool;
   activeShapeId?: Id<"shapes">;
+  stageRef: React.RefObject<null | Konva.Stage>;
 }
 
 export const CanvasFrame: React.FC<CanvasFrameProps> = ({
@@ -34,6 +34,7 @@ export const CanvasFrame: React.FC<CanvasFrameProps> = ({
   draggable,
   activeTool = "SELECT",
   activeShapeId,
+  stageRef,
 }) => {
   const outerGroupRef = useRef<Konva.Group>(null);
   const innerGroupRef = useRef<Konva.Group>(null);
@@ -160,6 +161,7 @@ export const CanvasFrame: React.FC<CanvasFrameProps> = ({
               activeTool={activeTool}
               activeShapeId={activeShapeId}
               parentFrameId={frame.id as Id<"shapes">}
+              stageRef={stageRef}
             />
           );
         })}

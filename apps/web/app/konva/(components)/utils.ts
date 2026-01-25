@@ -121,3 +121,23 @@ export function getTopMostGroup(node: Konva.Node): Konva.Node {
 
   return current;
 }
+
+export function getContainer(node: Konva.Node): Konva.Node {
+  let current = node;
+
+  // Traverse up the tree
+  while (current.getParent() && current.getParent()?.nodeType !== "Layer") {
+    const parent = current.getParent();
+
+    // If we found a FRAME, stop and return it
+    if (parent?.attrs.type === "FRAME") {
+      return parent;
+    }
+
+    // Otherwise, keep moving up
+    current = parent as Konva.Node;
+  }
+
+  // If no FRAME found, return the top-most node (the one directly on the Layer)
+  return current;
+}

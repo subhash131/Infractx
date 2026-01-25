@@ -61,12 +61,6 @@ export const CanvasStage: React.FC = () => {
     handleDblClick,
   } = useShapeOperations({
     stageRef,
-    activeTool,
-    activeShapeId,
-    selectedShapeIds,
-    setActiveShapeId,
-    setSelectedShapeIds,
-    toggleSelectedShapeId,
   });
 
   useEffect(() => {
@@ -162,6 +156,7 @@ export const CanvasStage: React.FC = () => {
             handleShapeSelect={handleShapeSelect}
             handleTextChange={handleTextChange}
             handleDblClick={handleDblClick}
+            stageRef={stageRef}
           />
         ))}
 
