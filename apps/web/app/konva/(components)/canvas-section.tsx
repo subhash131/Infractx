@@ -6,6 +6,7 @@ import { ActiveTool } from "./store";
 import { KonvaEventObject } from "konva/lib/Node";
 import { ShapeRenderer } from "./shape-renderer";
 import { Id } from "@workspace/backend/_generated/dataModel";
+import { useShapeDrag } from "./hooks/use-shape-drag";
 
 interface CanvasSectionProps {
   section: SectionData;
@@ -22,6 +23,8 @@ interface CanvasSectionProps {
   draggable: boolean;
   activeTool?: ActiveTool;
   activeShapeId?: Id<"shapes">;
+  parentFrameId?: Id<"shapes">;
+  siblingShapes?: ShapeNode[];
 }
 
 export const CanvasSection: React.FC<CanvasSectionProps> = ({
@@ -33,10 +36,20 @@ export const CanvasSection: React.FC<CanvasSectionProps> = ({
   handleDblClick,
   activeTool = "SELECT",
   activeShapeId,
+  parentFrameId,
+  siblingShapes = [],
 }) => {
   const outerGroupRef = useRef<Konva.Group>(null);
   const innerGroupRef = useRef<Konva.Group>(null);
   const rectRef = useRef<Konva.Rect>(null);
+
+  // Use the drag hook for snapping
+  const { handleDragMove, handleDragEnd } = useShapeDrag({
+    shape: section as any, // Cast section to ShapeNode for the hook
+    parentFrameId,
+    siblingShapes,
+    onDragEnd: (e) => handleShapeUpdate(e, section.id),
+  });
 
   const handleTransform = () => {
     const rectNode = rectRef.current;
@@ -101,10 +114,8 @@ export const CanvasSection: React.FC<CanvasSectionProps> = ({
       ref={outerGroupRef}
       draggable={activeShapeId === section.id}
       onClick={onSelect}
-      onDragEnd={(e) => {
-        if (!e || !handleShapeUpdate) return;
-        handleShapeUpdate(e, section.id);
-      }}
+      onDragMove={handleDragMove}
+      onDragEnd={handleDragEnd}
       width={section.width}
       height={section.height}
       x={section.x}

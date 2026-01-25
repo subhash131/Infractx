@@ -1,7 +1,7 @@
 "use client";
 import Konva from "konva";
 import React, { useEffect, useRef, useState } from "react";
-import { Layer, Stage, Transformer } from "react-konva";
+import { Layer, Stage } from "react-konva";
 import { GridPattern } from "./grid-pattern";
 import { ShapePreview } from "./shape-preview";
 
@@ -19,7 +19,6 @@ import { ShapeNode } from "./types";
 import { useShapeGrouping } from "./hooks/use-shape-grouping";
 import { useShapeOperations } from "./hooks/use-shape-operations";
 import { CanvasTransformer } from "./canvas-transformer";
-import { CanvasSection } from "./canvas-section";
 
 export const CanvasStage: React.FC = () => {
   const {
