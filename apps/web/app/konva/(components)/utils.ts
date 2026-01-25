@@ -89,7 +89,7 @@ export function getTopMostGroup(node: Konva.Node): Konva.Node {
     const parent = current.parent;
     const parentType = parent.attrs?.type;
     // We continue climbing up if the parent is a GROUP
-    if (parentType === "GROUP") {
+    if (parentType === "GROUP" || current.attrs.type === "SECTION") {
       current = parent;
     } else {
       // If we hit a Layer or Stage (or something undefined), we stop.

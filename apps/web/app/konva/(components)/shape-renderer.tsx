@@ -267,6 +267,7 @@ export const ShapeRenderer: React.FC<ShapeRendererProps> = ({
             id: shape._id.toString(),
             name: shape.name,
             type: shape.type,
+            parentShapeId: shape.parentShapeId,
           }}
           shapes={shape.children || []}
           isSelected={isSelected}
