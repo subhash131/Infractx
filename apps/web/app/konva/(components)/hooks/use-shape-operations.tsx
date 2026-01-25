@@ -100,9 +100,8 @@ export const useShapeOperations = ({
       const isMultiSelect = e.evt.shiftKey;
       e.cancelBubble = true;
 
-      // Ignore Frames/Backgrounds
-      if (clickedNode.attrs.type === "FRAME" && isMultiSelect) return;
-      if (clickedNode.attrs.name === "frame") return;
+      if (clickedNode.attrs.type === "FRAME" && isMultiSelect) return;// avoid frame multiselect
+      if (clickedNode.attrs.name === "frame") return; //avoid frame outer group select
 
       // 2. Logic for Standard Selection (No Shift)
       if (!isMultiSelect) {

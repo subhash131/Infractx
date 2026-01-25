@@ -85,14 +85,27 @@ export const calculateOverlap = (
 export function getTopMostGroup(node: Konva.Node): Konva.Node {
   let current = node;
 
+  // 1. Special Check for SECTION
+  // If we selected a Section directly (not a child of it), we check its context.
+  // We explicitly check the grandparent to decide if we should stop here.
+  const grandParentType = current.getParent()?.getParent()?.attrs.type;
+
+  if (current.attrs.type === "SECTION" && grandParentType !== "GROUP") {
+    console.log("Selected Top-Level Section:", current);
+    return current;
+  }
+
+  // 2. Climbing Loop
+  // Handles clicking on children (like a background Rect) or nested Groups
   while (current.parent) {
     const parent = current.parent;
     const parentType = parent.attrs?.type;
-    // We continue climbing up if the parent is a GROUP
-    if (parentType === "GROUP" || current.attrs.type === "SECTION") {
+
+    // We climb if the parent is a GROUP or a SECTION
+    if (parentType === "GROUP" || parentType === "SECTION") {
       current = parent;
     } else {
-      // If we hit a Layer or Stage (or something undefined), we stop.
+      // Stop if we hit Layer, Stage, or other types
       break;
     }
   }
