@@ -22,7 +22,10 @@ export const useShapeGrouping = ({
   setActiveShapeId,
 }: UseShapeGroupingProps) => {
   const updateShape = useMutation(api.design.shapes.updateShape);
-  const deleteShape = useMutation(api.design.shapes.deleteShape);
+  const deleteShapeRecursively = useMutation(
+    api.design.shapes.deleteShapeRecursively,
+  );
+  const deleteShapeById = useMutation(api.design.shapes.deleteShapeById);
   const createShape = useMutation(api.design.shapes.createShape);
 
   const handleGroup = useCallback(async () => {
@@ -44,6 +47,8 @@ export const useShapeGrouping = ({
       minY = Math.min(minY, s.y);
       parentShapeId = s.parentShapeId;
     });
+    setActiveShapeId(undefined);
+    setSelectedShapeIds([]);
 
     // 3. Create the Group container at top-left of selection
     const group = await createShape({
@@ -81,8 +86,6 @@ export const useShapeGrouping = ({
     await Promise.all(updates);
 
     // Update both states in a synchronous manner
-    setActiveShapeId(undefined);
-    setSelectedShapeIds([]);
   }, [
     selectedShapeIds,
     shapes,
@@ -97,26 +100,29 @@ export const useShapeGrouping = ({
 
     // 1. Get the group object directly from your data using activeShapeId
     const groupShape = stage?.findOne(`#${activeShapeId}`);
+    console.log({ groupShape });
 
     // Safety checks: Must exist and must be a GROUP
     if (!groupShape || groupShape.attrs.type !== "GROUP") return;
 
-    // 2. Find the children of THIS group
-    const hasChildren = groupShape.hasChildren();
-    if (!hasChildren) return;
+    const children = (groupShape as Konva.Group).getChildren();
 
-    const children = (groupShape as Konva.Group).children;
-
-    // Store child IDs before ungrouping
-    const childIds = children.map((child) => child.attrs.id as Id<"shapes">);
+    console.log({ children });
 
     // 3. Move children to the Group's parent (Root or Frame)
     // We adjust X/Y because children were relative to the group, now they become absolute (or relative to frame)
     const updates = children.map((child) => {
       const newParentShapeId = groupShape.attrs.parentShapeId;
+      let shapeId = child.id() as Id<"shapes">;
+      if (child.attrs.type === "SECTION") {
+        const section = (child as Konva.Group)
+          .getChildren()
+          .filter((child) => child.attrs.type === "SECTION")[0];
+        if (section) shapeId = section.id() as Id<"shapes">;
+      }
 
       return updateShape({
-        shapeId: child.attrs.id as Id<"shapes">,
+        shapeId: shapeId,
         shapeObject: {
           parentShapeId: newParentShapeId ? newParentShapeId : null,
           x: groupShape.x() + child.x(),
@@ -128,16 +134,14 @@ export const useShapeGrouping = ({
     await Promise.all(updates);
 
     // 4. Delete the Group
-    await deleteShape({ shapeIds: [groupShape.attrs.id] });
-
-    // 5. Select the ungrouped children - Batch state updates
+    await deleteShapeById({ shapeId: groupShape.id() as Id<"shapes"> });
     setActiveShapeId(undefined);
-    setSelectedShapeIds(childIds);
+    setSelectedShapeIds([]);
   }, [
     activeShapeId,
     stageRef,
     updateShape,
-    deleteShape,
+    deleteShapeRecursively,
     setActiveShapeId,
     setSelectedShapeIds,
   ]);

@@ -26,7 +26,7 @@ export const useShapeOperations = ({
   toggleSelectedShapeId,
 }: UseShapeOperationsProps) => {
   const updateShape = useMutation(api.design.shapes.updateShape);
-
+  const deleteShapeById = useMutation(api.design.shapes.deleteShapeById);
   const handleShapeUpdate = useCallback(
     async (e: Konva.KonvaEventObject<DragEvent | Event>, shapeId?: string) => {
       const node = e.target;
@@ -61,6 +61,14 @@ export const useShapeOperations = ({
 
       // 4. Send to DB
       console.log("updating shape::", node);
+
+      if (
+        node.attrs.type === "GROUP" &&
+        (node as Konva.Group).children.length <= 1
+      ) {
+        await deleteShapeById({ shapeId: node.id() as Id<"shapes"> });
+      }
+
       await updateShape({
         shapeId: node.attrs.id || shapeId,
         shapeObject: {
@@ -100,7 +108,7 @@ export const useShapeOperations = ({
       const isMultiSelect = e.evt.shiftKey;
       e.cancelBubble = true;
 
-      if (clickedNode.attrs.type === "FRAME" && isMultiSelect) return;// avoid frame multiselect
+      if (clickedNode.attrs.type === "FRAME" && isMultiSelect) return; // avoid frame multiselect
       if (clickedNode.attrs.name === "frame") return; //avoid frame outer group select
 
       // 2. Logic for Standard Selection (No Shift)
@@ -132,6 +140,7 @@ export const useShapeOperations = ({
 
         // If we are NOT inside the active selection, THEN select the top-most group
         const targetNode = getTopMostGroup(clickedNode);
+        console.log({ targetNode });
         const targetId = targetNode.attrs.id as Id<"shapes">;
 
         setActiveShapeId(targetId);

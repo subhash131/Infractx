@@ -41,7 +41,7 @@ export const CanvasStage: React.FC = () => {
     pageId: "kh7124p2k7ycr4wbf1n710gpc57zeqxt" as Id<"pages">,
   });
   const updateShape = useMutation(api.design.shapes.updateShape);
-  const deleteShape = useMutation(api.design.shapes.deleteShape);
+  const deleteShapeRecursively = useMutation(api.design.shapes.deleteShapeRecursively);
 
   const { handleGroup, handleUngroup } = useShapeGrouping({
     activeShapeId,
@@ -117,7 +117,7 @@ export const CanvasStage: React.FC = () => {
     stageRef,
     activeShapeId,
     onDelete: async (selectedShapeIds) =>
-      await deleteShape({ shapeIds: selectedShapeIds }),
+      await deleteShapeRecursively({ shapeIds: selectedShapeIds }),
     onUpdate: (shapeId, updates) =>
       updateShape({ shapeId, shapeObject: updates }),
     onDeselect: () => setActiveShapeId(undefined),
