@@ -55,6 +55,8 @@ export const useKeyboardControls = ({
 
       if (activeShape.attrs.type === "FRAME") {
         if (activeShape.parent?.parent) activeShape = activeShape.parent.parent;
+      } else if (activeShape.attrs.type === "SECTION") {
+        if (activeShape.parent) activeShape = activeShape.parent;
       }
       const isCtrlOrCmd = e.ctrlKey || e.metaKey;
 
