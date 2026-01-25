@@ -39,7 +39,8 @@ export const useSmoothCanvasZoom = (
       y: newPos.y,
       scaleX: limitedScale,
       scaleY: limitedScale,
-      duration: 0.1,
+      duration: 0,
+      easing: Konva.Easings.Linear,
     });
   };
 
