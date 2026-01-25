@@ -80,6 +80,9 @@ export const useShapeOperations = ({
                 : null, // if not parent
         },
       });
+      // clear transformer to avoid incorrect selection of shapes..!
+      setActiveShapeId(undefined);
+      setSelectedShapeIds([]);
     },
     [updateShape],
   );
@@ -160,19 +163,15 @@ export const useShapeOperations = ({
       if (!draggingNode.attrs.type) return;
       if (selectedShapeIds.length > 1) return;
 
-      // Allow dragging if it's a child of a frame OR the layer
-      // (Your previous check might have been too strict here, ensured it's safe)
       if (
         draggingNode.parent?.attrs.type &&
-        draggingNode.parent?.attrs.type !== "FRAME" &&
-        draggingNode.parent?.nodeType !== "Layer"
+        draggingNode.parent?.attrs.type !== "FRAME"
       )
         return;
 
       const stage = stageRef.current;
       if (!stage) return;
 
-      // ... (Your existing overlap logic) ...
       const frames = stage.find((node: Konva.Node) => {
         return node.name() && node.name().startsWith("frame-rect-");
       });
@@ -180,15 +179,10 @@ export const useShapeOperations = ({
       let parentShapeId: string | null = null;
       let bestOverlap = 0;
       let targetFrameRect: Konva.Node | null = null;
-      // console.log({ frames });
 
       frames.forEach((frameNode) => {
-        if (frameNode.parent?.id() === draggingNode.id()) return;
         console.log({ frameNode });
-
         const overlap = calculateOverlap(draggingNode, frameNode);
-        console.log({ overlap });
-
         if (overlap > 70 && overlap > bestOverlap) {
           if (frameNode.id() === draggingNode.attrs.parentShapeId) return;
           bestOverlap = overlap;
