@@ -15,7 +15,7 @@ interface CanvasSectionProps {
   handleTextChange: (shapeId: string, newText: string) => void;
   handleShapeUpdate: (
     e: Konva.KonvaEventObject<DragEvent | Event>,
-    shapeId?: string,
+    shapeId?: Id<"shapes">,
   ) => void;
   handleDblClick: (e: Konva.KonvaEventObject<MouseEvent>) => void;
   handleDragMove: (e: Konva.KonvaEventObject<DragEvent>) => void;
@@ -95,7 +95,7 @@ export const CanvasSection: React.FC<CanvasSectionProps> = ({
     syntheticEvent.target.attrs.width = finalWidth;
     syntheticEvent.target.attrs.type = "SECTION";
 
-    handleShapeUpdate(syntheticEvent as any, section.id);
+    handleShapeUpdate(syntheticEvent as any, section.id as Id<"shapes">);
   };
 
   return (
@@ -104,7 +104,7 @@ export const CanvasSection: React.FC<CanvasSectionProps> = ({
       draggable={activeShapeId === section.id}
       onClick={onSelect}
       onDragMove={handleDragMove}
-      onDragEnd={(e) => handleShapeUpdate(e, section.id)}
+      onDragEnd={(e) => handleShapeUpdate(e, section.id as Id<"shapes">)}
       width={section.width}
       height={section.height}
       x={section.x}

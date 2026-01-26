@@ -16,7 +16,7 @@ interface ShapeRendererProps {
   activeTool: ActiveTool;
   handleShapeUpdate: (
     e: Konva.KonvaEventObject<DragEvent | Event>,
-    shapeId?: string,
+    shapeId?: Id<"shapes">,
   ) => void;
   handleShapeSelect: (e: Konva.KonvaEventObject<MouseEvent>) => void;
   handleTextChange: (shapeId: string, newText: string) => void;
