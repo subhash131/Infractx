@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { Doc, Id } from "@workspace/backend/_generated/dataModel";
+import Konva from "konva";
 
 export type ActiveTool = Doc<"shapes">["type"] | "SELECT";
 
@@ -7,6 +8,7 @@ interface CanvasState {
   activeTool: ActiveTool;
   activeShapeId?: Id<"shapes">;
   selectedShapeIds: Id<"shapes">[];
+  stage?: Konva.Stage;
 }
 
 interface CanvasActions {
@@ -15,11 +17,13 @@ interface CanvasActions {
   setSelectedShapeIds: (shapeIds: Id<"shapes">[]) => void;
   toggleSelectedShapeId: (shapeId: Id<"shapes">) => void;
   clearSelectedShapeIds: () => void;
+  setStage: (stage: Konva.Stage) => void;
 }
 
 const useCanvas = create<CanvasState & CanvasActions>((set) => ({
   activeTool: "SELECT",
   activeShapeId: undefined,
+  stage: undefined,
   selectedShapeIds: [],
 
   setActiveTool: (tool) => set({ activeTool: tool }),
@@ -39,6 +43,8 @@ const useCanvas = create<CanvasState & CanvasActions>((set) => ({
           : [...state.selectedShapeIds, id],
       };
     }),
+
+  setStage: (stage) => set({ stage }),
 
   clearSelectedShapeIds: () => set({ selectedShapeIds: [] }),
 }));
