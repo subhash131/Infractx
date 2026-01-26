@@ -15,7 +15,7 @@ interface CanvasFrameProps {
   handleTextChange: (shapeId: string, newText: string) => void;
   handleShapeUpdate: (
     e: Konva.KonvaEventObject<DragEvent | Event>,
-    shapeId?: string,
+    shapeId?: Id<"shapes">,
   ) => void;
   handleDblClick: (e: Konva.KonvaEventObject<MouseEvent>) => void;
   draggable: boolean;
@@ -105,7 +105,7 @@ export const CanvasFrame: React.FC<CanvasFrameProps> = ({
       onClick={onSelect}
       onDragEnd={(e) => {
         if (!e || !handleShapeUpdate) return;
-        handleShapeUpdate(e, frame.id);
+        handleShapeUpdate(e, frame.id as Id<"shapes">);
       }}
       width={frame.width}
       height={frame.height}
