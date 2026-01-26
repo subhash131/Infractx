@@ -16,13 +16,15 @@ export type NewShape = {
 };
 
 export const useShapeDrawing = () => {
-  const { activeTool, setActiveTool, setActiveShapeId } = useCanvas();
+  const { activeTool, setActiveTool, setActiveShapeId, setSelectedShapeIds } =
+    useCanvas();
   const createShape = useMutation(api.design.shapes.createShape);
   const [newShape, setNewShape] = useState<NewShape | null>(null);
 
   const handlePointerDown = (e: KonvaEventObject<PointerEvent>) => {
     if (e.target === e.target.getStage()) {
       setActiveShapeId(undefined);
+      setSelectedShapeIds([]);
     }
     if (activeTool === "SELECT") return;
     const stage = e.target.getStage();

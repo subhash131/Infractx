@@ -6,6 +6,7 @@ import { CanvasStage } from "./(components)/canvas-stage";
 import { ToolBar } from "./(components)/toolbar";
 import useCanvas from "./(components)/store";
 import { ShapesTree } from "./(components)/shapes-tree";
+import { EditShape } from "./(components)/edit-shape";
 
 const App: React.FC = () => {
   const { activeTool } = useCanvas();
@@ -20,6 +21,7 @@ const App: React.FC = () => {
       <ToolBar />
       <CanvasStage />
       <ShapesTree />
+      <EditShape />
     </div>
   );
 };
