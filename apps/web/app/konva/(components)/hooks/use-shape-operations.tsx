@@ -189,74 +189,79 @@ export const useShapeOperations = ({ stageRef }: UseShapeOperationsProps) => {
       // =========================================================
       const shouldSnap =
         activeShapeId && checkActiveNode(draggingNode).id() === activeShapeId;
+
       if (shouldSnap) {
         clearGuides(layer);
 
         // Find candidates for snapping (Frames, Sections, other Shapes)
         // Exclude self, children, and parents
-        const snapCandidates = stage.find((n: Konva.Node) => {
-          const type = n.attrs.type;
-          const isCandidateType =
-            type === "FRAME" ||
-            type === "SECTION" ||
-            type === "RECT" ||
-            type === "CIRCLE";
-          const isSelfOrRelated =
-            n === draggingNode ||
-            n.isAncestorOf(draggingNode) ||
-            draggingNode.isAncestorOf(n);
-          return isCandidateType && !isSelfOrRelated;
-        });
-
-        const vertical: number[] = [];
-        const horizontal: number[] = [];
-
-        snapCandidates.forEach((node) => {
-          const box = node.getClientRect({ relativeTo: layer });
-          vertical.push(box.x, box.x + box.width, box.x + box.width / 2);
-          horizontal.push(box.y, box.y + box.height, box.y + box.height / 2);
-        });
-
-        const itemBounds = getObjectSnappingEdges(draggingNode);
-        if (itemBounds) {
-          const guides = getGuides(
-            { vertical, horizontal },
-            itemBounds,
-            stage.scaleX(),
+        const snappingScope = getContainer(draggingNode);
+        if (snappingScope instanceof Konva.Group) {
+          const snapCandidates = (snappingScope as Konva.Group).find(
+            (n: Konva.Node) => {
+              const type = n.attrs.type;
+              const isCandidateType =
+                type === "FRAME" ||
+                type === "SECTION" ||
+                type === "RECT" ||
+                type === "CIRCLE";
+              const isSelfOrRelated =
+                n === draggingNode ||
+                n.isAncestorOf(draggingNode) ||
+                draggingNode.isAncestorOf(n);
+              return isCandidateType && !isSelfOrRelated;
+            },
           );
 
-          if (guides.length) {
-            let snapBounds = undefined;
-            const containerNode = getContainer(draggingNode);
-            console.log({ containerNode });
-            if (
-              containerNode !== draggingNode &&
-              containerNode.attrs.name === "frame"
-            ) {
-              snapBounds = containerNode.getClientRect({ relativeTo: layer });
-              console.log({ snapBounds });
-            }
-            drawGuides(guides, layer, undefined, snapBounds);
+          const vertical: number[] = [];
+          const horizontal: number[] = [];
 
-            // Apply Snapping (Position Correction)
-            const currentAbsPos = draggingNode.getAbsolutePosition();
-            const currentClientRect = draggingNode.getClientRect({
-              relativeTo: layer,
-            });
-            const anchorOffsetX = currentAbsPos.x - currentClientRect.x;
-            const anchorOffsetY = currentAbsPos.y - currentClientRect.y;
+          snapCandidates.forEach((node) => {
+            const box = node.getClientRect({ relativeTo: layer });
+            vertical.push(box.x, box.x + box.width, box.x + box.width / 2);
+            horizontal.push(box.y, box.y + box.height, box.y + box.height / 2);
+          });
 
-            const newPos = { x: currentAbsPos.x, y: currentAbsPos.y };
+          const itemBounds = getObjectSnappingEdges(draggingNode);
+          if (itemBounds) {
+            const guides = getGuides(
+              { vertical, horizontal },
+              itemBounds,
+              stage.scaleX(),
+            );
 
-            guides.forEach((lg) => {
-              if (lg.orientation === "V") {
-                newPos.x = lg.lineGuide - lg.offset + anchorOffsetX;
-              } else {
-                newPos.y = lg.lineGuide - lg.offset + anchorOffsetY;
+            if (guides.length) {
+              let snapBounds = undefined;
+              const containerNode = getContainer(draggingNode);
+              console.log({ containerNode });
+              if (
+                containerNode !== draggingNode &&
+                containerNode.attrs.name === "frame"
+              ) {
+                snapBounds = containerNode.getClientRect({ relativeTo: layer });
+                console.log({ snapBounds });
               }
-            });
+              drawGuides(guides, layer, undefined, snapBounds);
 
-            draggingNode.setAbsolutePosition(newPos);
+              // Apply Snapping (Position Correction)
+              const currentAbsPos = draggingNode.getAbsolutePosition();
+              const currentClientRect = draggingNode.getClientRect({
+                relativeTo: layer,
+              });
+              const anchorOffsetX = currentAbsPos.x - currentClientRect.x;
+              const anchorOffsetY = currentAbsPos.y - currentClientRect.y;
+
+              const newPos = { x: currentAbsPos.x, y: currentAbsPos.y };
+
+              guides.forEach((lg) => {
+                if (lg.orientation === "V") {
+                  newPos.x = lg.lineGuide - lg.offset + anchorOffsetX;
+                } else {
+                  newPos.y = lg.lineGuide - lg.offset + anchorOffsetY;
+                }
+              });
+              draggingNode.setAbsolutePosition(newPos);
+            }
           }
         }
       } else {
