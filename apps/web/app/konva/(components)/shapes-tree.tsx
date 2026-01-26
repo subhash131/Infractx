@@ -20,20 +20,6 @@ type RecursiveShape = {
 };
 
 /* ======================================================
-   Helper: Find Konva Node
-====================================================== */
-const findKonvaNode = (
-  stage: Konva.Stage,
-  id: string,
-): Konva.Node | undefined => {
-  // Konva usually uses selector '#' for id
-  return (
-    stage.findOne(`#${id}`) ||
-    stage.findOne((node: Konva.Node) => node.id() === id)
-  );
-};
-
-/* ======================================================
    Shape Row (pure render)
 ====================================================== */
 
@@ -58,7 +44,8 @@ const ShapeRow = React.memo(
       <div
         className={cn(
           "flex items-center group rounded-sm border border-transparent",
-          isSelected ? "bg-muted" : "hover:bg-muted",
+          // Visual tweaks: If selected, darker background. If not, hover effect.
+          isSelected ? "bg-muted" : "hover:bg-muted/50",
         )}
         style={{ paddingLeft: 1 + depth * 10 }}
         data-shape-id={shape._id}
@@ -85,8 +72,7 @@ const ShapeRow = React.memo(
             <Input
               autoFocus
               defaultValue={displayName}
-              className="w-full h-6 text-sm px-1 py-0 border-0 bg-transparent
-               rounded focus-visible:ring-0"
+              className="w-full h-6 text-sm px-1 py-0 border-0 bg-transparent rounded focus-visible:ring-0"
               data-shape-id={shape._id}
               data-editing="true"
               onClick={(e) => e.stopPropagation()}
@@ -99,6 +85,7 @@ const ShapeRow = React.memo(
             <div
               className={cn(
                 "text-xs truncate cursor-pointer select-none px-1 py-0.5 rounded",
+                isSelected && "font-medium text-primary", // Optional text bolding
               )}
             >
               {displayName}
@@ -129,7 +116,7 @@ export const ShapesTree = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
 
-  // Hardcoded Page ID as requested
+  // Hardcoded Page ID
   const pageId = "kh7124p2k7ycr4wbf1n710gpc57zeqxt" as Id<"pages">;
 
   const shapesData = useQuery(api.design.shapes.getShapesByPage, { pageId });
@@ -140,15 +127,21 @@ export const ShapesTree = () => {
   }, [shapesData]);
 
   /* ======================================================
-     Recursive Renderer
+     Recursive Renderer (Updated)
   ====================================================== */
 
   const renderShapeTree = (
     shape: RecursiveShape,
     depth = 0,
+    ancestorActive = false, // New Parameter
   ): React.ReactNode => {
     const isCollapsed = collapsed.has(shape._id);
-    const isSelected = selectedShapeIds.includes(shape._id);
+
+    // Check if this specific node is explicitly selected
+    const isExplicitlySelected = selectedShapeIds.includes(shape._id);
+
+    // It is active if: explicitly selected OR parent was active
+    const isActive = isExplicitlySelected || ancestorActive;
 
     return (
       <React.Fragment key={shape._id}>
@@ -156,12 +149,15 @@ export const ShapesTree = () => {
           shape={shape}
           depth={depth}
           isEditing={editingId === shape._id}
-          isSelected={isSelected}
+          isSelected={isActive} // Pass the combined active state
           collapsed={isCollapsed}
         />
 
         {!isCollapsed &&
-          shape.children?.map((child) => renderShapeTree(child, depth + 1))}
+          shape.children?.map((child) =>
+            // Recursively pass the *current* active state to children
+            renderShapeTree(child, depth + 1, isActive),
+          )}
       </React.Fragment>
     );
   };
@@ -174,26 +170,23 @@ export const ShapesTree = () => {
     (e: React.MouseEvent<HTMLDivElement>) => {
       const target = e.target as HTMLElement;
 
-      // 1. First, find the row ID (works for both arrow and label)
       const row = target.closest("[data-shape-id]");
       const shapeId = row?.getAttribute("data-shape-id");
 
       if (!shapeId) return;
-      setActiveShapeId(shapeId as Id<"shapes">);
 
-      // 2. Check: Did we click the "Collapse Arrow"?
+      // 1. Collapse Logic
       if (target.closest("[data-collapse-toggle]")) {
         setCollapsed((prev) => {
           const next = new Set(prev);
           next.has(shapeId) ? next.delete(shapeId) : next.add(shapeId);
           return next;
         });
-
-        // CRITICAL: Stop here so we don't trigger selection below
         return;
       }
 
-      // 3. Selection Logic (Only runs if we didn't click the arrow)
+      // 2. Selection Logic
+      setActiveShapeId(shapeId as Id<"shapes">);
       const id = shapeId as Id<"shapes">;
 
       if (e.shiftKey || e.metaKey || e.ctrlKey) {
@@ -202,7 +195,7 @@ export const ShapesTree = () => {
         setSelectedShapeIds([id]);
       }
     },
-    [toggleSelectedShapeId, setSelectedShapeIds],
+    [toggleSelectedShapeId, setSelectedShapeIds, setActiveShapeId],
   );
 
   const handleDoubleClick = useCallback(
@@ -247,7 +240,7 @@ export const ShapesTree = () => {
       }
       setEditingId(null);
     },
-    [],
+    [updateShape],
   );
 
   /* ======================================================
@@ -255,14 +248,13 @@ export const ShapesTree = () => {
   ====================================================== */
 
   return (
-    <div className="absolute top-0 left-0 w-60 h-screen bg-sidebar border-r z-50 flex flex-col shadow-xl">
+    <div className="absolute top-0 left-0 w-40 h-screen bg-sidebar border-r z-50 flex flex-col shadow-xl overflow-scroll hide-scrollbar">
       <div className="p-3 border-b flex items-center justify-between">
         <h3 className="font-semibold text-sm">Shapes</h3>
         <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
           {shapesData?.length || 0} Objects
         </span>
       </div>
-
       <div
         className="flex-1 overflow-y-auto p-2 flex flex-col gap-0.5 hide-scrollbar select-none"
         onClick={handleClick}

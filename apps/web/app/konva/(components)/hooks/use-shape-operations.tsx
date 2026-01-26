@@ -317,7 +317,7 @@ export const useShapeOperations = ({ stageRef }: UseShapeOperationsProps) => {
 
       // Determine Target
       const ENTER_THRESHOLD = 70;
-      const LEAVE_THRESHOLD = 20;
+      const LEAVE_THRESHOLD = 5;
       let potentialTarget: Konva.Node | null = null;
       let targetType: "FRAME" | "SECTION" | null = null;
 
