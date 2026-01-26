@@ -256,7 +256,7 @@ export const ShapesTree = () => {
         </span>
       </div>
       <div
-        className="flex-1 overflow-y-auto p-2 flex flex-col gap-0.5 hide-scrollbar select-none"
+        className="flex-1 overflow-y-auto p-2 flex flex-col gap-0.5 hide-scrollbar select-none text-xl"
         onClick={handleClick}
         onDoubleClick={handleDoubleClick}
         onKeyDown={handleKeyDown}
