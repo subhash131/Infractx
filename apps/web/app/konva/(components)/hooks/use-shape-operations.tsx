@@ -233,16 +233,8 @@ export const useShapeOperations = ({ stageRef }: UseShapeOperationsProps) => {
             if (guides.length) {
               let snapBounds = undefined;
               const containerNode = getContainer(draggingNode);
-              console.log({ containerNode });
-              if (
-                containerNode !== draggingNode &&
-                containerNode.attrs.name === "frame"
-              ) {
-                snapBounds = containerNode.getClientRect({ relativeTo: layer });
-                console.log({ snapBounds });
-              }
+              snapBounds = containerNode.getClientRect({ relativeTo: layer });
               drawGuides(guides, layer, undefined, snapBounds);
-
               // Apply Snapping (Position Correction)
               const currentAbsPos = draggingNode.getAbsolutePosition();
               const currentClientRect = draggingNode.getClientRect({
