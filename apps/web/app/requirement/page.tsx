@@ -3,7 +3,10 @@
 import dynamic from "next/dynamic";
 import { useParams } from "next/navigation";
 
-const Editor = dynamic(() => import("./components/editor"), { ssr: false });
+const CollaborativeEditor = dynamic(
+  () => import("./components/collabrative-editor"),
+  { ssr: false },
+);
 
 const RequirementsDraftingPage = () => {
   const params = useParams();
@@ -16,7 +19,7 @@ const RequirementsDraftingPage = () => {
         <h1 className="text-sm py-1 px-2 border-b ">Blocks</h1>
       </div>
       <div className="w-full h-screen overflow-hidden overflow-y-scroll hide-scrollbar">
-        <Editor />
+        <CollaborativeEditor />
       </div>
     </div>
   );
