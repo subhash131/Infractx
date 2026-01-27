@@ -56,7 +56,7 @@
     "@types/lodash": "^4.17.21",
     "@workspace/ui": "workspace:*",
     "@xyflow/react": "^12.10.0",
-    "ai": "^5.0.115",
+    "ai": "^6.0.50",
     "class-variance-authority": "^0.7.1",
     "cmdk": "^1.1.1",
     "convex": "^1.31.2",
