@@ -45,6 +45,7 @@ import type * as design_shapes from "../design/shapes.js";
 import type * as design_templates from "../design/templates.js";
 import type * as design_utils from "../design/utils.js";
 import type * as prosemirror from "../prosemirror.js";
+import type * as requirements from "../requirements.js";
 import type * as requirements_file from "../requirements/file.js";
 
 import type {
@@ -91,6 +92,7 @@ declare const fullApi: ApiFromModules<{
   "design/templates": typeof design_templates;
   "design/utils": typeof design_utils;
   prosemirror: typeof prosemirror;
+  requirements: typeof requirements;
   "requirements/file": typeof requirements_file;
 }>;
 
