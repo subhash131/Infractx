@@ -163,7 +163,9 @@ export default defineSchema({
   }).index("by_conversation", ["conversationId"]),
 
   requirements: defineTable({
-    name: v.string(),
+    title: v.string(),
     description: v.optional(v.string()),
-  }),
+    docId: v.string(),
+    preview: v.optional(v.string()),
+  }).index("by_docId", ["docId"]),
 });
