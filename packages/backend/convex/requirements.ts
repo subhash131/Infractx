@@ -34,9 +34,3 @@ export const create = mutation({
     return { id, docId };
   },
 });
-
-export const list = query({
-  handler: async (ctx) => {
-    return await ctx.db.query("requirements").collect();
-  },
-});

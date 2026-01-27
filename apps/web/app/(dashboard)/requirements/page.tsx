@@ -1,8 +1,7 @@
-import { RequirementsListView } from "@/modules/requirements/ui/views/requirements-list-view";
 import React from "react";
 
 const Requirements = () => {
-  return <RequirementsListView />;
+  return <div />;
 };
 
 export default Requirements;

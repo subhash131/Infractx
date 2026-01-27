@@ -168,4 +168,6 @@ export default defineSchema({
     docId: v.string(),
     preview: v.optional(v.string()),
   }).index("by_docId", ["docId"]),
+
+  
 });
