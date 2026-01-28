@@ -169,5 +169,29 @@ export default defineSchema({
     preview: v.optional(v.string()),
   }).index("by_docId", ["docId"]),
 
-  
+  blocks: defineTable({
+    // 1. Identity
+    // We use the BlockNote ID as the Convex ID (or a separate indexable field)
+    // Recommendation: Use a separate field 'blockId' if you want to keep BlockNote's UUIDs
+    blockId: v.string(),
+    docId: v.string(),
+    parentId: v.optional(v.string()), // null for top-level blocks
+
+    // 2. Data
+    type: v.string(), // "paragraph", "heading", "image", etc.
+
+    // 3. The "Inline Content" (Text, Bold, Links)
+    // BlockNote returns this as an array: [{ type: "text", text: "Hello", styles: { bold: true } }]
+    // We store it as a generic JSON array
+    content: v.any(),
+
+    // 4. Block Properties (Alignment, Color, Heading Level)
+    props: v.optional(v.record(v.string(), v.any())),
+
+    // 5. Ordering (Lexorank)
+    rank: v.string(),
+  })
+    // INDICES are vital for performance
+    .index("by_doc_parent_rank", ["docId", "parentId", "rank"])
+    .index("by_blockId", ["blockId"]), // Fast lookups for updates
 });
