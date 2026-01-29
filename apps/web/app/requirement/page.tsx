@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import { useParams } from "next/navigation";
 import { Header } from "./components/header";
+import { FileManagementMenu } from "./components/file-management-menu";
 
 const CollaborativeEditor = dynamic(
   () => import("./components/collaborative-editor"),
@@ -16,9 +17,7 @@ const RequirementsDraftingPage = () => {
 
   return (
     <div className="w-screen h-screen overflow-hidden hide-scrollbar flex">
-      <div className="w-44 bg-sidebar text-xs p-1 h-full border-r">
-        <h1 className="text-sm py-1 px-2 border-b ">Blocks</h1>
-      </div>
+      <FileManagementMenu />
       <div className="w-full h-screen overflow-hidden overflow-y-scroll hide-scrollbar">
         <Header />
         <CollaborativeEditor />
