@@ -13,8 +13,8 @@ import { useEffect, useRef, useCallback } from "react";
 import "./styles.css";
 import { FormattingToolbarWithAI } from "./formatting-toolbar-with-ai";
 import { SuggestionMenuWithAI } from "./suggestion-menu-with-ai";
-import { generateRank } from "./utils/rank-generator";
 import { SuggestionMenuForRequirements } from "./suggestion-menu-for-requirements";
+import { generateKeyBetween } from "fractional-indexing";
 
 const BASE_URL = "https://localhost:3000/ai";
 
@@ -109,114 +109,187 @@ export default function CollaborativeEditor() {
   );
 }
 
-// ==========================================
-// 🧠 THE PRODUCTION DIFF ENGINE (Smart)
-// ==========================================
-
-// Helper: Mock Lexorank generator (Finds string between two strings)
-// In PROD: Replace this function with `import { generateKeyBetween } from 'fractional-indexing'`
-
 function calculateSmartDiff(oldBlocks: Block[], newBlocks: Block[]) {
-  // 1. Index Old Blocks (Simulating DB State)
-  // We need to know what Ranks we assigned previously
-  const oldMap = new Map<string, any>();
-
-  // Helper to extract ranks from the "Last Saved" structure
-  // In a real app, `lastSavedState` would already be flat or carry ranks.
-  // Here we reconstruct ranks assuming sequential order if missing.
-  const indexOld = (
-    blocks: Block[],
-    parent: string | null,
-    startRank = 1000,
-  ) => {
-    blocks.forEach((b, i) => {
-      const rank = `0|${(startRank + i * 1000).toString().padStart(6, "0")}`;
-      oldMap.set(b.id, { ...b, parentId: parent, rank }); // Store assumed DB rank
-      if (b.children) indexOld(b.children, b.id, startRank + i * 1000);
-    });
-  };
-  indexOld(oldBlocks, null);
-
+  const oldMap = new Map<
+    string,
+    { block: Block; rank: string; parentId: string | null }
+  >();
   const toCreate: any[] = [];
   const toUpdate: any[] = [];
   const processedIds = new Set<string>();
 
-  // 2. Traverse New Blocks to Determine Ranks
+  // 1. Faster Indexing (Flat map for O(1) lookups)
+  const indexOld = (
+    blocks: Block[],
+    parent: string | null = null,
+    prevRank: string | null = null,
+  ) => {
+    let currentRank = prevRank;
+    for (const b of blocks) {
+      currentRank = generateKeyBetween(currentRank, null);
+      oldMap.set(b.id, { block: b, parentId: parent, rank: currentRank });
+      if (b.children && b.children.length > 0) {
+        indexOld(b.children, b.id, null);
+      }
+    }
+  };
+  indexOld(oldBlocks);
+
+  // 2. Efficient Content Comparison
+  const hasContentChanged = (newContent: any, oldContent: any) => {
+    if (typeof newContent !== typeof oldContent) return true;
+    if (Array.isArray(newContent)) {
+      if (newContent.length !== oldContent.length) return true;
+      return newContent.some((item, i) => item.text !== oldContent[i].text);
+    }
+    return false;
+  };
+
+  // 3. Build a position map for existing blocks in the NEW state
+  const buildPositionMap = (
+    blocks: Block[],
+    parentId: string | null = null,
+  ) => {
+    const map = new Map<string, { index: number; parentId: string | null }>();
+
+    const traverse = (items: Block[], parent: string | null = null) => {
+      for (let i = 0; i < items.length; i++) {
+        map.set(items[i]!.id, { index: i, parentId: parent });
+        if (items[i]!.children && items[i]!.children.length > 0) {
+          traverse(items[i]!.children!, items[i]!.id);
+        }
+      }
+    };
+
+    traverse(blocks, parentId);
+    return map;
+  };
+
+  const newPositionMap = buildPositionMap(newBlocks);
+
   const traverse = (blocks: Block[], parentId: string | null = null) => {
     let prevRank: string | null = null;
+    let prevOldRank: string | null = null; // Track the previous EXISTING block's rank
 
     for (let i = 0; i < blocks.length; i++) {
       const block = blocks[i];
+      if (!block) continue;
       const nextBlock = blocks[i + 1];
-      if (!block) break;
-
       processedIds.add(block.id);
-      const oldBlock = oldMap.get(block.id);
 
-      let targetRank = oldBlock?.rank;
-      let needsUpdate = false;
+      const oldEntry = oldMap.get(block.id);
+      const nextOldEntry = nextBlock ? oldMap.get(nextBlock.id) : null;
 
-      // --- RANK LOGIC ---
-      if (!oldBlock) {
-        // A. New Block: Needs a rank between prev and next
-        const nextRankHint = nextBlock ? oldMap.get(nextBlock.id)?.rank : null;
-        targetRank = generateRank(prevRank, nextRankHint);
+      let targetRank: string;
+      let updateReason: string | null = null;
+
+      if (!oldEntry) {
+        // --- NEW BLOCK ---
+        // Find the rank bounds: previous existing block and next existing block
+        const nextExistingRank = nextOldEntry?.rank || null;
+
+        const safeGenerateRank = (prev: string | null, next: string | null) => {
+          if (prev && next && prev >= next) {
+            // If indices have collided or crossed, fallback to appending after prev
+            return generateKeyBetween(prev, null);
+          }
+          return generateKeyBetween(prev, next);
+        };
+
+        targetRank = safeGenerateRank(prevOldRank, nextExistingRank);
+        console.log(
+          `🆕 New Block [${block.id.slice(0, 4)}]: Assigned ${targetRank} (between ${prevOldRank} and ${nextExistingRank})`,
+        );
       } else {
-        // B. Existing Block: Only move if order is violated
-        if (oldBlock.parentId !== parentId) {
-          // Changed parent -> needs new rank context
-          const nextRankHint = nextBlock
-            ? oldMap.get(nextBlock.id)?.rank
-            : null;
-          targetRank = generateRank(prevRank, nextRankHint);
-          needsUpdate = true;
-        } else if (prevRank && oldBlock.rank <= prevRank) {
-          // Order violation -> needs repair
-          const nextRankHint = nextBlock
-            ? oldMap.get(nextBlock.id)?.rank
-            : null;
-          targetRank = generateRank(prevRank, nextRankHint);
-          needsUpdate = true;
-        } else {
-          // Happy path: Keep old rank!
-          targetRank = oldBlock.rank;
+        // --- EXISTING BLOCK ---
+        const movedParent = oldEntry.parentId !== parentId;
+
+        // KEY FIX: Check if this block's relative position changed among existing blocks
+        // Find the previous and next EXISTING blocks in the new state
+        let prevExistingBlockId: string | null = null;
+        let nextExistingBlockId: string | null = null;
+
+        for (let j = i - 1; j >= 0; j--) {
+          if (oldMap.has(blocks[j]!.id)) {
+            prevExistingBlockId = blocks[j]!.id;
+            break;
+          }
         }
+
+        for (let j = i + 1; j < blocks.length; j++) {
+          if (oldMap.has(blocks[j]!.id)) {
+            nextExistingBlockId = blocks[j]!.id;
+            break;
+          }
+        }
+
+        const prevExistingRank = prevExistingBlockId
+          ? oldMap.get(prevExistingBlockId)?.rank || null
+          : null;
+        const nextExistingRank = nextExistingBlockId
+          ? oldMap.get(nextExistingBlockId)?.rank || null
+          : null;
+
+        // Only consider it moved if its rank is outside the bounds of its neighbors
+        let orderViolated = false;
+        if (prevExistingRank && oldEntry.rank <= prevExistingRank) {
+          orderViolated = true;
+        }
+        if (nextExistingRank && oldEntry.rank >= nextExistingRank) {
+          orderViolated = true;
+        }
+
+        if (movedParent || orderViolated) {
+          targetRank = generateKeyBetween(prevExistingRank, nextExistingRank);
+          updateReason = movedParent
+            ? "Parent Changed"
+            : `Order Violation (Between ${prevExistingRank} and ${nextExistingRank}, Current: ${oldEntry.rank})`;
+        } else {
+          // Happy Path: No rank change needed
+          targetRank = oldEntry.rank;
+        }
+
+        // Update prevOldRank to track existing blocks
+        prevOldRank = targetRank;
       }
 
-      // Update Cursor
-      prevRank = targetRank;
-
-      // --- BUILD OUTPUT ---
-      if (!oldBlock) {
+      // CHANGE DETECTION (Content/Props)
+      if (!oldEntry) {
         toCreate.push({ ...block, rank: targetRank, parentId });
       } else {
-        // Check content changes
-        const contentChanged =
-          JSON.stringify(block.content) !== JSON.stringify(oldBlock.content);
+        const contentChanged = hasContentChanged(
+          block.content,
+          oldEntry.block.content,
+        );
         const propsChanged =
-          JSON.stringify(block.props) !== JSON.stringify(oldBlock.props);
+          JSON.stringify(block.props) !== JSON.stringify(oldEntry.block.props);
 
-        if (needsUpdate || contentChanged || propsChanged) {
+        if (updateReason || contentChanged || propsChanged) {
+          if (updateReason)
+            console.warn(
+              `⚠️ Updating [${block.id.slice(0, 4)}]: ${updateReason}`,
+            );
           toUpdate.push({
             id: block.id,
-            ...(needsUpdate ? { rank: targetRank, parentId } : {}),
+            ...(updateReason ? { rank: targetRank, parentId } : {}),
             ...(contentChanged ? { content: block.content } : {}),
             ...(propsChanged ? { props: block.props } : {}),
           });
         }
       }
 
-      if (block.children) traverse(block.children, block.id);
+      prevRank = targetRank;
+      if (block.children?.length) traverse(block.children, block.id);
     }
   };
 
   traverse(newBlocks);
 
-  // 3. Detect Deletes
+  // 4. Detect Deletes
   const toDelete: string[] = [];
-  oldMap.forEach((v, k) => {
-    if (!processedIds.has(k)) toDelete.push(k);
-  });
+  for (const key of oldMap.keys()) {
+    if (!processedIds.has(key)) toDelete.push(key);
+  }
 
   return { toCreate, toUpdate, toDelete };
 }
