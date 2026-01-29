@@ -21,12 +21,12 @@ import {
 import { ProjectTooltip } from "./project-tooltip";
 
 const rightIcons = [
-  { name: "Openai", icon: "/tech/openai.svg" },
+  { name: "Chat GPT", icon: "/tech/openai.svg" },
   { name: "Langgraph", icon: "/tech/langgraph.svg" },
   { name: "Next.js", icon: "/tech/nextjs.svg" },
 ];
 const leftIcons = [
-  { name: "Clerk", icon: "/tech/clerk.svg" },
+  { name: "Postgres", icon: "/tech/postgres.svg" },
   { name: "Gemini", icon: "/tech/gemini.svg" },
   { name: "Convex", icon: "/tech/convex.svg" },
 ];
@@ -38,7 +38,7 @@ export const Intro = () => {
         <div className="shrink-0 w-[50%] h-[90%] flex items-center justify-center relative">
           <TechIconsStack
             items={rightIcons}
-            className="left-10 flex-col-reverse h-fit"
+            className="left-10 top-6 flex-col-reverse h-fit"
             tooltipSide="left"
           />
           <TechIconsStack
@@ -131,8 +131,8 @@ const AIChatWindow = () => {
     }
   }, [messages]);
   return (
-    <div className="w-[80%] h-full bg- rounded-xl shadow-lg p-2 bg-accent">
-      <div className="size-full bg-background rounded-lg flex flex-col items-center justify-end p-2">
+    <div className="w-[80%] h-full rounded-xl shadow-lg p-2 bg-gray-100 text-black">
+      <div className="size-full bg-accent-foreground border-primary border shadow rounded-lg flex flex-col items-center justify-end p-2 bga">
         <div className="w-[80%] h-10 bg--50">
           <Label className="text-lg font-semibold">AI SaaS</Label>
         </div>
@@ -165,7 +165,7 @@ const AIChatWindow = () => {
         </div>
         <form className="shrink-0 w-[60%] mx-auto h-10 rounded-lg border flex overflow-hidden gap-1 p-1">
           <Input
-            className="size-full border-transparent focus-visible:ring-0 transition-colors"
+            className="size-full border border-primary transition"
             placeholder="Ask AI"
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
@@ -231,7 +231,7 @@ const AiMessage = ({
       </div>
       {showChart && <AIChart />}
       {showScheduleNowButton && (
-        <Button variant={"link"} className="ml-6">
+        <Button variant={"link"} className="ml-6 text-black">
           Schedule a call
         </Button>
       )}
@@ -252,18 +252,18 @@ const TechIconsStack = ({
     <div
       className={cn(
         "absolute flex flex-col h-full items-center top-2",
-        className
+        className,
       )}
     >
       {items.map(({ icon, name }, index) => {
         return (
           <div
-            className={`size-12 p-1 ${index % 2 === 1 ? "rotate-6" : "-rotate-6"} rounded-xl bg-accent shadow-xl`}
+            className={`size-12 p-1 ${index % 2 === 1 ? "rotate-6" : "-rotate-6"} rounded-xl bg-sidebar-accent-foreground shadow-xl`}
             key={index}
           >
             <Tooltip>
               <TooltipTrigger asChild>
-                <div className="size-full bg-background rounded-lg flex items-center justify-center p-1">
+                <div className="size-full rounded-lg flex items-center justify-center p-1 bg-accent-foreground shadow">
                   <img
                     src={icon}
                     alt={name}

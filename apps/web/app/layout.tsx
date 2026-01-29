@@ -29,7 +29,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={ubuntu.variable} suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[#1f1f1f]`}
       >
         <Providers>{children}</Providers>
       </body>

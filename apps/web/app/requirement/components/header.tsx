@@ -16,7 +16,7 @@ export const Header = () => {
         }}
       />
       <Textarea
-        className="focus-visible:ring-0 border-0 outline-none ring-0 pl-16 bg-transparent max-h-20 h-fit hide-scrollbar"
+        className="focus-visible:ring-0 border-0 outline-none ring-0 pl-16 bg-transparent max-h-20 h-fit hide-scrollbar dark:bg-transparent"
         placeholder="Description (Eg: This doc describes the technical design of the convex backend)"
         ref={textareaRef}
       />

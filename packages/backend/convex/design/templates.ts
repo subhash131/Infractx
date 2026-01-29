@@ -25,7 +25,7 @@ export const saveFrameTemplate = mutation({
     const template = buildFrameTemplateTree(layers, args.frameId);
     await ctx.db.insert("templates", {
       createdAt: Date.now(),
-      createdBy: user?.issuer,
+      createdBy: user?.subject,
       frameDate: JSON.stringify(template),
       isPublic: false,
       name: args.name,
