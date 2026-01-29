@@ -44,7 +44,7 @@ import type * as design_pages from "../design/pages.js";
 import type * as design_shapes from "../design/shapes.js";
 import type * as design_templates from "../design/templates.js";
 import type * as design_utils from "../design/utils.js";
-import type * as requirements from "../requirements.js";
+import type * as requirements_documents from "../requirements/documents.js";
 
 import type {
   ApiFromModules,
@@ -89,7 +89,7 @@ declare const fullApi: ApiFromModules<{
   "design/shapes": typeof design_shapes;
   "design/templates": typeof design_templates;
   "design/utils": typeof design_utils;
-  requirements: typeof requirements;
+  "requirements/documents": typeof requirements_documents;
 }>;
 
 /**
