@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import { useParams } from "next/navigation";
 
 const CollaborativeEditor = dynamic(
-  () => import("./components/collabrative-editor"),
+  () => import("./components/collaborative-editor"),
   { ssr: false },
 );
 
