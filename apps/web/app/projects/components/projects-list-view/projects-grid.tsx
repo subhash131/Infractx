@@ -13,19 +13,18 @@ export const ProjectsGrid = () => {
   const projects = useQuery(api.projects.getProjectsByOrganization, {
     organization: "org_123",
   });
+
   return (
-    <div className="size-full overflow-x-hidden overflow-y-scroll hide-scrollbar">
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(260px,1fr))] gap-4 p-4">
-        {projects?.map(({ name, updatedAt, description, _id }) => (
-          <Link key={_id} href={`project/${_id}`}>
-            <ProjectDisplayCard
-              name={name}
-              description={description}
-              updatedAt={dayjs(updatedAt).fromNow()}
-            />
-          </Link>
-        ))}
-      </div>
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 p-8 w-full">
+      {projects?.map(({ name, updatedAt, description, _id }) => (
+        <Link key={_id} href={`/project/${_id}`}>
+          <ProjectDisplayCard
+            name={name}
+            updatedAt={dayjs(updatedAt).fromNow()}
+            description={description}
+          />
+        </Link>
+      ))}
     </div>
   );
 };
