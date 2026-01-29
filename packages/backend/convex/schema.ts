@@ -210,4 +210,28 @@ export default defineSchema({
     .index("by_parent_rank", ["docId", "parentId", "rank"])
     // Index for "AI Context Search" (Find block by ID quickly)
     .index("by_blockId", ["blockId"]),
+
+  projects: defineTable({
+    name: v.string(),
+    description: v.optional(v.string()),
+    createdBy: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    organizationId: v.optional(v.string()), // TODO: add Organization
+  })
+    .index("by_organization", ["organizationId"])
+    .index("by_name", ["name"])
+    .index("by_creator", ["createdBy"]),
+
+  technical_design_files: defineTable({
+    name: v.string(),
+    description: v.optional(v.string()),
+    createdBy: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    projectId: v.string(),
+  })
+    .index("by_project", ["projectId"])
+    .index("by_name", ["name"])
+    .index("by_creator", ["createdBy"]),
 });
