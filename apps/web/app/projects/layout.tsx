@@ -1,14 +1,14 @@
-import DashboardLayout from "@/modules/dashboard/ui/layouts/dashboard-layout";
+import ProjectLayout from "@/modules/projects/ui/layouts/projects-layout";
 import { Toaster } from "sonner";
 
 import React from "react";
 
 const Layout = ({ children }: { children: React.ReactNode }) => {
   return (
-    <DashboardLayout>
+    <ProjectLayout>
       <Toaster />
       {children}
-    </DashboardLayout>
+    </ProjectLayout>
   );
 };
 

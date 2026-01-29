@@ -9,14 +9,16 @@ const isPublicRoute = createRouteMatcher([
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
-  if (!isPublicRoute(req)) {
-    const session = await auth();
-    if (session.isAuthenticated) return NextResponse.next();
-    else {
-      const url = req.nextUrl.clone();
-      url.pathname = "/sign-in";
-      return NextResponse.redirect(url);
-    }
+  const session = await auth();
+
+  // 1. If user is signed in and tries to access auth pages, send them home
+  if (session.userId && isPublicRoute(req)) {
+    return NextResponse.redirect(new URL("/projects", req.url));
+  }
+
+  // 2. Protect non-public routes
+  if (!isPublicRoute(req) && !session.userId) {
+    return session.redirectToSignIn(); // Use Clerk's built-in helper
   }
 });
 

@@ -15,7 +15,6 @@ import {
   SidebarRail,
 } from "@workspace/ui/components/sidebar";
 import { usePathname } from "next/navigation";
-import Link from "next/link";
 import { Separator } from "@workspace/ui/components/separator";
 import { useTheme } from "next-themes";
 import { SignOutButton } from "@clerk/nextjs";
@@ -28,7 +27,7 @@ type SidebarItem = {
   icon: LucideIcon;
 };
 
-const dashboardNavItems: SidebarItem[] = [
+const projectsNavItems: SidebarItem[] = [
   {
     title: "Designs",
     url: "/designs",
@@ -42,7 +41,7 @@ const dashboardNavItems: SidebarItem[] = [
 ];
 const configurationItems: SidebarItem[] = [];
 
-const DashboardSidebar = () => {
+const ProjectsSidebar = () => {
   const pathname = usePathname();
   const { theme, setTheme } = useTheme();
   const isActive = (url: string) => {
@@ -60,7 +59,7 @@ const DashboardSidebar = () => {
           <SidebarGroupLabel>Customer Support</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {dashboardNavItems.map((item) => (
+              {projectsNavItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
                     asChild
@@ -96,4 +95,4 @@ const DashboardSidebar = () => {
   );
 };
 
-export default DashboardSidebar;
+export default ProjectsSidebar;

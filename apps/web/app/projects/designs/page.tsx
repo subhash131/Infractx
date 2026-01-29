@@ -1,4 +1,4 @@
-import { FilesView } from "@/modules/dashboard/ui/views/files-view";
+import { FilesView } from "@/modules/projects/ui/views/files-view";
 import React from "react";
 
 const Page = () => {
