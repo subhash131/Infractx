@@ -162,12 +162,31 @@ export default defineSchema({
     }),
   }).index("by_conversation", ["conversationId"]),
 
-  requirements: defineTable({
-    title: v.string(),
+  projects: defineTable({
+    name: v.string(),
     description: v.optional(v.string()),
-    docId: v.string(),
+    createdBy: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    organizationId: v.optional(v.string()), // TODO: add Organization
+    isArchived: v.optional(v.boolean()), // Soft delete support
+  })
+    .index("by_organization", ["organizationId"])
+    .index("by_name", ["name"])
+    .index("by_creator", ["createdBy"]),
+
+
+  documents: defineTable({
+    projectId:v.id("projects"),
+    title: v.string(),
+    type:v.union(v.literal("TEXT"),v.literal("CANVAS")),
+    description: v.optional(v.string()),
+    docId:v.optional(v.string()),
+    designId: v.optional(v.id("designs")),
     preview: v.optional(v.string()),
-  }).index("by_docId", ["docId"]),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_doc", ["docId"]).index("by_project", ["projectId"]),
 
   blocks: defineTable({
     // --- 1. Identity (from Block.id) ---
@@ -211,17 +230,6 @@ export default defineSchema({
     // Index for "AI Context Search" (Find block by ID quickly)
     .index("by_blockId", ["blockId"]),
 
-  projects: defineTable({
-    name: v.string(),
-    description: v.optional(v.string()),
-    createdBy: v.string(),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-    organizationId: v.optional(v.string()), // TODO: add Organization
-  })
-    .index("by_organization", ["organizationId"])
-    .index("by_name", ["name"])
-    .index("by_creator", ["createdBy"]),
 
   technical_design_files: defineTable({
     name: v.string(),
