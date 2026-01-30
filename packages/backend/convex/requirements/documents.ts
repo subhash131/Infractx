@@ -4,36 +4,19 @@ import { v } from "convex/values";
 export const create = mutation({
   args: {
     title: v.string(),
-    blocks: v.array(
-      v.object({
-        blockId: v.string(),
-        docId: v.string(), // We can actually ignore this and set it server-side
-        parentId: v.optional(v.string()),
-        type: v.string(),
-        props: v.any(),
-        content: v.any(),
-        rank: v.string(),
-      }),
-    ),
+    projectId: v.id("projects"),
+    description: v.optional(v.string()),
+    type: v.union(v.literal("TEXT"), v.literal("CANVAS")),
   },
   handler: async (ctx, args) => {
-    // 1. Create the Document Metadata
-    const docId = await ctx.db.insert("requirements", {
+    const docId = await ctx.db.insert("documents", {
       title: args.title,
-      docId: "",
-      description: "",
+      description: args.description,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      type: args.type,
+      projectId: args.projectId,
     });
-
-    // 2. Bulk Insert all Blocks
-    // We overwrite the docId in the blocks to match the real DB ID
-    await Promise.all(
-      args.blocks.map(async (block) => {
-        await ctx.db.insert("blocks", {
-          ...block,
-          docId: docId, // Link to the new document
-        });
-      }),
-    );
 
     return docId;
   },

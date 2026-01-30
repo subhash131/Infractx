@@ -11,7 +11,7 @@ import {
 
 export function TextDocumentCard() {
   return (
-    <Card className="relative mx-auto w-full max-w-sm pt-0">
+    <Card className="relative mx-auto w-full min-w-lg max-w-lg pt-0">
       <div className="absolute inset-0 z-30 aspect-video bg-black/35" />
       <img
         src="https://avatar.vercel.sh/shadcn1"

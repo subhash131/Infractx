@@ -25,6 +25,25 @@ export const createProject = mutation({
       updatedAt: Date.now(),
     });
 
+    await ctx.db.insert("documents", {
+      title: "New Canvas",
+      description: "canvas for visual design",
+      type: "CANVAS",
+      projectId: projectId,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
+    await ctx.db.insert("documents", {
+      title: "New Text Document",
+      description: "Default text document",
+      type: "TEXT",
+      projectId: projectId,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+  
+
     return projectId;
   },
 });
@@ -73,16 +92,24 @@ export const getProjectById = query({
       });
     }
 
-    const file = await ctx.db.get(args.projectId);
-    if (!file) {
+    const project = await ctx.db.get(args.projectId);
+    if (!project) {
       throw new ConvexError({
         code: "NOT_FOUND",
         message: "Project not found",
       });
     }
 
+    const documents = await ctx.db
+      .query("documents")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .order("desc")
+      .collect();
+
+    const response = {...project,documents}
+
     // TODO: Add organization member check when implemented
-    const hasOrgAccess = false;
+    const hasOrgAccess = true;
 
     if (!hasOrgAccess) {
       throw new ConvexError({
@@ -91,6 +118,6 @@ export const getProjectById = query({
       });
     }
 
-    return file;
+    return response;
   },
 });

@@ -21,9 +21,9 @@ export const ProjectsGrid = () => {
           <ProjectDisplayCard
             name={name}
             updatedAt={
-              dayjs(Date.now()).fromNow() === "a few seconds ago"
+              dayjs(updatedAt).fromNow() === "a few seconds ago"
                 ? "Just now"
-                : dayjs(Date.now()).fromNow()
+                : dayjs(updatedAt).fromNow()
             }
             description={description}
           />
