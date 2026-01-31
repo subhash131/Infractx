@@ -27,7 +27,7 @@ export const getFilesByDocumentId = query({
     documentId:v.id("documents"),
   },
   handler: async (ctx, args) => {
-    const files = await ctx.db.query("text_files").filter((q) => q.eq(q.field("documentId"), args.documentId)).collect();
+    const files = await ctx.db.query("text_files").withIndex("by_document", q=>q.eq("documentId", args.documentId)).collect();
     return files;
   },
 });

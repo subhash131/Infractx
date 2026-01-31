@@ -1,4 +1,4 @@
-import { mutation } from "../_generated/server";
+import { mutation, query } from "../_generated/server";
 import { v } from "convex/values";
 
 export const create = mutation({
@@ -19,5 +19,15 @@ export const create = mutation({
     });
 
     return docId;
+  },
+});
+
+export const getDocumentById = query({
+  args: {
+    documentId:v.id("documents"),
+  },
+  handler: async (ctx, args) => {
+    const document = await ctx.db.query("documents").withIndex("by_id",q=>q.eq("_id",args.documentId)).unique();
+    return document;
   },
 });

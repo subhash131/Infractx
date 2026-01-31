@@ -16,22 +16,27 @@ import {
   FileIcon,
   Folder02Icon,
   FolderIcon,
+  FileAddIcon,
+  FolderAddIcon,
 } from "@hugeicons/core-free-icons";
+import { truncate } from "@/modules/utils";
 
 type FileNode = {
-  _id: Id<"text_files">;
+  _id: Id<"text_files"> | "root";
   title: string;
-  type: "FILE" | "FOLDER";
+  type: "FILE" | "FOLDER" | "ROOT";
   documentId: Id<"documents">;
   parentId?: Id<"text_files">;
 };
 
-export const FilesList = ({ docId }: { docId: Id<"documents"> }) => {
+export const FilesList = ({ docId, projectId }: { docId: Id<"documents">, projectId: Id<"projects"> }) => {
   const files = useQuery(
     api.requirements.textFiles.getFilesByDocumentId,
     docId ? { documentId: docId } : "skip"
   );
+  const document = useQuery(api.requirements.documents.getDocumentById, docId ? { documentId: docId } : "skip");
   const moveFile = useMutation(api.requirements.textFiles.moveFile);
+  const createFile = useMutation(api.requirements.textFiles.create);
 
   // 1. Transform Convex flat array to react-complex-tree format
   const { items, rootItems } = useMemo(() => {
@@ -79,28 +84,41 @@ export const FilesList = ({ docId }: { docId: Id<"documents"> }) => {
       });
     });
 
-    // Add a virtual root item
+    // Add the project root node
     treeMap["root"] = {
       index: "root",
       canMove: false,
       isFolder: true,
       children: roots,
       data: {
-        _id: "root" as Id<"text_files">,
-        title: "Root",
+        _id: "root",
+        title: truncate(document?.title || "Project",15),
+        type: "ROOT",
+        documentId: docId,
+      },
+    };
+
+    // Add a super-root to make "root" visible
+    treeMap["super-root"] = {
+      index: "super-root",
+      canMove: false,
+      isFolder: true,
+      children: ["root"],
+      data: {
+        _id: "super-root" as Id<"text_files">,
+        title: "Super Root",
         type: "FOLDER",
         documentId: docId,
       },
     };
 
     return { items: treeMap, rootItems: roots };
-  }, [files]);
+  }, [files, document]);
 
   if (!files) return <div className="p-2 text-xs text-gray-500">Loading...</div>;
-  if (files.length === 0) return <div className="p-2 text-xs text-gray-500">No files yet</div>;
 
   return (
-    <div className="p-1 select-none relative">
+    <div className="p-1 select-none relative size-full">
       <UncontrolledTreeEnvironment
         dataProvider={new StaticTreeDataProvider(items, (item, newName) => ({ 
           ...item, 
@@ -109,15 +127,21 @@ export const FilesList = ({ docId }: { docId: Id<"documents"> }) => {
         canDropBelowOpenFolders={true}
         canDropOnNonFolder={false}
         getItemTitle={(item) => item.data.title}
-        viewState={{}}
+        viewState={{
+          "main-tree": {
+            expandedItems: ["super-root", "root"]
+          }
+        }}
         canDragAndDrop={true}
         canDropOnFolder={true}
-        canReorderItems={true}
+        canReorderItems={false}
         onDrop={(items, target) => {
           items.forEach((item) => {
             const itemId = item.index as string;
+            
             // Don't move the virtual root
-            if (itemId === "root") return;          
+            if (itemId === "root") return;
+            
             // Determine the new parent based on drop target type
             let newParent: string | undefined;
             if (target.targetType === "item" && "targetItem" in target) {
@@ -131,6 +155,15 @@ export const FilesList = ({ docId }: { docId: Id<"documents"> }) => {
               newParent = undefined;
             }
             
+            // Check if parent is changing - only allow moves between different folders
+            const currentParent = item.data.parentId || "root";
+            const targetParent = newParent === "root" || !newParent ? "root" : newParent;
+            
+            if (currentParent === targetParent) {
+              return; // Do nothing - same parent, reordering disabled
+            }
+            
+            // Move to new parent
             moveFile({
               fileId: itemId as Id<"text_files">,
               newParentId: newParent === "root" || !newParent
@@ -139,52 +172,97 @@ export const FilesList = ({ docId }: { docId: Id<"documents"> }) => {
             });
           });
         }}
-        renderItem={({ item, depth, children, title, context, arrow }) => (
-          <div 
-            {...context.itemContainerWithChildrenProps}
-          >
+        renderItem={({ item, depth, children, title, context, arrow }) => {
+          const isRoot = item.data.type === "ROOT";
+          
+          // Don't render super-root at all
+          if (item.index === "super-root") {
+            return <>{children}</>;
+          }
+          
+          return (
             <div 
-              {...context.interactiveElementProps}
-              className="flex items-center gap-1 px-1 py-1 rounded hover:bg-accent/50 cursor-pointer w-full text-left"
-              style={{ paddingLeft: `${depth * 16}px` }}
+              {...context.itemContainerWithChildrenProps}
             >
-              {/* Arrow */}
-              {item.isFolder && item.children?.length ? (
-                <div {...context.arrowProps} className="w-4 h-4 flex items-center justify-center">
-                  <HugeiconsIcon
-                    icon={context.isExpanded ? ArrowDown01Icon : ArrowRight01Icon}
-                    size={14}
-                  />
+              <div 
+                {...context.itemContainerWithoutChildrenProps}
+              >
+                <div 
+                  {...context.interactiveElementProps}
+                  className={`flex items-center gap-1 px-1 py-1 rounded cursor-pointer w-full text-left ${
+                    isRoot ? 'hover:bg-white/5 font-medium' : 'hover:bg-accent/50'
+                  }`}
+                  style={{ paddingLeft: `${(depth - 1) * 16}px` }}
+                >
+                  {/* Arrow */}
+                  {item.isFolder && item.children?.length ? (
+                    <div {...context.arrowProps} className="w-4 h-4 flex items-center justify-center">
+                      <HugeiconsIcon
+                        icon={context.isExpanded ? ArrowDown01Icon : ArrowRight01Icon}
+                        size={14}
+                      />
+                    </div>
+                  ) : (
+                    <div className="w-4 h-4" />
+                  )}
+                  
+                  {/* Icon - only for non-root items */}
+                  {!isRoot && (
+                    <div className="flex-shrink-0">
+                      <HugeiconsIcon
+                        icon={
+                          item.isFolder
+                            ? context.isExpanded
+                              ? Folder02Icon
+                              : FolderIcon
+                            : FileIcon
+                        }
+                        size={16}
+                        className="text-accent-foreground/50"
+                      />
+                    </div>
+                  )}
+                  
+                  {/* Title */}
+                  <span className={`truncate flex-1 ${
+                    isRoot ? 'text-sm text-white' : 'text-xs text-accent-foreground/70'
+                  }`}>
+                    {item.data.title}
+                  </span>
+                  
+                  {/* Create buttons for root node */}
+                  {isRoot && (
+                    <div className="flex items-center gap-0.5 opacity-70 hover:opacity-100">
+                      <button 
+                        className="p-0.5 hover:bg-white/10 rounded transition-colors"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          createFile({ title: "New Document", type: "FILE", documentId: docId });
+                        }}
+                        title="New File"
+                      >
+                        <HugeiconsIcon icon={FileAddIcon} size={14} />
+                      </button>
+                      <button 
+                        className="p-0.5 hover:bg-white/10 rounded transition-colors"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          createFile({ title: "New Folder", type: "FOLDER", documentId: docId });
+                        }}
+                        title="New Folder"
+                      >
+                        <HugeiconsIcon icon={FolderAddIcon} size={14} />
+                      </button>
+                    </div>
+                  )}
                 </div>
-              ) : (
-                <div className="w-4 h-4" />
-              )}
-              
-              {/* Icon */}
-              <div className="flex-shrink-0">
-                <HugeiconsIcon
-                  icon={
-                    item.isFolder
-                      ? context.isExpanded
-                        ? Folder02Icon
-                        : FolderIcon
-                      : FileIcon
-                  }
-                  size={16}
-                  className="text-accent-foreground/50"
-                />
               </div>
-              
-              {/* Title */}
-              <span className="text-xs truncate text-accent-foreground/70">
-                {item.data.title}
-              </span>
+              {children}
             </div>
-            {children}
-          </div>
-        )}
+          );
+        }}
       >
-        <Tree treeId="main-tree" rootItem="root" treeLabel="File Explorer" />
+        <Tree treeId="main-tree" rootItem="super-root" treeLabel="File Explorer" />
       </UncontrolledTreeEnvironment>
     </div>
   );
