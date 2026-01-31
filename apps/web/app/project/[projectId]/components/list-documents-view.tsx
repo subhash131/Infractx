@@ -8,23 +8,24 @@ import { useQuery } from "convex/react";
 import { api } from "@workspace/backend/_generated/api";
 import { Doc, Id } from "@workspace/backend/_generated/dataModel";
 import Link from "next/link";
+import { truncate } from "@/modules/utils";
 
 dayjs.extend(relativeTime);
 
 export const ListDocumentsView = ({projectId}: {projectId: Id<"projects">}) => {
   const project = useQuery(api.projects.getProjectById,{projectId})
-  const truncate = (text = "", limit: number) =>
-  text.length > limit ? `${text.slice(0, limit)}...` : text;
+ 
 
   const route = (type:Doc<"documents">["type"],id:Id<"documents">)=>{
     switch (type) {
       case "TEXT":
-        return `/document/${id}`;
+        return `${projectId}/document/${id}`;
       case "CANVAS":
-        return `/design/${id}`;
+        return `${projectId}/design/${id}`;
     }
   }
 
+ 
   return (
     <div className="flex flex-col gap-4 overflow-x-hidden p-4">
     <ProjectHeader name={project?.name || ""} description={project?.description || ""} projectId={projectId}/>

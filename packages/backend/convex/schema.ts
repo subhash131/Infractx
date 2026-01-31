@@ -176,6 +176,15 @@ export default defineSchema({
     .index("by_creator", ["createdBy"]),
 
 
+  text_files: defineTable({
+    title: v.string(),
+    documentId:v.id("documents"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    type:v.union(v.literal("FILE"),v.literal("FOLDER")),
+    parentId: v.optional(v.id("text_files")),
+  }).index("by_document", ["documentId"]).index("by_parent", ["parentId"]),
+
   documents: defineTable({
     projectId:v.id("projects"),
     title: v.string(),
@@ -230,16 +239,4 @@ export default defineSchema({
     // Index for "AI Context Search" (Find block by ID quickly)
     .index("by_blockId", ["blockId"]),
 
-
-  technical_design_files: defineTable({
-    name: v.string(),
-    description: v.optional(v.string()),
-    createdBy: v.string(),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-    projectId: v.string(),
-  })
-    .index("by_project", ["projectId"])
-    .index("by_name", ["name"])
-    .index("by_creator", ["createdBy"]),
 });
