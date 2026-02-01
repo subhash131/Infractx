@@ -14,19 +14,16 @@ export const DocHeader = () => {
   const updateFile = useMutation(api.requirements.textFiles.updateFile);
 
   // Local state for immediate UI updates
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
+  const [title, setTitle] = useState(file?.title || "");
+  const [description, setDescription] = useState(file?.description || "");
 
   // Sync local state with fetched file data ONLY when file ID changes
   useEffect(() => {
     if (file) {
       setTitle(file.title || "");
       setDescription(file.description || "");
-    } else {
-      setTitle("");
-      setDescription("");
     }
-  }, [fileId]); // Only depend on fileId, not file data
+  }, [file]);
 
   // Debounced update functions
   const debouncedUpdateTitle = useMemo(
@@ -46,10 +43,12 @@ export const DocHeader = () => {
   );
 
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newTitle = e.target.value; // Don't trim here - allow typing with spaces
-    setTitle(newTitle); // Update local state immediately
+    const rawTitle = e.target.value;
+    // Replace spaces with underscores for both local state and DB
+    const newTitle = rawTitle.replace(/\s+/g, '_');
+    setTitle(newTitle); // Update local state with underscores
     if (fileId) {
-      // Trim for DB save, use "Untitled" if empty
+      // Trim and use "Untitled" if empty
       const titleToSave = newTitle.trim() || "Untitled";
       debouncedUpdateTitle(fileId as Id<"text_files">, titleToSave);
     }
