@@ -33,8 +33,7 @@ export const FilesList = ({ docId }: { docId: Id<"documents"> }) => {
   );
   const document = useQuery(api.requirements.documents.getDocumentById, docId ? { documentId: docId } : "skip");
   const createFile = useMutation(api.requirements.textFiles.create);
-  const moveFile = useMutation(api.requirements.textFiles.moveFile);
-  const renameFile = useMutation(api.requirements.textFiles.renameFile);
+  const updateFile = useMutation(api.requirements.textFiles.updateFile);
 
   // Manage selected file ID in URL
   const [selectedFileId, setSelectedFileId] = useQueryState("fileId");
@@ -104,9 +103,9 @@ export const FilesList = ({ docId }: { docId: Id<"documents"> }) => {
     onRename: async (item, newName) => {
       const itemId = item.getId();
       if (itemId !== "root" && itemId !== "__virtual_root__") {
-        await renameFile({
+        await updateFile({
           fileId: itemId as Id<"text_files">,
-          newTitle: newName,
+          title: newName,
         });
       }
     },
@@ -161,9 +160,9 @@ export const FilesList = ({ docId }: { docId: Id<"documents"> }) => {
         // Skip virtual root and root items
         if (itemId !== "__virtual_root__" && itemId !== "root") {
           console.log("Moving file", itemId, "to", newParentId);
-          await moveFile({
+          await updateFile({
             fileId: itemId as Id<"text_files">,
-            newParentId: newParentId as Id<"text_files"> | null,
+            parentId: newParentId as Id<"text_files"> | null,
           });
         }
       }
@@ -231,7 +230,6 @@ export const FilesList = ({ docId }: { docId: Id<"documents"> }) => {
                   onKeyDown={(e)=>{
                     if(e.key === "Enter"){
                       (e.target as HTMLInputElement).blur()
-                      e.preventDefault()
                       e.stopPropagation()
                     }
                   }}

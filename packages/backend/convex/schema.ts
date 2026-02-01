@@ -178,6 +178,7 @@ export default defineSchema({
 
   text_files: defineTable({
     title: v.string(),
+    description: v.optional(v.string()),
     documentId:v.id("documents"),
     createdAt: v.number(),
     updatedAt: v.number(),

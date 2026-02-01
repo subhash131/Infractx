@@ -32,28 +32,35 @@ export const getFilesByDocumentId = query({
   },
 });
 
-export const moveFile = mutation({
+export const getTextFileById = query({
   args: {
-    fileId: v.id("text_files"),
-    newParentId: v.union(v.id("text_files"), v.null()),
+    fileId:v.id("text_files"),
   },
   handler: async (ctx, args) => {
-    await ctx.db.patch(args.fileId, {
-      parentId: args.newParentId,
-      updatedAt: Date.now(),
-    });
+    const file = await ctx.db.get(args.fileId);
+    return file;
   },
 });
 
-export const renameFile = mutation({
+export const updateFile = mutation({
   args: {
     fileId: v.id("text_files"),
-    newTitle: v.string(),
+    title: v.optional(v.string()),
+    description: v.optional(v.string()),
+    parentId: v.optional(v.union(v.id("text_files"), v.null())),
   },
   handler: async (ctx, args) => {
-    await ctx.db.patch(args.fileId, {
-      title: args.newTitle,
+    const { fileId, ...updates } = args;
+    
+    // Build the update object with only provided fields
+    const updateData: Record<string, any> = {
       updatedAt: Date.now(),
-    });
+    };
+    
+    if (updates.title !== undefined) updateData.title = updates.title;
+    if (updates.description !== undefined) updateData.description = updates.description;
+    if (updates.parentId !== undefined) updateData.parentId = updates.parentId;
+    
+    await ctx.db.patch(fileId, updateData);
   },
 });
