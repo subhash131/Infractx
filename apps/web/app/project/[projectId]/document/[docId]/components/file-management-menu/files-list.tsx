@@ -33,7 +33,20 @@ export const FilesList = ({ docId }: { docId: Id<"documents"> }) => {
   const createFile = useMutation(api.requirements.textFiles.create);
   const moveFile = useMutation(api.requirements.textFiles.moveFile);
 
-  const [state, setState] = useState<Partial<TreeState<TreeItemData>>>({});
+  const [state, setState] = useState<Partial<TreeState<TreeItemData>>>(() => {
+    // Load initial state from localStorage
+    if (typeof window !== "undefined" && docId) {
+      const savedState = localStorage.getItem(`tree-state-${docId}`);
+      if (savedState) {
+        try {
+          return JSON.parse(savedState);
+        } catch (e) {
+          console.error("Failed to parse saved tree state:", e);
+        }
+      }
+    }
+    return {};
+  });
 
   const dataStructure = useMemo<FileDataStructure>(() => {
     const structure: FileDataStructure = {
@@ -165,6 +178,13 @@ export const FilesList = ({ docId }: { docId: Id<"documents"> }) => {
       tree.rebuildTree();
     }
   }, [files, tree]);
+
+  // Save tree state to localStorage when it changes
+  useEffect(() => {
+    if (docId && Object.keys(state).length > 0) {
+      localStorage.setItem(`tree-state-${docId}`, JSON.stringify(state));
+    }
+  }, [state, docId]);
 
 
   if (!files) return <div className="p-4 text-gray-500">Loading files...</div>;
