@@ -5,6 +5,7 @@ import {
   hotkeysCoreFeature,
   dragAndDropFeature,
   keyboardDragAndDropFeature,
+  renamingFeature,
   TreeState,
   insertItemsAtTarget,
   removeItemsFromParents,
@@ -12,7 +13,7 @@ import {
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@workspace/backend/_generated/api";
 import { Doc, Id } from "@workspace/backend/_generated/dataModel";
-import { useMemo, useEffect, useState } from "react";
+import { useMemo, useEffect, useState, Fragment } from "react";
 import { cn } from "@workspace/ui/lib/utils";
 import { TreeItemData } from "./utils/parse-tree";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -32,6 +33,7 @@ export const FilesList = ({ docId }: { docId: Id<"documents"> }) => {
   const document = useQuery(api.requirements.documents.getDocumentById, docId ? { documentId: docId } : "skip");
   const createFile = useMutation(api.requirements.textFiles.create);
   const moveFile = useMutation(api.requirements.textFiles.moveFile);
+  const renameFile = useMutation(api.requirements.textFiles.renameFile);
 
   const [state, setState] = useState<Partial<TreeState<TreeItemData>>>(() => {
     // Load initial state from localStorage
@@ -95,6 +97,19 @@ export const FilesList = ({ docId }: { docId: Id<"documents"> }) => {
     isItemFolder: (item) => item.getItemData().type === "FOLDER",
     canReorder: false,
     indent: 20,
+    onRename: async (item, newName) => {
+      const itemId = item.getId();
+      if (itemId !== "root" && itemId !== "__virtual_root__") {
+        await renameFile({
+          fileId: itemId as Id<"text_files">,
+          newTitle: newName,
+        });
+      }
+    },
+    canRename: (item) => {
+      const itemId = item.getId();
+      return itemId !== "root" && itemId !== "__virtual_root__";
+    },
     dataLoader: {
       getItem: (itemId) => {
         if (itemId === "__virtual_root__") {
@@ -169,6 +184,7 @@ export const FilesList = ({ docId }: { docId: Id<"documents"> }) => {
       hotkeysCoreFeature,
       dragAndDropFeature,
       keyboardDragAndDropFeature,
+      renamingFeature,
     ],
   });
 
@@ -192,30 +208,60 @@ export const FilesList = ({ docId }: { docId: Id<"documents"> }) => {
   return (
       <div {...tree.getContainerProps()} className="tree flex flex-col items-start w-full relative">
         {tree.getItems().map((item) => (
-          <button
-            {...item.getProps()}
-            key={item.getId()}
-            style={{ paddingLeft: `${item.getItemMeta().level * 20}px` }}
-            className="w-full text-left rounded"
-          >
-            <div
-              className={cn("treeitem flex items-center gap-2 px-2 py-1 rounded hover:bg-gray-700", {
-                "bg-gray-700/50": item.isSelected(),
-                "bg-gray-700": item.isDragTarget(),
-              })}
-            >
-              <span>
-                {item.isFolder() ? (
-                  <HugeiconsIcon icon={item.isExpanded() ? Folder02Icon : Folder01Icon} size={16} />
-                ) : (
-                  <HugeiconsIcon icon={File02Icon} size={16} />
-                )}
-              </span>
-              <span>{item.getItemName()}</span>
-            </div>
-          </button>
+          <Fragment key={item.getId()}>
+            {item.isRenaming() ? (
+              <div
+                className="flex items-center gap-2 px-2 py-1 w-full"
+                style={{ paddingLeft: `${item.getItemMeta().level * 20}px` }}
+              >
+                <span>
+                  {item.isFolder() ? (
+                    <HugeiconsIcon icon={item.isExpanded() ? Folder02Icon : Folder01Icon} size={16} />
+                  ) : (
+                    <HugeiconsIcon icon={File02Icon} size={16} />
+                  )}
+                </span>
+                <input
+                  {...item.getRenameInputProps()}
+                  className="bg-transparent rounded px-2 text-xs focus:outline-none max-w-fit border min-w-0 "
+                  onKeyDown={(e)=>{
+                    if(e.key === "Enter"){
+                      (e.target as HTMLInputElement).blur()
+                      e.preventDefault()
+                      e.stopPropagation()
+                    }
+                  }}
+                />
+              </div>
+            ) : (
+              <button
+                {...item.getProps()}
+                style={{ paddingLeft: `${item.getItemMeta().level * 20}px` }}
+                className="w-full text-left rounded border-0 outline-none"
+                onDoubleClick={(e) => {
+                  e.stopPropagation();
+                  item.startRenaming();
+                }}
+              >
+                <div
+                  className={cn("treeitem flex items-center gap-2 px-2 py-1 rounded hover:bg-gray-700", {
+                    "bg-gray-700/50": item.isSelected(),
+                    "bg-gray-700": item.isDragTarget(),
+                  })}
+                >
+                  <span>
+                    {item.isFolder() ? (
+                      <HugeiconsIcon icon={item.isExpanded() ? Folder02Icon : Folder01Icon} size={16} />
+                    ) : (
+                      <HugeiconsIcon icon={File02Icon} size={16} />
+                    )}
+                  </span>
+                  <span>{item.getItemName()}</span>
+                </div>
+              </button>
+            )}
+          </Fragment>
         ))}
-        <div style={tree.getDragLineStyle()} className="absolute h-0.5 bg-blue-500 pointer-events-none" />
       </div>
       
   );

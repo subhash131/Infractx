@@ -44,3 +44,16 @@ export const moveFile = mutation({
     });
   },
 });
+
+export const renameFile = mutation({
+  args: {
+    fileId: v.id("text_files"),
+    newTitle: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.fileId, {
+      title: args.newTitle,
+      updatedAt: Date.now(),
+    });
+  },
+});
