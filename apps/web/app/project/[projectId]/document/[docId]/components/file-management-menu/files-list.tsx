@@ -12,13 +12,14 @@ import {
 } from "@headless-tree/core";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@workspace/backend/_generated/api";
-import { Doc, Id } from "@workspace/backend/_generated/dataModel";
+import {  Id } from "@workspace/backend/_generated/dataModel";
 import { useMemo, useEffect, useState, Fragment } from "react";
 import { cn } from "@workspace/ui/lib/utils";
 import { TreeItemData } from "./utils/parse-tree";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { File02Icon, Folder01Icon, Folder02Icon } from "@hugeicons/core-free-icons";
+import { File02Icon, FileAddIcon, Folder01Icon, Folder02Icon, FolderAddIcon } from "@hugeicons/core-free-icons";
 import { useQueryState } from "nuqs";
+import { truncate } from "@/modules/utils";
 
 // Data structure type for the tree
 type FileDataStructure = {
@@ -36,7 +37,7 @@ export const FilesList = ({ docId }: { docId: Id<"documents"> }) => {
   const updateFile = useMutation(api.requirements.textFiles.updateFile);
 
   // Manage selected file ID in URL
-  const [selectedFileId, setSelectedFileId] = useQueryState("fileId");
+  const [_, setSelectedFileId] = useQueryState("fileId");
 
   const [state, setState] = useState<Partial<TreeState<TreeItemData>>>(() => {
     // Load initial state from localStorage
@@ -103,10 +104,16 @@ export const FilesList = ({ docId }: { docId: Id<"documents"> }) => {
     onRename: async (item, newName) => {
       const itemId = item.getId();
       if (itemId !== "root" && itemId !== "__virtual_root__") {
+        const titleToSave = newName.trim().replace(/\s+/g, "_") || "Untitled";
         await updateFile({
           fileId: itemId as Id<"text_files">,
-          title: newName,
+          title: titleToSave,
         });
+        setState(prev => ({
+          ...prev,
+          renamingItem: undefined,
+          renamingValue:""
+        }));
       }
     },
     canRename: (item) => {
@@ -201,15 +208,101 @@ export const FilesList = ({ docId }: { docId: Id<"documents"> }) => {
   // Save tree state to localStorage when it changes
   useEffect(() => {
     if (docId && Object.keys(state).length > 0) {
-      localStorage.setItem(`tree-state-${docId}`, JSON.stringify(state));
+      const { renamingItem, ...stateToSave } = state;
+      localStorage.setItem(`tree-state-${docId}`, JSON.stringify(stateToSave));
     }
   }, [state, docId]);
 
 
-  if (!files) return <div className="p-4 text-gray-500">Loading files...</div>;
+  if (!files) return <div className="p-2">Loading files...</div>;
+
+  // Determine parent ID based on selected item
+  const getParentForNewItem = (): Id<"text_files"> | undefined => {
+    const selectedItems = tree.getState().selectedItems;
+    
+    // If nothing selected or root is selected, create at root level
+    if (!selectedItems || selectedItems.length === 0) return undefined;
+    
+    const selectedId = selectedItems[0]; // Get first selected item
+    if (selectedId === "root" || selectedId === "__virtual_root__") return undefined;
+    
+    // Find the selected file/folder
+    const selectedItem = files.find(f => f._id === selectedId);
+    if (!selectedItem) return undefined;
+    
+    // If selected item is a folder, create inside it
+    if (selectedItem.type === "FOLDER") {
+      return selectedItem._id;
+    }
+    
+    // If selected item is a file, create in its parent
+    return selectedItem.parentId || undefined;
+  };
+
+  const handleCreateFile = async () => {
+    const parentId = getParentForNewItem();
+    
+    const newFileId = await createFile({
+      title: "Untitled",
+      documentId: docId,
+      type: "FILE",
+      parentId,
+    });
+    
+    // Expand the parent folder if it's closed
+    if (parentId) {
+      setState(prev => ({
+        ...prev,
+        expandedItems: [...(prev.expandedItems || []), parentId],
+        renamingValue:""
+      }));
+    }
+    
+    // Auto-rename the new file
+    if (newFileId) {
+      setTimeout(() => {
+        setState(prev => ({
+          ...prev,
+          renamingItem: newFileId,
+          renamingValue:""
+        }));
+      }, 100); // Small delay to ensure the item is rendered
+    }
+  };
+
+  const handleCreateFolder = async () => {
+    const parentId = getParentForNewItem();
+    
+    const newFolderId = await createFile({
+      title: "New_Folder",
+      documentId: docId,
+      type: "FOLDER",
+      parentId,
+    });
+    
+    // Expand the parent folder if it's closed
+    if (parentId) {
+      setState(prev => ({
+        ...prev,
+        expandedItems: [...(prev.expandedItems || []), parentId],
+        renamingValue:""
+      }));
+    }
+    
+    // Auto-rename the new folder
+    if (newFolderId) {
+      setTimeout(() => {
+        setState(prev => ({
+          ...prev,
+          renamingItem: newFolderId,
+          renamingValue:""
+        }));
+      }, 100); // Small delay to ensure the item is rendered
+    }
+  };
 
   return (
-      <div {...tree.getContainerProps()} className="tree flex flex-col items-start w-full relative">
+    <div {...tree.getContainerProps()} className="tree flex flex-col items-start w-full relative">
         {tree.getItems().map((item) => (
           <Fragment key={item.getId()}>
             {item.isRenaming() ? (
@@ -225,7 +318,27 @@ export const FilesList = ({ docId }: { docId: Id<"documents"> }) => {
                   )}
                 </span>
                 <input
-                  {...item.getRenameInputProps()}
+                  {...(() => {
+                    const { onChange, ...rest } = item.getRenameInputProps();
+                    return {
+                      ...rest,
+                      onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
+                        const newValue = e.target.value.replace(/\s/g, "_");
+                        e.target.value = newValue; // Update input value visually
+                        onChange?.({
+                          ...e,
+                          target: {
+                            ...e.target,
+                            value: newValue,
+                          },
+                        } as React.ChangeEvent<HTMLInputElement>);
+                        setState(prev => ({
+                          ...prev,
+                          renamingValue:newValue
+                        }))
+                      }
+                    };
+                  })()}
                   className="bg-transparent rounded px-2 text-xs focus:outline-none max-w-fit border min-w-0 "
                   onKeyDown={(e)=>{
                     if(e.key === "Enter"){
@@ -233,13 +346,14 @@ export const FilesList = ({ docId }: { docId: Id<"documents"> }) => {
                       e.stopPropagation()
                     }
                   }}
+                  
                 />
               </div>
             ) : (
               <button
                 {...item.getProps()}
                 style={{ paddingLeft: `${item.getItemMeta().level * 20}px` }}
-                className="w-full text-left rounded border-0 outline-none"
+                className="w-full text-left rounded border-0 outline-none group"
                 onClick={(e) => {
                   // Call the original onClick from getProps() to maintain tree behavior
                   const originalOnClick = item.getProps().onClick;
@@ -264,19 +378,47 @@ export const FilesList = ({ docId }: { docId: Id<"documents"> }) => {
                 }}
               >
                 <div
-                  className={cn("treeitem flex items-center gap-2 px-2 py-1 rounded hover:bg-gray-700", {
+                  className={cn("treeitem flex items-center gap-2 px-2 py-1 rounded hover:bg-gray-700 justify-between w-full", {
                     "bg-gray-700/50": item.isSelected(),
                     "bg-gray-700": item.isDragTarget(),
                   })}
                 >
-                  <span>
-                    {item.isFolder() ? (
-                      <HugeiconsIcon icon={item.isExpanded() ? Folder02Icon : Folder01Icon} size={16} />
-                    ) : (
-                      <HugeiconsIcon icon={File02Icon} size={16} />
-                    )}
-                  </span>
-                  <span>{item.getItemName()}</span>
+                  <div className="flex items-center gap-2">
+                    <span>
+                      {item.isFolder() ? (
+                        <HugeiconsIcon icon={item.isExpanded() ? Folder02Icon : Folder01Icon} size={16} />
+                      ) : (
+                        <HugeiconsIcon icon={File02Icon} size={16} />
+                      )}
+                    </span>
+                    <span>{truncate(item.getItemName(), 12)}</span>
+                  </div>
+                  
+                  {/* Show action buttons only for root */}
+                  {item.getId() === "root" && (
+                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleCreateFile();
+                        }}
+                        className="p-1 hover:bg-gray-600 rounded text-xs cursor-pointer"
+                        title="New File"
+                      >
+                       <HugeiconsIcon icon={FileAddIcon} size={16} />
+                      </div>
+                      <div
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleCreateFolder();
+                        }}
+                        className="p-1 hover:bg-gray-600 rounded text-xs cursor-pointer"
+                        title="New Folder"
+                      >
+                        <HugeiconsIcon icon={FolderAddIcon} size={16} />
+                      </div>
+                    </div>
+                  )}
                 </div>
               </button>
             )}

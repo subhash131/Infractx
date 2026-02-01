@@ -20,7 +20,7 @@ export const DocHeader = () => {
   // Sync local state with fetched file data ONLY when file ID changes
   useEffect(() => {
     if (file) {
-      setTitle(file.title || "");
+      setTitle(()=>file.title);
       setDescription(file.description || "");
     }
   }, [file]);
