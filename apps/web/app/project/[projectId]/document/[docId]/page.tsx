@@ -15,11 +15,10 @@ const RequirementsDraftingPage = () => {
   const params = useParams();
 
   const docId = params?.docId as Id<"documents">;
-  const projectId = params?.projectId as Id<"projects">;
 
   return (
     <div className="w-screen h-screen overflow-hidden hide-scrollbar flex">
-      <FileManagementMenu docId={docId} projectId={projectId} />
+      <FileManagementMenu docId={docId} />
       <div className="w-full h-screen overflow-hidden overflow-y-scroll hide-scrollbar">
         <DocHeader />
         <CollaborativeEditor />
