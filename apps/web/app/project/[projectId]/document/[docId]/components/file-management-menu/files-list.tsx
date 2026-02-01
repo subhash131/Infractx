@@ -3,7 +3,11 @@ import {
   syncDataLoaderFeature,
   selectionFeature,
   hotkeysCoreFeature,
+  dragAndDropFeature,
+  keyboardDragAndDropFeature,
   TreeState,
+  insertItemsAtTarget,
+  removeItemsFromParents,
 } from "@headless-tree/core";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@workspace/backend/_generated/api";
@@ -12,7 +16,7 @@ import { useMemo, useEffect, useState } from "react";
 import { cn } from "@workspace/ui/lib/utils";
 import { TreeItemData } from "./utils/parse-tree";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { File02Icon, Folder01Icon } from "@hugeicons/core-free-icons";
+import { File02Icon, Folder01Icon, Folder02Icon } from "@hugeicons/core-free-icons";
 
 // Data structure type for the tree
 type FileDataStructure = {
@@ -27,6 +31,7 @@ export const FilesList = ({ docId }: { docId: Id<"documents"> }) => {
   );
   const document = useQuery(api.requirements.documents.getDocumentById, docId ? { documentId: docId } : "skip");
   const createFile = useMutation(api.requirements.textFiles.create);
+  const moveFile = useMutation(api.requirements.textFiles.moveFile);
 
   const [state, setState] = useState<Partial<TreeState<TreeItemData>>>({});
 
@@ -75,6 +80,8 @@ export const FilesList = ({ docId }: { docId: Id<"documents"> }) => {
     rootItemId: "__virtual_root__",
     getItemName: (item) => item.getItemData().title,
     isItemFolder: (item) => item.getItemData().type === "FOLDER",
+    canReorder: false,
+    indent: 20,
     dataLoader: {
       getItem: (itemId) => {
         if (itemId === "__virtual_root__") {
@@ -99,7 +106,57 @@ export const FilesList = ({ docId }: { docId: Id<"documents"> }) => {
         return dataStructure[itemId]?.childrenIds || [];
       },
     },
-    features: [syncDataLoaderFeature, selectionFeature, hotkeysCoreFeature],
+    onDrop: async (items, target) => {
+      const itemIds = items.map((item) => item.getId());
+      
+      // Determine the new parent ID based on the target
+      let newParentId: string | null = null;
+      
+      // The target structure contains an 'item' property which is the parent
+      const targetParentId = target.item.getId();
+      
+      // Check for both root and virtual root
+      if (targetParentId === "root" || targetParentId === "__virtual_root__") {
+        newParentId = null;
+      } else {
+        newParentId = targetParentId;
+      }
+
+      console.log("Drop target:", target, "New parent ID:", newParentId);
+
+      // Update backend for each moved item
+      for (const itemId of itemIds) {
+        // Skip virtual root and root items
+        if (itemId !== "__virtual_root__" && itemId !== "root") {
+          console.log("Moving file", itemId, "to", newParentId);
+          await moveFile({
+            fileId: itemId as Id<"text_files">,
+            newParentId: newParentId as Id<"text_files"> | null,
+          });
+        }
+      }
+
+      // Update local tree structure
+      await removeItemsFromParents(items, (item, newChildren) => {
+        const itemData = item.getItemData();
+        if (itemData) {
+          itemData.childrenIds = newChildren;
+        }
+      });
+      await insertItemsAtTarget(itemIds, target, (item, newChildren) => {
+        const itemData = item.getItemData();
+        if (itemData) {
+          itemData.childrenIds = newChildren;
+        }
+      });
+    },
+    features: [
+      syncDataLoaderFeature,
+      selectionFeature,
+      hotkeysCoreFeature,
+      dragAndDropFeature,
+      keyboardDragAndDropFeature,
+    ],
   });
 
   // Rebuild tree when data changes
@@ -113,7 +170,7 @@ export const FilesList = ({ docId }: { docId: Id<"documents"> }) => {
   if (!files) return <div className="p-4 text-gray-500">Loading files...</div>;
 
   return (
-      <div {...tree.getContainerProps()} className="tree flex flex-col items-start w-full">
+      <div {...tree.getContainerProps()} className="tree flex flex-col items-start w-full relative">
         {tree.getItems().map((item) => (
           <button
             {...item.getProps()}
@@ -123,14 +180,22 @@ export const FilesList = ({ docId }: { docId: Id<"documents"> }) => {
           >
             <div
               className={cn("treeitem flex items-center gap-2 px-2 py-1 rounded hover:bg-gray-700", {
-                "bg-gray-700": item.isSelected(),
+                "bg-gray-700/50": item.isSelected(),
+                "bg-gray-700": item.isDragTarget(),
               })}
             >
-              <span>{item.isFolder() ? <HugeiconsIcon icon={Folder01Icon} size={16} /> : <HugeiconsIcon icon={File02Icon} size={16} />}</span>
+              <span>
+                {item.isFolder() ? (
+                  <HugeiconsIcon icon={item.isExpanded() ? Folder02Icon : Folder01Icon} size={16} />
+                ) : (
+                  <HugeiconsIcon icon={File02Icon} size={16} />
+                )}
+              </span>
               <span>{item.getItemName()}</span>
             </div>
           </button>
         ))}
+        <div style={tree.getDragLineStyle()} className="absolute h-0.5 bg-blue-500 pointer-events-none" />
       </div>
       
   );

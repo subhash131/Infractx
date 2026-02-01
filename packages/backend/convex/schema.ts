@@ -182,7 +182,7 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
     type:v.union(v.literal("FILE"),v.literal("FOLDER")),
-    parentId: v.optional(v.id("text_files")),
+    parentId: v.optional(v.union(v.id("text_files"),v.null())),
   }).index("by_document", ["documentId"]).index("by_parent", ["parentId"]),
 
   documents: defineTable({

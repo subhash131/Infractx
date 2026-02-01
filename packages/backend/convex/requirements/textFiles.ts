@@ -35,7 +35,7 @@ export const getFilesByDocumentId = query({
 export const moveFile = mutation({
   args: {
     fileId: v.id("text_files"),
-    newParentId: v.optional(v.id("text_files")),
+    newParentId: v.union(v.id("text_files"), v.null()),
   },
   handler: async (ctx, args) => {
     await ctx.db.patch(args.fileId, {
