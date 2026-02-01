@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { ThemeProvider as NextThemesProvider } from "next-themes";
+import { NuqsAdapter } from "nuqs/adapters/next/app";
 import {
   Authenticated,
   ConvexReactClient,
@@ -28,7 +29,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
     >
       <ClerkProvider appearance={{ theme: shadcn }}>
         <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
-          {children}
+          <NuqsAdapter>
+            {children}
+          </NuqsAdapter>
         </ConvexProviderWithClerk>
       </ClerkProvider>
     </NextThemesProvider>

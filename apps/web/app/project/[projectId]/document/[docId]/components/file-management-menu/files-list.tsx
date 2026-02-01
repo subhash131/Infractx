@@ -18,6 +18,7 @@ import { cn } from "@workspace/ui/lib/utils";
 import { TreeItemData } from "./utils/parse-tree";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { File02Icon, Folder01Icon, Folder02Icon } from "@hugeicons/core-free-icons";
+import { useQueryState } from "nuqs";
 
 // Data structure type for the tree
 type FileDataStructure = {
@@ -34,6 +35,9 @@ export const FilesList = ({ docId }: { docId: Id<"documents"> }) => {
   const createFile = useMutation(api.requirements.textFiles.create);
   const moveFile = useMutation(api.requirements.textFiles.moveFile);
   const renameFile = useMutation(api.requirements.textFiles.renameFile);
+
+  // Manage selected file ID in URL
+  const [selectedFileId, setSelectedFileId] = useQueryState("fileId");
 
   const [state, setState] = useState<Partial<TreeState<TreeItemData>>>(() => {
     // Load initial state from localStorage
@@ -238,6 +242,24 @@ export const FilesList = ({ docId }: { docId: Id<"documents"> }) => {
                 {...item.getProps()}
                 style={{ paddingLeft: `${item.getItemMeta().level * 20}px` }}
                 className="w-full text-left rounded border-0 outline-none"
+                onClick={(e) => {
+                  // Call the original onClick from getProps() to maintain tree behavior
+                  const originalOnClick = item.getProps().onClick;
+                  if (originalOnClick) {
+                    originalOnClick(e);
+                  }
+                  
+                  // Then add our custom logic for files only
+                  const itemId = item.getId();
+                  const itemData = item.getItemData();
+                  if (
+                    itemId !== "root" && 
+                    itemId !== "__virtual_root__" && 
+                    itemData.type === "FILE"
+                  ) {
+                    setSelectedFileId(itemId);
+                  }
+                }}
                 onDoubleClick={(e) => {
                   e.stopPropagation();
                   item.startRenaming();
