@@ -25,27 +25,20 @@ const BASE_URL = "https://localhost:3000/ai";
 
 export default function CollaborativeEditor() {
   const [fileId] = useQueryState("fileId");
-  // 1. Store the "Last Known Server State" to compare against
   const lastSavedState = useRef<Block[]>([]);
   const isFirstLoad = useRef(true);
   const isLoadingFromDB = useRef(false);
+  const isSyncing = useRef(false); // NEW: Track if we're currently syncing
+  const pendingSyncVersion = useRef<string | null>(null); // NEW: Track what we're syncing
+  
   const savedBlocks = useQuery(
     api.requirements.textFileBlocks.getBlocksByFileId,
-    fileId
-      ? {
-          textFileId: fileId as Id<"text_files">,
-        }
-      : "skip",
+    fileId ? { textFileId: fileId as Id<"text_files"> } : "skip",
   );
-  const bulkInsertData = useMutation(
-    api.requirements.textFileBlocks.bulkCreate,
-  );
-  const bulkUpdateData = useMutation(
-    api.requirements.textFileBlocks.bulkUpdate,
-  );
-  const bulkDeleteData = useMutation(
-    api.requirements.textFileBlocks.bulkDelete,
-  );
+  
+  const bulkInsertData = useMutation(api.requirements.textFileBlocks.bulkCreate);
+  const bulkUpdateData = useMutation(api.requirements.textFileBlocks.bulkUpdate);
+  const bulkDeleteData = useMutation(api.requirements.textFileBlocks.bulkDelete);
 
   const editor = useCreateBlockNote({
     dictionary: { ...en, ai: aiEn },
@@ -64,47 +57,54 @@ export default function CollaborativeEditor() {
     if (savedBlocks === undefined) return;
 
     const transformed = transformToBlockNoteStructure(savedBlocks);
+    const transformedHash = JSON.stringify(transformed);
     
-    // Check if the incoming data is different from what we last saved/knew about
-    // This allows collaboration (remote changes) while ignoring our own echoes
-    const isSameAsLastSaved = JSON.stringify(transformed) === JSON.stringify(lastSavedState.current);
+    // Check if this is the data we just saved (echo detection)
+    const isOurOwnEcho = transformedHash === JSON.stringify(lastSavedState.current);
+    
+    // Check if we're currently in the middle of syncing
+    if (isSyncing.current) {
+      console.log("⏸️ Ignoring DB update - sync in progress");
+      // After sync completes, we'll update lastSavedState, so this echo will be ignored
+      return;
+    }
 
     if (isFirstLoad.current) {
-        // Initial Load
-        if (savedBlocks.length > 0) {
-            isLoadingFromDB.current = true;
-            editor.replaceBlocks(editor.document, transformed);
-            lastSavedState.current = JSON.parse(JSON.stringify(transformed));
-            setTimeout(() => {
-                isLoadingFromDB.current = false;
-            }, 100);
-        }
-        isFirstLoad.current = false;
+      // Initial Load
+      if (savedBlocks.length > 0) {
+        isLoadingFromDB.current = true;
+        editor.replaceBlocks(editor.document, transformed);
+        lastSavedState.current = JSON.parse(JSON.stringify(transformed));
+        setTimeout(() => {
+          isLoadingFromDB.current = false;
+        }, 100);
+      }
+      isFirstLoad.current = false;
     } else {
-        // Subsequent Updates (Collaboration)
-        if (!isSameAsLastSaved) {
-            // Also check if matches current editor state to avoid disruptive re-renders if content is effectively same
-             const isSameAsEditor = JSON.stringify(transformed) === JSON.stringify(editor.document);
-             
-             if (!isSameAsEditor) {
-                console.log("🔄 Apply Remote Update");
-                isLoadingFromDB.current = true;
-                editor.replaceBlocks(editor.document, transformed);
-                lastSavedState.current = JSON.parse(JSON.stringify(transformed));
-                setTimeout(() => {
-                   isLoadingFromDB.current = false;
-                }, 100);
-             } else {
-                // Determine if we should update lastSavedState anyway to sync ranks/ids?
-                // Yes, better keep it in sync with server truth
-                lastSavedState.current = JSON.parse(JSON.stringify(transformed));
-             }
+      // Subsequent Updates (Collaboration)
+      if (!isOurOwnEcho) {
+        // Check if it's actually different from current editor state
+        const isSameAsEditor = transformedHash === JSON.stringify(editor.document);
+        
+        if (!isSameAsEditor) {
+          console.log("🔄 Applying Remote Update from collaborator");
+          isLoadingFromDB.current = true;
+          editor.replaceBlocks(editor.document, transformed);
+          lastSavedState.current = JSON.parse(JSON.stringify(transformed));
+          setTimeout(() => {
+            isLoadingFromDB.current = false;
+          }, 100);
+        } else {
+          // Sync the reference even if content is same
+          lastSavedState.current = JSON.parse(JSON.stringify(transformed));
         }
+      } else {
+        console.log("✅ Ignoring own echo from DB");
+      }
     }
   }, [savedBlocks, editor]);
 
-
-  // 2. The Sync Logic (Debounced)
+  // The Sync Logic (Debounced)
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
   const triggerSync = useCallback(() => {
@@ -118,70 +118,82 @@ export default function CollaborativeEditor() {
 
     debounceRef.current = setTimeout(async () => {
       console.log("⚡ Calculating Diff...");
+      
+      isSyncing.current = true; // Mark that we're syncing
 
       const currentBlocks = editor.document;
 
-      // RUN THE SMART DIFF ENGINE
       const { toCreate, toUpdate, toDelete } = calculateSmartDiff(
-        lastSavedState.current, // Old state (DB)
-        currentBlocks, // New state (Editor)
+        lastSavedState.current,
+        currentBlocks,
       );
 
       // Log results
       if (toCreate.length > 0 || toUpdate.length > 0 || toDelete.length > 0) {
         console.group("📝 Syncing Changes to DB", fileId);
-        if (toCreate.length) {
-          console.log("🟢 To CREATE:", toCreate);
-          console.log("🟢 To CREATE:", toCreate);
-          const blocksToInsert = toCreate.map((block) => ({
-            externalId: block.id,
-            type: block.type,
-            props: block.props,
-            content: block.content,
-            rank: block.rank,
-            parentId: block.parentId ?? null,
-          }));
+        
+        try {
+          if (toCreate.length) {
+            console.log("🟢 To CREATE:", toCreate.length, "blocks");
+            const blocksToInsert = toCreate.map((block) => ({
+              externalId: block.id,
+              type: block.type,
+              props: block.props,
+              content: block.content,
+              rank: block.rank,
+              parentId: block.parentId ?? null,
+            }));
 
-          await bulkInsertData({
-            textFileId: fileId as Id<"text_files">,
-            blocks: blocksToInsert,
-          });
-        }
-        if (toUpdate.length) {
-          console.log("🟡 To UPDATE:", toUpdate);
-          const blocksToUpdate = toUpdate.map((block) => {
-            console.log(block);
-            return {
+            await bulkInsertData({
+              textFileId: fileId as Id<"text_files">,
+              blocks: blocksToInsert,
+            });
+          }
+          
+          if (toUpdate.length) {
+            console.log("🟡 To UPDATE:", toUpdate.length, "blocks");
+            const blocksToUpdate = toUpdate.map((block) => ({
               externalId: block.id,
               content: block.content,
+              type: block.type,
               props: block.props,
               rank: block.rank,
               parentId: block.parentId,
-            };
-          });
-          await bulkUpdateData({ blocks: blocksToUpdate,textFileId:fileId as Id<"text_files"> });
+            }));
+            await bulkUpdateData({ 
+              blocks: blocksToUpdate,
+              textFileId: fileId as Id<"text_files"> 
+            });
+          }
+          
+          if (toDelete.length) {
+            console.log("🔴 To DELETE:", toDelete.length, "blocks");
+            await bulkDeleteData({ externalIds: toDelete });
+          }
+          
+          console.groupEnd();
+          
+          // CRITICAL: Update last saved state BEFORE clearing sync flag
+          lastSavedState.current = JSON.parse(JSON.stringify(currentBlocks));
+          
+        } catch (error) {
+          console.error("❌ Sync failed:", error);
+        } finally {
+          // Clear sync flag after a small delay to let DB propagate
+          setTimeout(() => {
+            isSyncing.current = false;
+          }, 100);
         }
-        if (toDelete.length) {
-          console.log("🔴 To DELETE:", toDelete);
-          await bulkDeleteData({ externalIds: toDelete });
-        }
-        console.groupEnd();
-        // Update "Last Known State" only after successful sync
-        lastSavedState.current = JSON.parse(JSON.stringify(currentBlocks));
       } else {
-        console.log("No changes detected (clean).");
+        console.log("✅ No changes detected (clean).");
+        isSyncing.current = false;
       }
     }, 1000);
-  }, [editor]);
+  }, [editor, fileId, bulkInsertData, bulkUpdateData, bulkDeleteData]);
 
-  // 3. Attach Listener
+  // Attach Listener
   useEffect(() => {
     if (!editor) return;
-
-    if (isFirstLoad.current) {
-      lastSavedState.current = JSON.parse(JSON.stringify(editor.document));
-      isFirstLoad.current = false;
-    }
 
     const unsubscribe = editor.onChange(() => {
       triggerSync();
@@ -203,7 +215,6 @@ export default function CollaborativeEditor() {
     </BlockNoteView>
   );
 }
-
 
 function calculateSmartDiff(oldBlocks: Block[], newBlocks: Block[]) {
   const oldMap = new Map<
