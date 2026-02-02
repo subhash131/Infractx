@@ -20,6 +20,6 @@
     "isolatedModules": true,
     "noEmit": true
   },
-  "include": ["./**/*"],
+  "include": ["./**/*", "../../../apps/web/app/project/[projectId]/document/[docId]/components/utils/transform-to-blocknote-structure.tsx"],
   "exclude": ["./_generated"]
 }

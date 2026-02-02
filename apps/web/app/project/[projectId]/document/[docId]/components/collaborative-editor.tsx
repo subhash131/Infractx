@@ -15,13 +15,37 @@ import { FormattingToolbarWithAI } from "./formatting-toolbar-with-ai";
 import { SuggestionMenuWithAI } from "./suggestion-menu-with-ai";
 import { SuggestionMenuForRequirements } from "./suggestion-menu-for-requirements";
 import { generateKeyBetween } from "fractional-indexing";
+import { useMutation, useQuery } from "convex/react";
+import { api } from "@workspace/backend/_generated/api";
+import { Id } from "@workspace/backend/_generated/dataModel";
+import { useQueryState } from "nuqs";
+import { transformToBlockNoteStructure } from "./utils/transform-to-blocknote-structure";
 
 const BASE_URL = "https://localhost:3000/ai";
 
 export default function CollaborativeEditor() {
+  const [fileId] = useQueryState("fileId");
   // 1. Store the "Last Known Server State" to compare against
   const lastSavedState = useRef<Block[]>([]);
   const isFirstLoad = useRef(true);
+  const isLoadingFromDB = useRef(false);
+  const savedBlocks = useQuery(
+    api.requirements.textFileBlocks.getBlocksByFileId,
+    fileId
+      ? {
+          textFileId: fileId as Id<"text_files">,
+        }
+      : "skip",
+  );
+  const bulkInsertData = useMutation(
+    api.requirements.textFileBlocks.bulkCreate,
+  );
+  const bulkUpdateData = useMutation(
+    api.requirements.textFileBlocks.bulkUpdate,
+  );
+  const bulkDeleteData = useMutation(
+    api.requirements.textFileBlocks.bulkDelete,
+  );
 
   const editor = useCreateBlockNote({
     dictionary: { ...en, ai: aiEn },
@@ -32,27 +56,67 @@ export default function CollaborativeEditor() {
         }),
       }),
     ],
-    initialContent: [
-      {
-        type: "heading",
-        props: { level: 1 },
-        content: "Smart Diffing Demo",
-      },
-      {
-        type: "paragraph",
-        content:
-          "Open your console. Add a line at the top. Notice only 1 Create log!",
-      },
-    ],
+    initialContent: [{}],
   });
+
+  // Load blocks from DB
+  useEffect(() => {
+    if (savedBlocks === undefined) return;
+
+    const transformed = transformToBlockNoteStructure(savedBlocks);
+    
+    // Check if the incoming data is different from what we last saved/knew about
+    // This allows collaboration (remote changes) while ignoring our own echoes
+    const isSameAsLastSaved = JSON.stringify(transformed) === JSON.stringify(lastSavedState.current);
+
+    if (isFirstLoad.current) {
+        // Initial Load
+        if (savedBlocks.length > 0) {
+            isLoadingFromDB.current = true;
+            editor.replaceBlocks(editor.document, transformed);
+            lastSavedState.current = JSON.parse(JSON.stringify(transformed));
+            setTimeout(() => {
+                isLoadingFromDB.current = false;
+            }, 100);
+        }
+        isFirstLoad.current = false;
+    } else {
+        // Subsequent Updates (Collaboration)
+        if (!isSameAsLastSaved) {
+            // Also check if matches current editor state to avoid disruptive re-renders if content is effectively same
+             const isSameAsEditor = JSON.stringify(transformed) === JSON.stringify(editor.document);
+             
+             if (!isSameAsEditor) {
+                console.log("🔄 Apply Remote Update");
+                isLoadingFromDB.current = true;
+                editor.replaceBlocks(editor.document, transformed);
+                lastSavedState.current = JSON.parse(JSON.stringify(transformed));
+                setTimeout(() => {
+                   isLoadingFromDB.current = false;
+                }, 100);
+             } else {
+                // Determine if we should update lastSavedState anyway to sync ranks/ids?
+                // Yes, better keep it in sync with server truth
+                lastSavedState.current = JSON.parse(JSON.stringify(transformed));
+             }
+        }
+    }
+  }, [savedBlocks, editor]);
+
 
   // 2. The Sync Logic (Debounced)
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
   const triggerSync = useCallback(() => {
+    // Skip sync if we're loading from the database
+    if (isLoadingFromDB.current) {
+      console.log("⏸️ Skipping sync - loading from DB");
+      return;
+    }
+
     if (debounceRef.current) clearTimeout(debounceRef.current);
 
-    debounceRef.current = setTimeout(() => {
+    debounceRef.current = setTimeout(async () => {
       console.log("⚡ Calculating Diff...");
 
       const currentBlocks = editor.document;
@@ -65,12 +129,43 @@ export default function CollaborativeEditor() {
 
       // Log results
       if (toCreate.length > 0 || toUpdate.length > 0 || toDelete.length > 0) {
-        console.group("📝 Syncing Changes to DB");
-        if (toCreate.length) console.log("🟢 To CREATE:", toCreate);
-        if (toUpdate.length) console.log("🟡 To UPDATE:", toUpdate);
-        if (toDelete.length) console.log("🔴 To DELETE:", toDelete);
-        console.groupEnd();
+        console.group("📝 Syncing Changes to DB", fileId);
+        if (toCreate.length) {
+          console.log("🟢 To CREATE:", toCreate);
+          console.log("🟢 To CREATE:", toCreate);
+          const blocksToInsert = toCreate.map((block) => ({
+            externalId: block.id,
+            type: block.type,
+            props: block.props,
+            content: block.content,
+            rank: block.rank,
+            parentId: block.parentId ?? null,
+          }));
 
+          await bulkInsertData({
+            textFileId: fileId as Id<"text_files">,
+            blocks: blocksToInsert,
+          });
+        }
+        if (toUpdate.length) {
+          console.log("🟡 To UPDATE:", toUpdate);
+          const blocksToUpdate = toUpdate.map((block) => {
+            console.log(block);
+            return {
+              externalId: block.id,
+              content: block.content,
+              props: block.props,
+              rank: block.rank,
+              parentId: block.parentId,
+            };
+          });
+          await bulkUpdateData({ blocks: blocksToUpdate,textFileId:fileId as Id<"text_files"> });
+        }
+        if (toDelete.length) {
+          console.log("🔴 To DELETE:", toDelete);
+          // await bulkDeleteData({ ids: toDelete as Id<"blocks">[] });
+        }
+        console.groupEnd();
         // Update "Last Known State" only after successful sync
         lastSavedState.current = JSON.parse(JSON.stringify(currentBlocks));
       } else {
@@ -119,18 +214,12 @@ function calculateSmartDiff(oldBlocks: Block[], newBlocks: Block[]) {
   const processedIds = new Set<string>();
 
   // 1. Faster Indexing (Flat map for O(1) lookups)
-  const indexOld = (
-    blocks: Block[],
-    parent: string | null = null,
-    prevRank: string | null = null,
-  ) => {
-    let currentRank = prevRank;
+  const indexOld = (blocks: Block[], parent: string | null = null) => {
     for (const b of blocks) {
-      currentRank = generateKeyBetween(currentRank, null);
-      oldMap.set(b.id, { block: b, parentId: parent, rank: currentRank });
-      if (b.children && b.children.length > 0) {
-        indexOld(b.children, b.id, null);
-      }
+      // Cast 'b' to any or your DB type to access the rank field from Convex
+      const dbRank = (b as any).rank;
+      oldMap.set(b.id, { block: b, parentId: parent, rank: dbRank });
+      if (b.children?.length) indexOld(b.children, b.id);
     }
   };
   indexOld(oldBlocks);
@@ -231,19 +320,14 @@ function calculateSmartDiff(oldBlocks: Block[], newBlocks: Block[]) {
           : null;
 
         // Only consider it moved if its rank is outside the bounds of its neighbors
-        let orderViolated = false;
-        if (prevExistingRank && oldEntry.rank <= prevExistingRank) {
-          orderViolated = true;
-        }
-        if (nextExistingRank && oldEntry.rank >= nextExistingRank) {
-          orderViolated = true;
-        }
-
-        if (movedParent || orderViolated) {
-          targetRank = generateKeyBetween(prevExistingRank, nextExistingRank);
-          updateReason = movedParent
-            ? "Parent Changed"
-            : `Order Violation (Between ${prevExistingRank} and ${nextExistingRank}, Current: ${oldEntry.rank})`;
+        if (movedParent) {
+          // Use the same safety check as for new blocks
+          if (prevExistingRank && nextExistingRank && prevExistingRank >= nextExistingRank) {
+            targetRank = generateKeyBetween(prevExistingRank, null);
+          } else {
+            targetRank = generateKeyBetween(prevExistingRank, nextExistingRank);
+          }
+          updateReason = "Parent Changed";
         } else {
           // Happy Path: No rank change needed
           targetRank = oldEntry.rank;
@@ -262,18 +346,26 @@ function calculateSmartDiff(oldBlocks: Block[], newBlocks: Block[]) {
           oldEntry.block.content,
         );
         const propsChanged =
-          JSON.stringify(block.props) !== JSON.stringify(oldEntry.block.props);
+          JSON.stringify(block.props || {}) !== JSON.stringify(oldEntry.block.props || {});
+        const typeChanged = block.type !== oldEntry.block.type;
 
-        if (updateReason || contentChanged || propsChanged) {
+        if (updateReason || contentChanged || propsChanged || typeChanged) {
           if (updateReason)
             console.warn(
               `⚠️ Updating [${block.id.slice(0, 4)}]: ${updateReason}`,
             );
+          if (propsChanged) {
+             console.log(`⚠️ Props Changed [${block.id.slice(0, 4)}]`, {
+                old: oldEntry.block.props,
+                new: block.props
+             });
+          }
           toUpdate.push({
             id: block.id,
             ...(updateReason ? { rank: targetRank, parentId } : {}),
             ...(contentChanged ? { content: block.content } : {}),
             ...(propsChanged ? { props: block.props } : {}),
+            ...(typeChanged ? { type: block.type } : {}),
           });
         }
       }

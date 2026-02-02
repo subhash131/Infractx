@@ -200,13 +200,16 @@ export default defineSchema({
 
   blocks: defineTable({
     textFileId: v.id("text_files"),
-    parentId: v.optional(v.union(v.id("blocks"),v.null())),
+    parentId: v.optional(v.union(v.string(),v.null())),
     type: v.string(),
     props: v.any(),
     content: v.any(),
     rank: v.string(),
+    // uuid from the client
+    externalId:v.string(),
   })
     .index("by_text_file", ["textFileId"])
     .index("by_parent_rank", ["textFileId", "parentId", "rank"])
+    .index("by_external_id", ["externalId"])
 
 });

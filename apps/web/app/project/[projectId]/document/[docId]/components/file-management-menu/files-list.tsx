@@ -15,7 +15,7 @@ import { api } from "@workspace/backend/_generated/api";
 import {  Id } from "@workspace/backend/_generated/dataModel";
 import { useMemo, useEffect, useState, Fragment } from "react";
 import { cn } from "@workspace/ui/lib/utils";
-import { TreeItemData } from "./utils/parse-tree";
+import { TreeItemData } from "../utils/parse-tree";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { File02Icon, FileAddIcon, Folder01Icon, Folder02Icon, FolderAddIcon } from "@hugeicons/core-free-icons";
 import { useQueryState } from "nuqs";
