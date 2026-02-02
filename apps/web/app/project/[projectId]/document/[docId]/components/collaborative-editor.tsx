@@ -28,8 +28,10 @@ export default function CollaborativeEditor() {
   const lastSavedState = useRef<Block[]>([]);
   const isFirstLoad = useRef(true);
   const isLoadingFromDB = useRef(false);
-  const isSyncing = useRef(false); // NEW: Track if we're currently syncing
-  const pendingSyncVersion = useRef<string | null>(null); // NEW: Track what we're syncing
+  const isSyncing = useRef(false);
+  
+  // NEW: Store ranks separately since editor blocks don't persist them
+  const blockRanks = useRef<Map<string, string>>(new Map());
   
   const savedBlocks = useQuery(
     api.requirements.textFileBlocks.getBlocksByFileId,
@@ -59,19 +61,29 @@ export default function CollaborativeEditor() {
     const transformed = transformToBlockNoteStructure(savedBlocks);
     const transformedHash = JSON.stringify(transformed);
     
-    // Check if this is the data we just saved (echo detection)
     const isOurOwnEcho = transformedHash === JSON.stringify(lastSavedState.current);
     
-    // Check if we're currently in the middle of syncing
     if (isSyncing.current) {
       console.log("⏸️ Ignoring DB update - sync in progress");
-      // After sync completes, we'll update lastSavedState, so this echo will be ignored
       return;
     }
 
     if (isFirstLoad.current) {
-      // Initial Load
       if (savedBlocks.length > 0) {
+        console.log("📥 INITIAL LOAD - Extracting ranks from DB blocks");
+        
+        // Extract ranks from DB blocks
+        const extractRanks = (blocks: any[]) => {
+          for (const block of blocks) {
+            if (block.rank) {
+              blockRanks.current.set(block.externalId, block.rank);
+              console.log(`  📌 Stored rank for [${block.externalId.slice(0, 6)}]: ${block.rank}`);
+            }
+            if (block.children?.length) extractRanks(block.children);
+          }
+        };
+        extractRanks(savedBlocks);
+        
         isLoadingFromDB.current = true;
         editor.replaceBlocks(editor.document, transformed);
         lastSavedState.current = JSON.parse(JSON.stringify(transformed));
@@ -81,13 +93,24 @@ export default function CollaborativeEditor() {
       }
       isFirstLoad.current = false;
     } else {
-      // Subsequent Updates (Collaboration)
       if (!isOurOwnEcho) {
-        // Check if it's actually different from current editor state
         const isSameAsEditor = transformedHash === JSON.stringify(editor.document);
         
         if (!isSameAsEditor) {
-          console.log("🔄 Applying Remote Update from collaborator");
+          console.log("🔄 Applying Remote Update - Re-extracting ranks");
+          
+          // Re-extract ranks from updated DB blocks
+          blockRanks.current.clear();
+          const extractRanks = (blocks: any[]) => {
+            for (const block of blocks) {
+              if (block.rank) {
+                blockRanks.current.set(block.externalId, block.rank);
+              }
+              if (block.children?.length) extractRanks(block.children);
+            }
+          };
+          extractRanks(savedBlocks);
+          
           isLoadingFromDB.current = true;
           editor.replaceBlocks(editor.document, transformed);
           lastSavedState.current = JSON.parse(JSON.stringify(transformed));
@@ -95,7 +118,6 @@ export default function CollaborativeEditor() {
             isLoadingFromDB.current = false;
           }, 100);
         } else {
-          // Sync the reference even if content is same
           lastSavedState.current = JSON.parse(JSON.stringify(transformed));
         }
       } else {
@@ -104,11 +126,9 @@ export default function CollaborativeEditor() {
     }
   }, [savedBlocks, editor]);
 
-  // The Sync Logic (Debounced)
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
   const triggerSync = useCallback(() => {
-    // Skip sync if we're loading from the database
     if (isLoadingFromDB.current) {
       console.log("⏸️ Skipping sync - loading from DB");
       return;
@@ -118,31 +138,36 @@ export default function CollaborativeEditor() {
 
     debounceRef.current = setTimeout(async () => {
       console.log("⚡ Calculating Diff...");
+      console.log("🗂️  Current blockRanks map has", blockRanks.current.size, "entries");
       
-      isSyncing.current = true; // Mark that we're syncing
+      isSyncing.current = true;
 
       const currentBlocks = editor.document;
 
       const { toCreate, toUpdate, toDelete } = calculateSmartDiff(
         lastSavedState.current,
         currentBlocks,
+        blockRanks.current, // Pass the ranks map
       );
 
-      // Log results
       if (toCreate.length > 0 || toUpdate.length > 0 || toDelete.length > 0) {
         console.group("📝 Syncing Changes to DB", fileId);
         
         try {
           if (toCreate.length) {
             console.log("🟢 To CREATE:", toCreate.length, "blocks");
-            const blocksToInsert = toCreate.map((block) => ({
-              externalId: block.id,
-              type: block.type,
-              props: block.props,
-              content: block.content,
-              rank: block.rank,
-              parentId: block.parentId ?? null,
-            }));
+            const blocksToInsert = toCreate.map((block) => {
+              console.log(`  📦 CREATE [${block.id.slice(0, 6)}] with rank: ${block.rank}`);
+              // Rank already stored during traversal
+              return {
+                externalId: block.id,
+                type: block.type,
+                props: block.props,
+                content: block.content,
+                rank: block.rank,
+                parentId: block.parentId ?? null,
+              };
+            });
 
             await bulkInsertData({
               textFileId: fileId as Id<"text_files">,
@@ -152,14 +177,20 @@ export default function CollaborativeEditor() {
           
           if (toUpdate.length) {
             console.log("🟡 To UPDATE:", toUpdate.length, "blocks");
-            const blocksToUpdate = toUpdate.map((block) => ({
-              externalId: block.id,
-              content: block.content,
-              type: block.type,
-              props: block.props,
-              rank: block.rank,
-              parentId: block.parentId,
-            }));
+            const blocksToUpdate = toUpdate.map((block) => {
+              if (block.rank) {
+                console.log(`  📦 UPDATE [${block.id.slice(0, 6)}] with new rank: ${block.rank}`);
+                // Rank already stored during traversal
+              }
+              return {
+                externalId: block.id,
+                content: block.content,
+                type: block.type,
+                props: block.props,
+                rank: block.rank,
+                parentId: block.parentId,
+              };
+            });
             await bulkUpdateData({ 
               blocks: blocksToUpdate,
               textFileId: fileId as Id<"text_files"> 
@@ -168,18 +199,21 @@ export default function CollaborativeEditor() {
           
           if (toDelete.length) {
             console.log("🔴 To DELETE:", toDelete.length, "blocks");
+            toDelete.forEach(id => {
+              blockRanks.current.delete(id);
+              console.log(`  🗑️  Removed rank for [${id.slice(0, 6)}]`);
+            });
             await bulkDeleteData({ externalIds: toDelete });
           }
           
+          console.log("📊 Final blockRanks map size:", blockRanks.current.size);
           console.groupEnd();
           
-          // CRITICAL: Update last saved state BEFORE clearing sync flag
           lastSavedState.current = JSON.parse(JSON.stringify(currentBlocks));
           
         } catch (error) {
           console.error("❌ Sync failed:", error);
         } finally {
-          // Clear sync flag after a small delay to let DB propagate
           setTimeout(() => {
             isSyncing.current = false;
           }, 100);
@@ -191,7 +225,6 @@ export default function CollaborativeEditor() {
     }, 1000);
   }, [editor, fileId, bulkInsertData, bulkUpdateData, bulkDeleteData]);
 
-  // Attach Listener
   useEffect(() => {
     if (!editor) return;
 
@@ -216,23 +249,33 @@ export default function CollaborativeEditor() {
   );
 }
 
-function calculateSmartDiff(oldBlocks: Block[], newBlocks: Block[]) {
-  const oldMap = new Map<
-    string,
+function calculateSmartDiff(
+  oldBlocks: Block[], 
+  newBlocks: Block[],
+  blockRanks: Map<string, string> // NEW: Receive ranks map
+) {
+  const oldMap = new Map<string,
     { block: Block; rank: string; parentId: string | null }
   >();
   const toCreate: any[] = [];
   const toUpdate: any[] = [];
   const processedIds = new Set<string>();
 
-  // 1. Index old blocks
+  // 1. Index old blocks AND populate with known ranks
   const indexOld = (blocks: Block[], parent: string | null = null) => {
     for (const b of blocks) {
-      const dbRank = (b as any).rank;
+      // Try to get rank from our persistent map
+      const dbRank = blockRanks.get(b.id) || (b as any).rank || "";
+      
+      console.log(`  🔍 Indexing old [${b.id.slice(0, 6)}] with rank: ${dbRank || 'MISSING'}`);
+      
       oldMap.set(b.id, { block: b, parentId: parent, rank: dbRank });
+      
       if (b.children?.length) indexOld(b.children, b.id);
     }
   };
+  
+  console.log("🏗️  Building oldMap from lastSavedState...");
   indexOld(oldBlocks);
 
   // 2. Content comparison helper
@@ -276,9 +319,8 @@ function calculateSmartDiff(oldBlocks: Block[], newBlocks: Block[]) {
   };
 
   const traverse = (blocks: Block[], parentId: string | null = null) => {
-    // Track the LAST ASSIGNED rank (whether from existing block or newly created)
-    let prevRank: string | null = null;
-
+    console.log(`\n📂 Traversing ${blocks.length} blocks (parent: ${parentId?.slice(0, 6) || 'root'})`);
+    
     for (let i = 0; i < blocks.length; i++) {
       const block = blocks[i];
       if (!block) continue;
@@ -292,47 +334,86 @@ function calculateSmartDiff(oldBlocks: Block[], newBlocks: Block[]) {
 
       if (!oldEntry) {
         // --- NEW BLOCK ---
-        // Find next existing block's rank
-        let nextExistingRank: string | null = null;
-        for (let j = i + 1; j < blocks.length; j++) {
-          const nextOldEntry = oldMap.get(blocks[j]!.id);
-          if (nextOldEntry) {
-            nextExistingRank = nextOldEntry.rank;
+        console.log(`\n🆕 NEW BLOCK [${block.id.slice(0, 6)}] at position ${i}`);
+        
+        // Find PREVIOUS block's rank
+        let prevRank: string | null = null;
+        for (let j = i - 1; j >= 0; j--) {
+          const prevId = blocks[j]!.id;
+          const prevRankValue = blockRanks.get(prevId);
+          if (prevRankValue) {
+            prevRank = prevRankValue;
+            console.log(`  ⬅️  Found prevRank from [${prevId.slice(0, 6)}]: ${prevRank}`);
             break;
           }
         }
+        if (!prevRank) console.log(`  ⬅️  No previous rank (start of list)`);
 
-        // Generate rank between previous and next
-        targetRank = generateKeyBetween(prevRank, nextExistingRank);
+        // Find NEXT block's rank
+        let nextRank: string | null = null;
+        for (let j = i + 1; j < blocks.length; j++) {
+          const nextId = blocks[j]!.id;
+          const nextRankValue = blockRanks.get(nextId);
+          if (nextRankValue) {
+            nextRank = nextRankValue;
+            console.log(`  ➡️  Found nextRank from [${nextId.slice(0, 6)}]: ${nextRank}`);
+            break;
+          }
+        }
+        if (!nextRank) console.log(`  ➡️  No next rank (end of list)`);
+
+        targetRank = generateKeyBetween(prevRank, nextRank);
+        console.log(`  ✨ Generated rank: ${targetRank}`);
         
-        console.log(`🆕 New Block [${block.id.slice(0, 6)}]: rank="${targetRank}" (between "${prevRank}" and "${nextExistingRank}")`);
+        // CRITICAL: Store the rank IMMEDIATELY so next blocks can use it
+        blockRanks.set(block.id, targetRank);
+        console.log(`  💾 Stored rank in map for future blocks`);
         
         toCreate.push({ ...block, rank: targetRank, parentId });
-        
-        // CRITICAL: Update prevRank for the next iteration
-        prevRank = targetRank;
         
       } else {
         // --- EXISTING BLOCK ---
         targetRank = oldEntry.rank;
+        console.log(`\n♻️  EXISTING BLOCK [${block.id.slice(0, 6)}] current rank: ${targetRank || 'MISSING'}`);
         
         // Check if parent changed
         const movedParent = oldEntry.parentId !== parentId;
         
         if (movedParent) {
-          // Find next existing block's rank
-          let nextExistingRank: string | null = null;
+          console.log(`  🔄 PARENT CHANGED! Old: ${oldEntry.parentId?.slice(0, 6) || 'root'} → New: ${parentId?.slice(0, 6) || 'root'}`);
+          
+          // Find PREVIOUS block's rank
+          let prevRank: string | null = null;
+          for (let j = i - 1; j >= 0; j--) {
+            const prevId = blocks[j]!.id;
+            const prevRankValue = blockRanks.get(prevId);
+            if (prevRankValue) {
+              prevRank = prevRankValue;
+              console.log(`  ⬅️  Found prevRank from [${prevId.slice(0, 6)}]: ${prevRank}`);
+              break;
+            }
+          }
+
+          // Find NEXT block's rank
+          let nextRank: string | null = null;
           for (let j = i + 1; j < blocks.length; j++) {
-            const nextOldEntry = oldMap.get(blocks[j]!.id);
-            if (nextOldEntry) {
-              nextExistingRank = nextOldEntry.rank;
+            const nextId = blocks[j]!.id;
+            const nextRankValue = blockRanks.get(nextId);
+            if (nextRankValue) {
+              nextRank = nextRankValue;
+              console.log(`  ➡️  Found nextRank from [${nextId.slice(0, 6)}]: ${nextRank}`);
               break;
             }
           }
           
-          targetRank = generateKeyBetween(prevRank, nextExistingRank);
+          targetRank = generateKeyBetween(prevRank, nextRank);
           needsRankUpdate = true;
           updateReason = "Parent Changed";
+          console.log(`  ✨ Generated new rank: ${targetRank}`);
+          
+          // CRITICAL: Store the updated rank IMMEDIATELY
+          blockRanks.set(block.id, targetRank);
+          console.log(`  💾 Stored updated rank in map`);
         }
 
         // Check for content/props changes
@@ -340,29 +421,23 @@ function calculateSmartDiff(oldBlocks: Block[], newBlocks: Block[]) {
         const propsChanged = hasPropsChanged(block.props, oldEntry.block.props);
         const typeChanged = block.type !== oldEntry.block.type;
 
+        if (contentChanged) console.log(`  📝 Content changed`);
+        if (propsChanged) console.log(`  ⚙️  Props changed`);
+        if (typeChanged) console.log(`  🔄 Type changed`);
+
         if (needsRankUpdate || contentChanged || propsChanged || typeChanged) {
           const updatePayload: any = { id: block.id };
           
           if (needsRankUpdate) {
             updatePayload.rank = targetRank;
             updatePayload.parentId = parentId;
-            console.warn(`⚠️ Rank Update [${block.id.slice(0, 6)}]: ${updateReason}`);
           }
-          if (contentChanged) {
-            updatePayload.content = block.content;
-          }
-          if (propsChanged) {
-            updatePayload.props = block.props;
-          }
-          if (typeChanged) {
-            updatePayload.type = block.type;
-          }
+          if (contentChanged) updatePayload.content = block.content;
+          if (propsChanged) updatePayload.props = block.props;
+          if (typeChanged) updatePayload.type = block.type;
           
           toUpdate.push(updatePayload);
         }
-
-        // CRITICAL: Update prevRank for next iteration
-        prevRank = targetRank;
       }
 
       // Recurse into children
@@ -375,7 +450,10 @@ function calculateSmartDiff(oldBlocks: Block[], newBlocks: Block[]) {
   // 4. Detect Deletes
   const toDelete: string[] = [];
   for (const key of oldMap.keys()) {
-    if (!processedIds.has(key)) toDelete.push(key);
+    if (!processedIds.has(key)) {
+      console.log(`🗑️  DELETED: [${key.slice(0, 6)}]`);
+      toDelete.push(key);
+    }
   }
 
   return { toCreate, toUpdate, toDelete };

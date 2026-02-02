@@ -4,10 +4,10 @@ import { Doc } from "@workspace/backend/_generated/dataModel";
 export const transformToBlockNoteStructure = (
   blocks: Doc<"blocks">[]
 ): Block[] => {
-  const blockMap = new Map<string, Block & { children: Block[] }>();
+  const blockMap = new Map<string, Block & { children: Block[]; rank: string }>();
   const rootBlocks: Block[] = [];
 
-  // 1. Create blocks
+  // 1. Create blocks - PRESERVE THE RANK!
   blocks.forEach((block) => {
     blockMap.set(block.externalId, {
       id: block.externalId,
@@ -15,6 +15,7 @@ export const transformToBlockNoteStructure = (
       props: block.props as any,
       content: block.content as any,
       children: [],
+      rank: block.rank, 
     });
   });
 
@@ -34,8 +35,6 @@ export const transformToBlockNoteStructure = (
 
   return rootBlocks;
 };
-
-
 
 export function sortByRank<T extends { rank?: string }>(blocks: T[]): T[] {
   return [...blocks].sort((a, b) =>
