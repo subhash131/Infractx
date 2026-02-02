@@ -23,19 +23,19 @@ import { transformToBlockNoteStructure } from "./utils/transform-to-blocknote-st
 
 const BASE_URL = "https://localhost:3000/ai";
 
-// Sanitize function to clean data before sending to Convex
+// Sanitize function to clean data before sending to Convex 
+// for table data
 function sanitizeForConvex(obj: any): any {
   if (obj === null) return null;
   if (obj === undefined) return null;
   
-  // Handle string "undefined" - convert to null
+  // Handle string "undefined" - these should be omitted entirely
   if (typeof obj === 'string' && obj === 'undefined') return null;
   
   if (Array.isArray(obj)) {
-    // Map and filter out null values, but preserve empty arrays
-    const cleaned = obj.map(sanitizeForConvex);
-    // Remove null values from arrays
-    return cleaned.filter(item => item !== null);
+    // For arrays, map each item
+    const cleaned = obj.map(sanitizeForConvex).filter(item => item !== null);
+    return cleaned;
   }
   
   if (typeof obj === 'object') {
@@ -334,14 +334,32 @@ function calculateSmartDiff(
   console.log("🏗️  Building oldMap from lastSavedState...");
   indexOld(oldBlocks);
 
-  // 2. Content comparison helper
-  const hasContentChanged = (newContent: any, oldContent: any) => {
-    if (typeof newContent !== typeof oldContent) return true;
-    if (Array.isArray(newContent)) {
-      if (newContent.length !== oldContent.length) return true;
-      return newContent.some((item, i) => item.text !== oldContent[i]?.text);
+  // 2. Enhanced content comparison helper with deep object comparison
+  const deepEquals = (a: any, b: any): boolean => {
+    if (a === b) return true;
+    if (a == null || b == null) return false;
+    if (typeof a !== typeof b) return false;
+    
+    if (Array.isArray(a) && Array.isArray(b)) {
+      if (a.length !== b.length) return false;
+      return a.every((val, idx) => deepEquals(val, b[idx]));
     }
+    
+    if (typeof a === 'object' && typeof b === 'object') {
+      const keysA = Object.keys(a);
+      const keysB = Object.keys(b);
+      
+      if (keysA.length !== keysB.length) return false;
+      
+      return keysA.every(key => deepEquals(a[key], b[key]));
+    }
+    
     return false;
+  };
+
+  const hasContentChanged = (newContent: any, oldContent: any) => {
+    // Use deep comparison for all content types
+    return !deepEquals(newContent, oldContent);
   };
 
   // 3. Deep props comparison
@@ -360,18 +378,7 @@ function calculateSmartDiff(
     const normalizedNew = normalize(newProps);
     const normalizedOld = normalize(oldProps);
 
-    const newKeys = Object.keys(normalizedNew);
-    const oldKeys = Object.keys(normalizedOld);
-
-    if (newKeys.length !== oldKeys.length) return true;
-
-    for (const key of newKeys) {
-      if (normalizedNew[key] !== normalizedOld[key]) {
-        return true;
-      }
-    }
-
-    return false;
+    return !deepEquals(normalizedNew, normalizedOld);
   };
 
   const traverse = (blocks: Block[], parentId: string | null = null) => {
@@ -477,7 +484,13 @@ function calculateSmartDiff(
         const propsChanged = hasPropsChanged(block.props, oldEntry.block.props);
         const typeChanged = block.type !== oldEntry.block.type;
 
-        if (contentChanged) console.log(`  📝 Content changed`);
+        if (contentChanged) {
+          console.log(`  📝 Content changed`);
+          if (block.type === 'table') {
+            console.log(`  📊 Table content OLD:`, JSON.stringify(oldEntry.block.content, null, 2));
+            console.log(`  📊 Table content NEW:`, JSON.stringify(block.content, null, 2));
+          }
+        }
         if (propsChanged) console.log(`  ⚙️  Props changed`);
         if (typeChanged) console.log(`  🔄 Type changed`);
 
