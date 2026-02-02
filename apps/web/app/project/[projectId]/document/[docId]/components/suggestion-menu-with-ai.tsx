@@ -1,5 +1,7 @@
-import { BlockNoteEditor } from "@blocknote/core";
 import { filterSuggestionItems } from "@blocknote/core/extensions";
+import { CustomBlockNoteEditor } from "./custom-blocks/schema";
+import { customSlashMenuItems } from "./custom-blocks/slash-menu-items";
+
 import {
   getDefaultReactSlashMenuItems,
   SuggestionMenuController,
@@ -7,8 +9,9 @@ import {
 import { getAISlashMenuItems } from "@blocknote/xl-ai";
 
 export function SuggestionMenuWithAI(props: {
-  editor: BlockNoteEditor<any, any, any>;
+  editor: CustomBlockNoteEditor;
 }) {
+
   return (
     <SuggestionMenuController
       triggerCharacter="/"
@@ -17,7 +20,13 @@ export function SuggestionMenuWithAI(props: {
           [
             ...getDefaultReactSlashMenuItems(props.editor),
             ...getAISlashMenuItems(props.editor),
+            ...customSlashMenuItems.map((item) => ({
+              ...item,
+              onItemClick: () => item.onItemClick(props.editor),
+              icon: <span>{item.icon}</span>,
+            })),
           ],
+
           query,
         )
       }
