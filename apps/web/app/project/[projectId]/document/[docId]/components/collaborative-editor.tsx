@@ -245,14 +245,12 @@ function calculateSmartDiff(oldBlocks: Block[], newBlocks: Block[]) {
     return false;
   };
 
-  // 3. IMPROVED: Deep props comparison (ignore empty/default values)
+  // 3. Deep props comparison
   const hasPropsChanged = (newProps: any, oldProps: any) => {
-    // Normalize props - remove undefined/null/empty string values
     const normalize = (props: any) => {
       if (!props) return {};
       const normalized: any = {};
       for (const [key, value] of Object.entries(props)) {
-        // Skip empty/default values
         if (value !== undefined && value !== null && value !== '') {
           normalized[key] = value;
         }
@@ -263,7 +261,6 @@ function calculateSmartDiff(oldBlocks: Block[], newBlocks: Block[]) {
     const normalizedNew = normalize(newProps);
     const normalizedOld = normalize(oldProps);
 
-    // Compare normalized props
     const newKeys = Object.keys(normalizedNew);
     const oldKeys = Object.keys(normalizedOld);
 
@@ -279,7 +276,8 @@ function calculateSmartDiff(oldBlocks: Block[], newBlocks: Block[]) {
   };
 
   const traverse = (blocks: Block[], parentId: string | null = null) => {
-    let prevExistingRank: string | null = null;
+    // Track the LAST ASSIGNED rank (whether from existing block or newly created)
+    let prevRank: string | null = null;
 
     for (let i = 0; i < blocks.length; i++) {
       const block = blocks[i];
@@ -294,6 +292,7 @@ function calculateSmartDiff(oldBlocks: Block[], newBlocks: Block[]) {
 
       if (!oldEntry) {
         // --- NEW BLOCK ---
+        // Find next existing block's rank
         let nextExistingRank: string | null = null;
         for (let j = i + 1; j < blocks.length; j++) {
           const nextOldEntry = oldMap.get(blocks[j]!.id);
@@ -303,8 +302,15 @@ function calculateSmartDiff(oldBlocks: Block[], newBlocks: Block[]) {
           }
         }
 
-        targetRank = generateKeyBetween(prevExistingRank, nextExistingRank);
+        // Generate rank between previous and next
+        targetRank = generateKeyBetween(prevRank, nextExistingRank);
+        
+        console.log(`🆕 New Block [${block.id.slice(0, 6)}]: rank="${targetRank}" (between "${prevRank}" and "${nextExistingRank}")`);
+        
         toCreate.push({ ...block, rank: targetRank, parentId });
+        
+        // CRITICAL: Update prevRank for the next iteration
+        prevRank = targetRank;
         
       } else {
         // --- EXISTING BLOCK ---
@@ -314,6 +320,7 @@ function calculateSmartDiff(oldBlocks: Block[], newBlocks: Block[]) {
         const movedParent = oldEntry.parentId !== parentId;
         
         if (movedParent) {
+          // Find next existing block's rank
           let nextExistingRank: string | null = null;
           for (let j = i + 1; j < blocks.length; j++) {
             const nextOldEntry = oldMap.get(blocks[j]!.id);
@@ -323,12 +330,12 @@ function calculateSmartDiff(oldBlocks: Block[], newBlocks: Block[]) {
             }
           }
           
-          targetRank = generateKeyBetween(prevExistingRank, nextExistingRank);
+          targetRank = generateKeyBetween(prevRank, nextExistingRank);
           needsRankUpdate = true;
           updateReason = "Parent Changed";
         }
 
-        // Check for content/props changes using improved comparison
+        // Check for content/props changes
         const contentChanged = hasContentChanged(block.content, oldEntry.block.content);
         const propsChanged = hasPropsChanged(block.props, oldEntry.block.props);
         const typeChanged = block.type !== oldEntry.block.type;
@@ -339,30 +346,26 @@ function calculateSmartDiff(oldBlocks: Block[], newBlocks: Block[]) {
           if (needsRankUpdate) {
             updatePayload.rank = targetRank;
             updatePayload.parentId = parentId;
-            console.warn(`⚠️ Rank Update [${block.id.slice(0, 4)}]: ${updateReason}`);
+            console.warn(`⚠️ Rank Update [${block.id.slice(0, 6)}]: ${updateReason}`);
           }
           if (contentChanged) {
             updatePayload.content = block.content;
-            console.log(`📝 Content Changed [${block.id.slice(0, 4)}]`);
           }
           if (propsChanged) {
             updatePayload.props = block.props;
-            console.log(`🎨 Props Changed [${block.id.slice(0, 4)}]`, {
-              old: oldEntry.block.props,
-              new: block.props
-            });
           }
           if (typeChanged) {
             updatePayload.type = block.type;
-            console.log(`🔄 Type Changed [${block.id.slice(0, 4)}]`);
           }
           
           toUpdate.push(updatePayload);
         }
 
-        prevExistingRank = targetRank;
+        // CRITICAL: Update prevRank for next iteration
+        prevRank = targetRank;
       }
 
+      // Recurse into children
       if (block.children?.length) traverse(block.children, block.id);
     }
   };
