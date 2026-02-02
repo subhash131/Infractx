@@ -163,7 +163,7 @@ export default function CollaborativeEditor() {
         }
         if (toDelete.length) {
           console.log("🔴 To DELETE:", toDelete);
-          // await bulkDeleteData({ ids: toDelete as Id<"blocks">[] });
+          await bulkDeleteData({ externalIds: toDelete });
         }
         console.groupEnd();
         // Update "Last Known State" only after successful sync
