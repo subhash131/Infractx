@@ -97,20 +97,20 @@ export default function CollaborativeEditor() {
     const isOurOwnEcho = transformedHash === JSON.stringify(lastSavedState.current);
     
     if (isSyncing.current) {
-      console.log("⏸️ Ignoring DB update - sync in progress");
+      console.log("Ignoring DB update - sync in progress");
       return;
     }
 
     if (isFirstLoad.current) {
       if (savedBlocks.length > 0) {
-        console.log("📥 INITIAL LOAD - Extracting ranks from DB blocks");
+        console.log("INITIAL LOAD - Extracting ranks from DB blocks");
         
         // Extract ranks from DB blocks
         const extractRanks = (blocks: any[]) => {
           for (const block of blocks) {
             if (block.rank) {
               blockRanks.current.set(block.externalId, block.rank);
-              console.log(`  📌 Stored rank for [${block.externalId.slice(0, 6)}]: ${block.rank}`);
+              console.log(`Stored rank for [${block.externalId.slice(0, 6)}]: ${block.rank}`);
             }
             if (block.children?.length) extractRanks(block.children);
           }
@@ -134,7 +134,7 @@ export default function CollaborativeEditor() {
         const isSameAsEditor = transformedHash === JSON.stringify(editor.document);
         
         if (!isSameAsEditor) {
-          console.log("🔄 Applying Remote Update - Re-extracting ranks");
+          console.log("Applying Remote Update - Re-extracting ranks");
           
           // Re-extract ranks from updated DB blocks
           blockRanks.current.clear();
@@ -162,7 +162,7 @@ export default function CollaborativeEditor() {
           lastSavedState.current = JSON.parse(JSON.stringify(transformed));
         }
       } else {
-        console.log("✅ Ignoring own echo from DB");
+        console.log("Ignoring own echo from DB");
       }
     }
   }, [savedBlocks, editor]);
@@ -171,15 +171,15 @@ export default function CollaborativeEditor() {
 
   const triggerSync = useCallback(() => {
     if (isLoadingFromDB.current) {
-      console.log("⏸️ Skipping sync - loading from DB");
+      console.log("Skipping sync - loading from DB");
       return;
     }
 
     if (debounceRef.current) clearTimeout(debounceRef.current);
 
     debounceRef.current = setTimeout(async () => {
-      console.log("⚡ Calculating Diff...");
-      console.log("🗂️  Current blockRanks map has", blockRanks.current.size, "entries");
+      console.log("Calculating Diff...");
+      console.log("Current blockRanks map has", blockRanks.current.size, "entries");
       
       isSyncing.current = true;
 
@@ -192,17 +192,17 @@ export default function CollaborativeEditor() {
       );
 
       if (toCreate.length > 0 || toUpdate.length > 0 || toDelete.length > 0) {
-        console.group("📝 Syncing Changes to DB", fileId);
+        console.group("Syncing Changes to DB", fileId);
         
         try {
           if (toCreate.length) {
-            console.log("🟢 To CREATE:", toCreate.length, "blocks");
+            console.log("To CREATE:", toCreate, "blocks");
             const blocksToInsert = toCreate.map((block) => {
-              console.log(`  📦 CREATE [${block.id.slice(0, 6)}] with rank: ${block.rank}`);
+              console.log(`CREATE [${block.id.slice(0, 6)}] with rank: ${block.rank}`);
               
               // Log original content if it's a table
               if (block.type === 'table') {
-                console.log(`  📊 Original table content:`, JSON.stringify(block.content, null, 2));
+                console.log(`Original table content:`, JSON.stringify(block.content, null, 2));
               }
               
               const sanitizedBlock = {
@@ -216,7 +216,7 @@ export default function CollaborativeEditor() {
               
               // Log sanitized content if it's a table
               if (block.type === 'table') {
-                console.log(`  ✨ Sanitized table content:`, JSON.stringify(sanitizedBlock.content, null, 2));
+                console.log(`Sanitized table content:`, JSON.stringify(sanitizedBlock.content, null, 2));
               }
               
               return sanitizedBlock;
@@ -229,10 +229,10 @@ export default function CollaborativeEditor() {
           }
           
           if (toUpdate.length) {
-            console.log("🟡 To UPDATE:", toUpdate.length, "blocks");
+            console.log("🟡 To UPDATE:", toUpdate, "blocks");
             const blocksToUpdate = toUpdate.map((block) => {
               if (block.rank) {
-                console.log(`  📦 UPDATE [${block.id.slice(0, 6)}] with new rank: ${block.rank}`);
+                console.log(`UPDATE [${block.id.slice(0, 6)}] with new rank: ${block.rank}`);
                 // Rank already stored during traversal
               }
               
@@ -265,15 +265,15 @@ export default function CollaborativeEditor() {
           }
           
           if (toDelete.length) {
-            console.log("🔴 To DELETE:", toDelete.length, "blocks");
+            console.log("🔴 To DELETE:", toDelete, "blocks");
             toDelete.forEach(id => {
               blockRanks.current.delete(id);
-              console.log(`  🗑️  Removed rank for [${id.slice(0, 6)}]`);
+              console.log(`Removed rank for [${id.slice(0, 6)}]`);
             });
             await bulkDeleteData({ externalIds: toDelete });
           }
           
-          console.log("📊 Final blockRanks map size:", blockRanks.current.size);
+          console.log("Final blockRanks map size:", blockRanks.current.size);
           console.groupEnd();
           
           lastSavedState.current = JSON.parse(JSON.stringify(currentBlocks));
@@ -286,7 +286,7 @@ export default function CollaborativeEditor() {
           }, 100);
         }
       } else {
-        console.log("✅ No changes detected (clean).");
+        console.log("No changes detected (clean).");
         isSyncing.current = false;
       }
     }, 1000);

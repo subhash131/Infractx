@@ -1,4 +1,4 @@
-import { BlockNoteEditor } from "@blocknote/core";
+import { BlockIdentifier, BlockNoteEditor } from "@blocknote/core";
 import { filterSuggestionItems } from "@blocknote/core/extensions";
 import { SuggestionMenuController } from "@blocknote/react";
 
@@ -12,15 +12,29 @@ export function SuggestionMenuForRequirements(props: {
         filterSuggestionItems(
           [
             {
-              title: "My Requirement",
+              title: "function",
               onItemClick: () => {
-                // Inserts text at the current cursor position
-                props.editor.insertInlineContent([
+                const currentBlock = props.editor.getTextCursorPosition().block;
+                if (!currentBlock) return;
+                const insertedBlocks = props.editor.insertBlocks ([
                   {
-                    type: "text",
-                    text: "Inserted Requirement!", // Added a space at the end for convenience
-                  },
-                ]);
+                    type: "paragraph",
+                    content: "@function:", 
+                    children:[
+                      {
+                        type: "paragraph",
+                        content: "", 
+                        props:{
+                          rank: "a0",
+                        }
+                      }
+                    ]
+                  }
+                ], currentBlock, "after");
+
+                if(insertedBlocks.length > 0){
+                  props.editor.setTextCursorPosition(insertedBlocks[0] as BlockIdentifier, "end");
+                }
               },
             },
           ],

@@ -70,7 +70,6 @@ export const bulkUpdate = mutation({
   },
   handler: async (ctx, { textFileId, blocks }) => {
     for (const block of blocks) {
-      // Search specifically using the indexed externalId
       const existing = await ctx.db
         .query("blocks")
         .withIndex("by_external_id", (q) => q.eq("externalId", block.externalId))
@@ -80,24 +79,16 @@ export const bulkUpdate = mutation({
 
       if (existing) {
         const { externalId, ...updates } = block;
-        
-        // Ensure parentId is handled as a string if that's what your schema/editor uses
-        await ctx.db.patch(existing._id, {
-          ...updates,
-          // Only cast if your schema explicitly uses v.id("blocks")
-          // If schema uses v.string(), remove the "as Id" cast
-          parentId: updates.parentId as any 
-        });
+        await ctx.db.patch(existing._id, {...updates});
       } else {
-        // Insert new block with all required fields
         await ctx.db.insert("blocks", {
           textFileId,
           externalId: block.externalId,
-          type: block.type ?? "paragraph", // Default type if not provided
+          type: block.type ?? "paragraph",
           content: block.content ?? [],
           props: block.props ?? {},
           rank: block.rank ?? "a0",
-          parentId: block.parentId ?? null,
+          parentId: block.parentId,
         });
         console.log(`Inserted new block with UUID ${block.externalId}`);
       }
