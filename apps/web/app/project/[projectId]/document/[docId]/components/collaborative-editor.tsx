@@ -204,6 +204,7 @@ export default function CollaborativeEditor() {
   );
 }
 
+
 function calculateSmartDiff(oldBlocks: Block[], newBlocks: Block[]) {
   const oldMap = new Map<
     string,
@@ -213,10 +214,9 @@ function calculateSmartDiff(oldBlocks: Block[], newBlocks: Block[]) {
   const toUpdate: any[] = [];
   const processedIds = new Set<string>();
 
-  // 1. Faster Indexing (Flat map for O(1) lookups)
+  // 1. Index old blocks
   const indexOld = (blocks: Block[], parent: string | null = null) => {
     for (const b of blocks) {
-      // Cast 'b' to any or your DB type to access the rank field from Convex
       const dbRank = (b as any).rank;
       oldMap.set(b.id, { block: b, parentId: parent, rank: dbRank });
       if (b.children?.length) indexOld(b.children, b.id);
@@ -224,153 +224,134 @@ function calculateSmartDiff(oldBlocks: Block[], newBlocks: Block[]) {
   };
   indexOld(oldBlocks);
 
-  // 2. Efficient Content Comparison
+  // 2. Content comparison helper
   const hasContentChanged = (newContent: any, oldContent: any) => {
     if (typeof newContent !== typeof oldContent) return true;
     if (Array.isArray(newContent)) {
       if (newContent.length !== oldContent.length) return true;
-      return newContent.some((item, i) => item.text !== oldContent[i].text);
+      return newContent.some((item, i) => item.text !== oldContent[i]?.text);
     }
     return false;
   };
 
-  // 3. Build a position map for existing blocks in the NEW state
-  const buildPositionMap = (
-    blocks: Block[],
-    parentId: string | null = null,
-  ) => {
-    const map = new Map<string, { index: number; parentId: string | null }>();
-
-    const traverse = (items: Block[], parent: string | null = null) => {
-      for (let i = 0; i < items.length; i++) {
-        map.set(items[i]!.id, { index: i, parentId: parent });
-        if (items[i]!.children && items[i]!.children.length > 0) {
-          traverse(items[i]!.children!, items[i]!.id);
+  // 3. IMPROVED: Deep props comparison (ignore empty/default values)
+  const hasPropsChanged = (newProps: any, oldProps: any) => {
+    // Normalize props - remove undefined/null/empty string values
+    const normalize = (props: any) => {
+      if (!props) return {};
+      const normalized: any = {};
+      for (const [key, value] of Object.entries(props)) {
+        // Skip empty/default values
+        if (value !== undefined && value !== null && value !== '') {
+          normalized[key] = value;
         }
       }
+      return normalized;
     };
 
-    traverse(blocks, parentId);
-    return map;
+    const normalizedNew = normalize(newProps);
+    const normalizedOld = normalize(oldProps);
+
+    // Compare normalized props
+    const newKeys = Object.keys(normalizedNew);
+    const oldKeys = Object.keys(normalizedOld);
+
+    if (newKeys.length !== oldKeys.length) return true;
+
+    for (const key of newKeys) {
+      if (normalizedNew[key] !== normalizedOld[key]) {
+        return true;
+      }
+    }
+
+    return false;
   };
 
-  const newPositionMap = buildPositionMap(newBlocks);
-
   const traverse = (blocks: Block[], parentId: string | null = null) => {
-    let prevRank: string | null = null;
-    let prevOldRank: string | null = null; // Track the previous EXISTING block's rank
+    let prevExistingRank: string | null = null;
 
     for (let i = 0; i < blocks.length; i++) {
       const block = blocks[i];
       if (!block) continue;
-      const nextBlock = blocks[i + 1];
+      
       processedIds.add(block.id);
-
       const oldEntry = oldMap.get(block.id);
-      const nextOldEntry = nextBlock ? oldMap.get(nextBlock.id) : null;
 
       let targetRank: string;
+      let needsRankUpdate = false;
       let updateReason: string | null = null;
 
       if (!oldEntry) {
         // --- NEW BLOCK ---
-        // Find the rank bounds: previous existing block and next existing block
-        const nextExistingRank = nextOldEntry?.rank || null;
-
-        const safeGenerateRank = (prev: string | null, next: string | null) => {
-          if (prev && next && prev >= next) {
-            // If indices have collided or crossed, fallback to appending after prev
-            return generateKeyBetween(prev, null);
+        let nextExistingRank: string | null = null;
+        for (let j = i + 1; j < blocks.length; j++) {
+          const nextOldEntry = oldMap.get(blocks[j]!.id);
+          if (nextOldEntry) {
+            nextExistingRank = nextOldEntry.rank;
+            break;
           }
-          return generateKeyBetween(prev, next);
-        };
+        }
 
-        targetRank = safeGenerateRank(prevOldRank, nextExistingRank);
-        console.log(
-          `🆕 New Block [${block.id.slice(0, 4)}]: Assigned ${targetRank} (between ${prevOldRank} and ${nextExistingRank})`,
-        );
+        targetRank = generateKeyBetween(prevExistingRank, nextExistingRank);
+        toCreate.push({ ...block, rank: targetRank, parentId });
+        
       } else {
         // --- EXISTING BLOCK ---
+        targetRank = oldEntry.rank;
+        
+        // Check if parent changed
         const movedParent = oldEntry.parentId !== parentId;
-
-        // KEY FIX: Check if this block's relative position changed among existing blocks
-        // Find the previous and next EXISTING blocks in the new state
-        let prevExistingBlockId: string | null = null;
-        let nextExistingBlockId: string | null = null;
-
-        for (let j = i - 1; j >= 0; j--) {
-          if (oldMap.has(blocks[j]!.id)) {
-            prevExistingBlockId = blocks[j]!.id;
-            break;
-          }
-        }
-
-        for (let j = i + 1; j < blocks.length; j++) {
-          if (oldMap.has(blocks[j]!.id)) {
-            nextExistingBlockId = blocks[j]!.id;
-            break;
-          }
-        }
-
-        const prevExistingRank = prevExistingBlockId
-          ? oldMap.get(prevExistingBlockId)?.rank || null
-          : null;
-        const nextExistingRank = nextExistingBlockId
-          ? oldMap.get(nextExistingBlockId)?.rank || null
-          : null;
-
-        // Only consider it moved if its rank is outside the bounds of its neighbors
+        
         if (movedParent) {
-          // Use the same safety check as for new blocks
-          if (prevExistingRank && nextExistingRank && prevExistingRank >= nextExistingRank) {
-            targetRank = generateKeyBetween(prevExistingRank, null);
-          } else {
-            targetRank = generateKeyBetween(prevExistingRank, nextExistingRank);
+          let nextExistingRank: string | null = null;
+          for (let j = i + 1; j < blocks.length; j++) {
+            const nextOldEntry = oldMap.get(blocks[j]!.id);
+            if (nextOldEntry) {
+              nextExistingRank = nextOldEntry.rank;
+              break;
+            }
           }
+          
+          targetRank = generateKeyBetween(prevExistingRank, nextExistingRank);
+          needsRankUpdate = true;
           updateReason = "Parent Changed";
-        } else {
-          // Happy Path: No rank change needed
-          targetRank = oldEntry.rank;
         }
 
-        // Update prevOldRank to track existing blocks
-        prevOldRank = targetRank;
-      }
-
-      // CHANGE DETECTION (Content/Props)
-      if (!oldEntry) {
-        toCreate.push({ ...block, rank: targetRank, parentId });
-      } else {
-        const contentChanged = hasContentChanged(
-          block.content,
-          oldEntry.block.content,
-        );
-        const propsChanged =
-          JSON.stringify(block.props || {}) !== JSON.stringify(oldEntry.block.props || {});
+        // Check for content/props changes using improved comparison
+        const contentChanged = hasContentChanged(block.content, oldEntry.block.content);
+        const propsChanged = hasPropsChanged(block.props, oldEntry.block.props);
         const typeChanged = block.type !== oldEntry.block.type;
 
-        if (updateReason || contentChanged || propsChanged || typeChanged) {
-          if (updateReason)
-            console.warn(
-              `⚠️ Updating [${block.id.slice(0, 4)}]: ${updateReason}`,
-            );
-          if (propsChanged) {
-             console.log(`⚠️ Props Changed [${block.id.slice(0, 4)}]`, {
-                old: oldEntry.block.props,
-                new: block.props
-             });
+        if (needsRankUpdate || contentChanged || propsChanged || typeChanged) {
+          const updatePayload: any = { id: block.id };
+          
+          if (needsRankUpdate) {
+            updatePayload.rank = targetRank;
+            updatePayload.parentId = parentId;
+            console.warn(`⚠️ Rank Update [${block.id.slice(0, 4)}]: ${updateReason}`);
           }
-          toUpdate.push({
-            id: block.id,
-            ...(updateReason ? { rank: targetRank, parentId } : {}),
-            ...(contentChanged ? { content: block.content } : {}),
-            ...(propsChanged ? { props: block.props } : {}),
-            ...(typeChanged ? { type: block.type } : {}),
-          });
+          if (contentChanged) {
+            updatePayload.content = block.content;
+            console.log(`📝 Content Changed [${block.id.slice(0, 4)}]`);
+          }
+          if (propsChanged) {
+            updatePayload.props = block.props;
+            console.log(`🎨 Props Changed [${block.id.slice(0, 4)}]`, {
+              old: oldEntry.block.props,
+              new: block.props
+            });
+          }
+          if (typeChanged) {
+            updatePayload.type = block.type;
+            console.log(`🔄 Type Changed [${block.id.slice(0, 4)}]`);
+          }
+          
+          toUpdate.push(updatePayload);
         }
+
+        prevExistingRank = targetRank;
       }
 
-      prevRank = targetRank;
       if (block.children?.length) traverse(block.children, block.id);
     }
   };
