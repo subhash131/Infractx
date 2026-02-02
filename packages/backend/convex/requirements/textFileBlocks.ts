@@ -1,66 +1,151 @@
 import { mutation, query } from "../_generated/server";
 import { v } from "convex/values";
 
-export const create = mutation({
-  args: {
-    content: v.string(),
-    textFileId:v.id("text_files"),
-    parentId: v.optional(v.union(v.id("blocks"),v.null())),
 
+export const createBlock = mutation({
+  args: {
+    externalId: v.string(), // UUID from client
+    textFileId: v.id("text_files"),
+    type: v.string(),
+    props: v.any(),
+    content: v.any(),
+    rank: v.string(),
+    parentId: v.optional(v.union(v.string(), v.null())),
   },
   handler: async (ctx, args) => {
-    const docId = await ctx.db.insert("blocks", {
-    content:args.content,
-      textFileId: args.textFileId,
-      parentId: args.parentId,
-      type:"TEXT",
-      props:{},
-      rank:"1",
-    });
-
-    return docId;
+    return await ctx.db.insert("blocks", args);
   },
 });
 
-export const getFilesByDocumentId = query({
+export const updateBlock = mutation({
   args: {
-    documentId:v.id("documents"),
+    id: v.id("blocks"), // Convex ID
+    externalId: v.optional(v.string()),
+    type: v.optional(v.string()),
+    props: v.optional(v.any()),
+    content: v.optional(v.any()),
+    rank: v.optional(v.string()),
+    parentId: v.optional(v.union(v.string(), v.null())),
   },
-  handler: async (ctx, args) => {
-    const files = await ctx.db.query("text_files").withIndex("by_document", q=>q.eq("documentId", args.documentId)).collect();
-    return files;
+  handler: async (ctx, { id, ...updates }) => {
+    await ctx.db.patch(id, updates);
   },
 });
 
-export const getTextFileById = query({
+export const bulkCreate = mutation({
   args: {
-    fileId:v.id("text_files"),
+    textFileId: v.id("text_files"),
+    blocks: v.array(
+      v.object({
+        externalId: v.string(),
+        type: v.string(),
+        props: v.any(),
+        content: v.any(),
+        rank: v.string(),
+        parentId: v.optional(v.union(v.string(), v.null())),
+      })
+    ),
   },
-  handler: async (ctx, args) => {
-    const file = await ctx.db.get(args.fileId);
-    return file;
+  handler: async (ctx, { textFileId, blocks }) => {
+    for (const block of blocks) {
+      await ctx.db.insert("blocks", { ...block, textFileId });
+    }
   },
 });
 
-export const updateFile = mutation({
+
+export const bulkUpdate = mutation({
   args: {
-    fileId: v.id("text_files"),
-    title: v.optional(v.string()),
-    description: v.optional(v.string()),
-    parentId: v.optional(v.union(v.id("text_files"), v.null())),
+    textFileId: v.id("text_files"),
+    blocks: v.array(
+      v.object({
+        externalId: v.string(),
+        content: v.optional(v.any()),
+        props: v.optional(v.any()),
+        rank: v.optional(v.string()),
+        type: v.optional(v.string()),
+        parentId: v.optional(v.union(v.string(), v.null())), 
+      })
+    ),
   },
-  handler: async (ctx, args) => {
-    const { fileId, ...updates } = args;
-    
-    // Build the update object with only provided fields
-    const updateData: Record<string, any> = {
-      updatedAt: Date.now(),
-    };
-    
-    if (updates.title !== undefined) updateData.title = updates.title;
-    if (updates.description !== undefined) updateData.description = updates.description;
-    if (updates.parentId !== undefined) updateData.parentId = updates.parentId;
-    
-    await ctx.db.patch(fileId, updateData);
+  handler: async (ctx, { textFileId, blocks }) => {
+    for (const block of blocks) {
+      // Search specifically using the indexed externalId
+      const existing = await ctx.db
+        .query("blocks")
+        .withIndex("by_external_id", (q) => q.eq("externalId", block.externalId))
+        .unique();
+      
+      console.log(`Searching for UUID: ${block.externalId} -> Found: ${existing?._id ?? "NULL"}`);
+
+      if (existing) {
+        const { externalId, ...updates } = block;
+        
+        // Ensure parentId is handled as a string if that's what your schema/editor uses
+        await ctx.db.patch(existing._id, {
+          ...updates,
+          // Only cast if your schema explicitly uses v.id("blocks")
+          // If schema uses v.string(), remove the "as Id" cast
+          parentId: updates.parentId as any 
+        });
+      } else {
+        // Insert new block with all required fields
+        await ctx.db.insert("blocks", {
+          textFileId,
+          externalId: block.externalId,
+          type: block.type ?? "paragraph", // Default type if not provided
+          content: block.content ?? [],
+          props: block.props ?? {},
+          rank: block.rank ?? "a0",
+          parentId: block.parentId ?? null,
+        });
+        console.log(`Inserted new block with UUID ${block.externalId}`);
+      }
+    }
+  },
+});
+
+export const bulkDelete = mutation({
+  args: {
+    externalIds: v.array(v.string()), 
+  },
+  handler: async (ctx, { externalIds }) => {
+    for (const extId of externalIds) {
+      const existing = await ctx.db
+        .query("blocks")
+        .withIndex("by_external_id", (q) => q.eq("externalId", extId))
+        .unique();
+      if (existing) {
+        console.log(`Deleting block with UUID ${extId}`);
+        await ctx.db.delete(existing._id);
+      }else{
+        console.log(`Block with UUID ${extId} not found`);
+      }
+    }
+  },
+});
+
+export const getBlocksByFileId = query({
+  args: {
+    textFileId: v.id("text_files"),
+  },
+  handler: async (ctx, { textFileId }) => {
+    return await ctx.db
+      .query("blocks")
+      .withIndex("by_text_file", (q) => q.eq("textFileId", textFileId))
+      .collect();
+  },
+});
+
+
+export const getBlockByExternalId = query({
+  args: {
+    externalId: v.string(),
+  },
+  handler: async (ctx, { externalId }) => {
+    return await ctx.db
+      .query("blocks")
+      .withIndex("by_external_id", (q) => q.eq("externalId", externalId))
+      .unique();
   },
 });
