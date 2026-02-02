@@ -23,6 +23,36 @@ import { transformToBlockNoteStructure } from "./utils/transform-to-blocknote-st
 
 const BASE_URL = "https://localhost:3000/ai";
 
+// Sanitize function to clean data before sending to Convex
+function sanitizeForConvex(obj: any): any {
+  if (obj === null) return null;
+  if (obj === undefined) return null;
+  
+  // Handle string "undefined" - convert to null
+  if (typeof obj === 'string' && obj === 'undefined') return null;
+  
+  if (Array.isArray(obj)) {
+    // Map and filter out null values, but preserve empty arrays
+    const cleaned = obj.map(sanitizeForConvex);
+    // Remove null values from arrays
+    return cleaned.filter(item => item !== null);
+  }
+  
+  if (typeof obj === 'object') {
+    const sanitized: any = {};
+    for (const [key, value] of Object.entries(obj)) {
+      const cleanValue = sanitizeForConvex(value);
+      // Only include if not null/undefined, but allow empty arrays and empty objects
+      if (cleanValue !== null && cleanValue !== undefined) {
+        sanitized[key] = cleanValue;
+      }
+    }
+    return sanitized;
+  }
+  
+  return obj;
+}
+
 export default function CollaborativeEditor() {
   const [fileId] = useQueryState("fileId");
   const lastSavedState = useRef<Block[]>([]);
@@ -158,15 +188,27 @@ export default function CollaborativeEditor() {
             console.log("🟢 To CREATE:", toCreate.length, "blocks");
             const blocksToInsert = toCreate.map((block) => {
               console.log(`  📦 CREATE [${block.id.slice(0, 6)}] with rank: ${block.rank}`);
-              // Rank already stored during traversal
-              return {
+              
+              // Log original content if it's a table
+              if (block.type === 'table') {
+                console.log(`  📊 Original table content:`, JSON.stringify(block.content, null, 2));
+              }
+              
+              const sanitizedBlock = {
                 externalId: block.id,
                 type: block.type,
-                props: block.props,
-                content: block.content,
+                props: sanitizeForConvex(block.props),
+                content: sanitizeForConvex(block.content),
                 rank: block.rank,
                 parentId: block.parentId ?? null,
               };
+              
+              // Log sanitized content if it's a table
+              if (block.type === 'table') {
+                console.log(`  ✨ Sanitized table content:`, JSON.stringify(sanitizedBlock.content, null, 2));
+              }
+              
+              return sanitizedBlock;
             });
 
             await bulkInsertData({
@@ -182,14 +224,28 @@ export default function CollaborativeEditor() {
                 console.log(`  📦 UPDATE [${block.id.slice(0, 6)}] with new rank: ${block.rank}`);
                 // Rank already stored during traversal
               }
-              return {
+              
+              const sanitizedBlock: any = {
                 externalId: block.id,
-                content: block.content,
-                type: block.type,
-                props: block.props,
-                rank: block.rank,
-                parentId: block.parentId,
               };
+              
+              if (block.content !== undefined) {
+                sanitizedBlock.content = sanitizeForConvex(block.content);
+              }
+              if (block.type !== undefined) {
+                sanitizedBlock.type = block.type;
+              }
+              if (block.props !== undefined) {
+                sanitizedBlock.props = sanitizeForConvex(block.props);
+              }
+              if (block.rank !== undefined) {
+                sanitizedBlock.rank = block.rank;
+              }
+              if (block.parentId !== undefined) {
+                sanitizedBlock.parentId = block.parentId;
+              }
+              
+              return sanitizedBlock;
             });
             await bulkUpdateData({ 
               blocks: blocksToUpdate,
