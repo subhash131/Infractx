@@ -32,18 +32,7 @@ export default function CollaborativeEditor() {
         }),
       }),
     ],
-    initialContent: [
-      {
-        type: "heading",
-        props: { level: 1 },
-        content: "Smart Diffing Demo",
-      },
-      {
-        type: "paragraph",
-        content:
-          "Open your console. Add a line at the top. Notice only 1 Create log!",
-      },
-    ],
+    initialContent: [],
   });
 
   // 2. The Sync Logic (Debounced)
