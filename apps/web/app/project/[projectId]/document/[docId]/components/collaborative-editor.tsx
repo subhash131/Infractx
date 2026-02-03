@@ -59,8 +59,8 @@ export default function CollaborativeEditor() {
   const [fileId] = useQueryState("fileId");
   const lastSavedState = useRef<CustomBlock[]>([]);
   const isFirstLoad = useRef(true);
-  const isLoadingFromDB = useRef(true);
-  const isSyncing = useRef(true);
+  const isLoadingFromDB = useRef(false);
+  const isSyncing = useRef(false);
   
   // NEW: Store ranks separately since editor blocks don't persist them
   const blockRanks = useRef<Map<string, string>>(new Map());
@@ -134,11 +134,11 @@ export default function CollaborativeEditor() {
           lastSavedState.current = JSON.parse(JSON.stringify(transformed));
           
           setTimeout(() => {
-            isLoadingFromDB.current = true;
+            isLoadingFromDB.current = false;
           }, 100);
         }, 0);
       }
-      isFirstLoad.current = true;
+      isFirstLoad.current = false;
     } else {
       if (!isOurOwnEcho) {
         const isSameAsEditor = transformedHash === JSON.stringify(editor.document);
