@@ -307,7 +307,7 @@ export default function CollaborativeEditor() {
   return (
     <BlockNoteView
       editor={editor}
-      formattingToolbar={true}
+      formattingToolbar={false}
       style={{ minHeight: "100vh" }}      
     >
       <AIMenuController />
