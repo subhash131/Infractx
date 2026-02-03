@@ -6,11 +6,9 @@ export const handleKeyDown = (view:any, event:KeyboardEvent, editor:CustomBlockN
     if(event.key === "Enter"){
         const currentBlock = editor.getTextCursorPosition().block;
         if (!currentBlock) return false;
-        const nextBlock = editor.getNextBlock(currentBlock.id);
 
         const isFuncOrClass = Array.isArray(currentBlock.content) && ((currentBlock.content[0] as any)?.text?.startsWith('@class') || (currentBlock.content[0] as any)?.text?.startsWith('@function'))
 
-        console.log({isFuncOrClass})
         
         if(isFuncOrClass){
             event.preventDefault();
@@ -22,7 +20,6 @@ export const handleKeyDown = (view:any, event:KeyboardEvent, editor:CustomBlockN
         }
         
         const parentBlock = editor.getParentBlock(currentBlock.id);
-        console.log({parentBlock})
         if (!parentBlock) return false; 
         if (parentBlock) {
             const isInsideClassOrFunction =
@@ -32,7 +29,6 @@ export const handleKeyDown = (view:any, event:KeyboardEvent, editor:CustomBlockN
                     item?.text?.includes('@function')
                 );
             const childCount = parentBlock.children?.length || 0;
-            console.log({childCount})
             if(childCount <= 1){ 
                 const newChildId = uuid();
                 const newChild:Block = { 
@@ -81,16 +77,7 @@ export const handleKeyDown = (view:any, event:KeyboardEvent, editor:CustomBlockN
     
     const parentBlock = editor.getParentBlock(currentBlock.id);
     const prevBlock = editor.getPrevBlock(currentBlock.id);
-
-    const isFuncOrClassBlock = Array.isArray(currentBlock.content) &&
-            currentBlock.content.some((item: any) =>
-                item?.text?.startsWith('@class') ||
-                item?.text?.startsWith('@function')
-            );
-    if(isFuncOrClassBlock){
-        editor.removeBlocks([currentBlock.id]);
-        return true;
-    }
+  
     
     if (parentBlock) {
         const isInsideClassOrFunction =
