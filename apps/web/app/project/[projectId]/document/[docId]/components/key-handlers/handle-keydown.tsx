@@ -7,7 +7,7 @@ export const handleKeyDown = (view:any, event:KeyboardEvent, editor:CustomBlockN
         const currentBlock = editor.getTextCursorPosition().block;
         if (!currentBlock) return false;
 
-        const isFuncOrClass = Array.isArray(currentBlock.content) && ((currentBlock.content[0] as any)?.text?.startsWith('@class') || (currentBlock.content[0] as any)?.text?.startsWith('@function'))
+        const isFuncOrClass = Array.isArray(currentBlock.content) && ((currentBlock.content[0] as any)?.text?.startsWith('@class') || (currentBlock.content[0] as any)?.text?.startsWith('@function') || (currentBlock.content[0] as any)?.text?.startsWith('@context') || (currentBlock.content[0] as any)?.text?.startsWith('@schema'))
 
         
         if(isFuncOrClass){
@@ -26,7 +26,9 @@ export const handleKeyDown = (view:any, event:KeyboardEvent, editor:CustomBlockN
                 Array.isArray(parentBlock.content) &&
                 parentBlock.content.some((item: any) =>
                     item?.text?.includes('@class') ||
-                    item?.text?.includes('@function')
+                    item?.text?.includes('@function') ||
+                    item?.text?.includes('@context') ||
+                    item?.text?.includes('@schema')
                 );
             const childCount = parentBlock.children?.length || 0;
             if(childCount <= 1){ 
@@ -84,7 +86,9 @@ export const handleKeyDown = (view:any, event:KeyboardEvent, editor:CustomBlockN
             Array.isArray(parentBlock.content) &&
             parentBlock.content.some((item: any) =>
                 item?.text?.startsWith('@class') ||
-                item?.text?.startsWith('@function')
+                item?.text?.startsWith('@function') ||
+                item?.text?.startsWith('@context') ||
+                item?.text?.startsWith('@schema')
             );
 
         if (isInsideClassOrFunction) {
@@ -103,11 +107,6 @@ export const handleKeyDown = (view:any, event:KeyboardEvent, editor:CustomBlockN
                 return true;
             }
             
-            
-
-         
-            
-            // Allow normal backspace within the block (not at start)
             return false;
         }
     }

@@ -14,7 +14,9 @@ export function SuggestionMenuForRequirements(props: {
         filterSuggestionItems(
           [
             functionSuggestion(props),
-            classSuggestion(props)
+            classSuggestion(props),
+            schemaSuggestion(props),
+            customSuggestion(props),
           ],
           query,
         )
@@ -27,11 +29,73 @@ export function SuggestionMenuForRequirements(props: {
 
 
 
+const customSuggestion = (props: {
+  editor: CustomBlockNoteEditor;
+}) => {
+  return {
+    title: "Custom",
+    onItemClick: () => {
+      const currentBlock = props.editor.getTextCursorPosition().block;
+      if (!currentBlock) return;
+      
+      const insertedBlocks = props.editor.insertBlocks([
+        {
+          id: uuid(),
+          type: "paragraph",
+          content: "@context:",
+          children: [
+            {
+              id: uuid(),
+              type: "paragraph",
+              content: "", 
+            }
+          ]
+        },
+        
+      ], currentBlock, "after");
+
+      if(insertedBlocks.length > 0){
+        props.editor.setTextCursorPosition(insertedBlocks[0] as BlockIdentifier, "end");
+      }
+    },
+  }
+}
+const schemaSuggestion = (props: {
+  editor: CustomBlockNoteEditor;
+}) => {
+  return {
+    title: "Schema",
+    onItemClick: () => {
+      const currentBlock = props.editor.getTextCursorPosition().block;
+      if (!currentBlock) return;
+      
+      const insertedBlocks = props.editor.insertBlocks([
+        {
+          id: uuid(),
+          type: "paragraph",
+          content: "@schema:",
+          children: [
+            {
+              id: uuid(),
+              type: "paragraph",
+              content: "", 
+            }
+          ]
+        },
+        
+      ], currentBlock, "after");
+
+      if(insertedBlocks.length > 0){
+        props.editor.setTextCursorPosition(insertedBlocks[0] as BlockIdentifier, "end");
+      }
+    },
+  }
+}
 const classSuggestion = (props: {
   editor: CustomBlockNoteEditor;
 }) => {
   return {
-    title: "class",
+    title: "Class",
     onItemClick: () => {
       const currentBlock = props.editor.getTextCursorPosition().block;
       if (!currentBlock) return;
@@ -64,7 +128,7 @@ const  functionSuggestion= (props: {
   editor:  CustomBlockNoteEditor;
 }) =>{
    return {
-          title: "function",
+          title: "Function",
           onItemClick: () => {
             const currentBlock = props.editor.getTextCursorPosition().block;
             if (!currentBlock) return;
