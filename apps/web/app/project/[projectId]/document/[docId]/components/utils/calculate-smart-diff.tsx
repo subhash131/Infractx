@@ -189,8 +189,9 @@ export function calculateSmartDiff(
           
           if (needsRankUpdate) {
             updatePayload.rank = targetRank;
-            updatePayload.parentId = parentId;
           }
+          console.log("parentId", parentId);
+          updatePayload.parentId = parentId;
           if (contentChanged) updatePayload.content = block.content;
           if (propsChanged) updatePayload.props = block.props;
           if (typeChanged) updatePayload.type = block.type;
