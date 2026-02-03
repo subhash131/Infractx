@@ -19,7 +19,7 @@ export function calculateSmartDiff(
       // Try to get rank from our persistent map
       const dbRank = blockRanks.get(b.id) || (b as any).rank || "";
       
-      console.log(`  🔍 Indexing old [${b.id.slice(0, 6)}] with rank: ${dbRank || 'MISSING'}`);
+      // console.log(`  🔍 Indexing old [${b.id.slice(0, 6)}] with rank: ${dbRank || 'MISSING'}`);
       
       oldMap.set(b.id, { block: b, parentId: parent, rank: dbRank });
       
@@ -27,7 +27,7 @@ export function calculateSmartDiff(
     }
   };
   
-  console.log("🏗️  Building oldMap from lastSavedState...");
+  // console.log("🏗️  Building oldMap from lastSavedState...");
   indexOld(oldBlocks);
 
   // 2. Enhanced content comparison helper with deep object comparison
@@ -78,7 +78,7 @@ export function calculateSmartDiff(
   };
 
   const traverse = (blocks: CustomBlock[], parentId: string | null = null) => {
-    console.log(`\n📂 Traversing ${blocks.length} blocks (parent: ${parentId?.slice(0, 6) || 'root'})`);
+    // console.log(`\n📂 Traversing ${blocks.length} blocks (parent: ${parentId?.slice(0, 6) || 'root'})`);
     
     for (let i = 0; i < blocks.length; i++) {
       const block = blocks[i];
@@ -93,7 +93,7 @@ export function calculateSmartDiff(
 
       if (!oldEntry) {
         // --- NEW BLOCK ---
-        console.log(`\n🆕 NEW BLOCK [${block.id.slice(0, 6)}] at position ${i}`);
+        // console.log(`\n🆕 NEW BLOCK [${block.id.slice(0, 6)}] at position ${i}`);
         
         // Find PREVIOUS block's rank
         let prevRank: string | null = null;
@@ -102,7 +102,7 @@ export function calculateSmartDiff(
           const prevRankValue = blockRanks.get(prevId);
           if (prevRankValue) {
             prevRank = prevRankValue;
-            console.log(`  ⬅️  Found prevRank from [${prevId.slice(0, 6)}]: ${prevRank}`);
+            // console.log(`  ⬅️  Found prevRank from [${prevId.slice(0, 6)}]: ${prevRank}`);
             break;
           }
         }
@@ -115,31 +115,31 @@ export function calculateSmartDiff(
           const nextRankValue = blockRanks.get(nextId);
           if (nextRankValue) {
             nextRank = nextRankValue;
-            console.log(`  ➡️  Found nextRank from [${nextId.slice(0, 6)}]: ${nextRank}`);
+            // console.log(`  ➡️  Found nextRank from [${nextId.slice(0, 6)}]: ${nextRank}`);
             break;
           }
         }
         if (!nextRank) console.log(`  ➡️  No next rank (end of list)`);
 
         targetRank = generateKeyBetween(prevRank, nextRank);
-        console.log(`  ✨ Generated rank: ${targetRank}`);
+        // console.log(`  ✨ Generated rank: ${targetRank}`);
         
         // CRITICAL: Store the rank IMMEDIATELY so next blocks can use it
         blockRanks.set(block.id, targetRank);
-        console.log(`  💾 Stored rank in map for future blocks`);
+        // console.log(`  💾 Stored rank in map for future blocks`);
         
         toCreate.push({ ...block, rank: targetRank, parentId });
         
       } else {
         // --- EXISTING BLOCK ---
         targetRank = oldEntry.rank;
-        console.log(`\n♻️  EXISTING BLOCK [${block.id.slice(0, 6)}] current rank: ${targetRank || 'MISSING'}`);
+        // console.log(`\n♻️  EXISTING BLOCK [${block.id.slice(0, 6)}] current rank: ${targetRank || 'MISSING'}`);
         
         // Check if parent changed
         const movedParent = oldEntry.parentId !== parentId;
         
         if (movedParent) {
-          console.log(`  🔄 PARENT CHANGED! Old: ${oldEntry.parentId?.slice(0, 6) || 'root'} → New: ${parentId?.slice(0, 6) || 'root'}`);
+          // console.log(`  🔄 PARENT CHANGED! Old: ${oldEntry.parentId?.slice(0, 6) || 'root'} → New: ${parentId?.slice(0, 6) || 'root'}`);
           
           // Find PREVIOUS block's rank
           let prevRank: string | null = null;
@@ -148,7 +148,7 @@ export function calculateSmartDiff(
             const prevRankValue = blockRanks.get(prevId);
             if (prevRankValue) {
               prevRank = prevRankValue;
-              console.log(`  ⬅️  Found prevRank from [${prevId.slice(0, 6)}]: ${prevRank}`);
+              // console.log(`  ⬅️  Found prevRank from [${prevId.slice(0, 6)}]: ${prevRank}`);
               break;
             }
           }
@@ -160,7 +160,7 @@ export function calculateSmartDiff(
             const nextRankValue = blockRanks.get(nextId);
             if (nextRankValue) {
               nextRank = nextRankValue;
-              console.log(`  ➡️  Found nextRank from [${nextId.slice(0, 6)}]: ${nextRank}`);
+              // console.log(`  ➡️  Found nextRank from [${nextId.slice(0, 6)}]: ${nextRank}`);
               break;
             }
           }
@@ -168,11 +168,11 @@ export function calculateSmartDiff(
           targetRank = generateKeyBetween(prevRank, nextRank);
           needsRankUpdate = true;
           updateReason = "Parent Changed";
-          console.log(`  ✨ Generated new rank: ${targetRank}`);
+          // console.log(`  ✨ Generated new rank: ${targetRank}`);
           
           // CRITICAL: Store the updated rank IMMEDIATELY
           blockRanks.set(block.id, targetRank);
-          console.log(`  💾 Stored updated rank in map`);
+          // console.log(`  💾 Stored updated rank in map`);
         }
 
         // Check for content/props changes
@@ -180,15 +180,9 @@ export function calculateSmartDiff(
         const propsChanged = hasPropsChanged(block.props, oldEntry.block.props);
         const typeChanged = block.type !== oldEntry.block.type;
 
-        if (contentChanged) {
-          console.log(`  📝 Content changed`);
-          if (block.type === 'table') {
-            console.log(`  📊 Table content OLD:`, JSON.stringify(oldEntry.block.content, null, 2));
-            console.log(`  📊 Table content NEW:`, JSON.stringify(block.content, null, 2));
-          }
-        }
-        if (propsChanged) console.log(`  ⚙️  Props changed`);
-        if (typeChanged) console.log(`  🔄 Type changed`);
+     
+        // if (propsChanged) console.log(`  ⚙️  Props changed`);
+        // if (typeChanged) console.log(`  🔄 Type changed`);
 
         if (needsRankUpdate || contentChanged || propsChanged || typeChanged) {
           const updatePayload: any = { id: block.id };
@@ -216,7 +210,7 @@ export function calculateSmartDiff(
   const toDelete: string[] = [];
   for (const key of oldMap.keys()) {
     if (!processedIds.has(key)) {
-      console.log(`🗑️  DELETED: [${key.slice(0, 6)}]`);
+      // console.log(`🗑️  DELETED: [${key.slice(0, 6)}]`);
       toDelete.push(key);
     }
   }

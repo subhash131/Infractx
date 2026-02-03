@@ -4,7 +4,7 @@ import { Doc } from "@workspace/backend/_generated/dataModel";
 export const transformToBlockNoteStructure = (
   blocks: Doc<"blocks">[]
 ): Block[] => {
-  const blockMap = new Map<string, Block & { children: Block[]; rank: string }>();
+  const blockMap = new Map<string, Block & { children: Block[]; rank: string; parentId: string }>();
   const rootBlocks: Block[] = [];
 
   // 1. Create blocks - PRESERVE THE RANK!
@@ -16,6 +16,7 @@ export const transformToBlockNoteStructure = (
       content: block.content as any,
       children: [],
       rank: block.rank, 
+      parentId: block.parentId ?? "",
     });
   });
 
@@ -25,8 +26,8 @@ export const transformToBlockNoteStructure = (
   // 3. Build tree
   sortedBlocks.forEach((block) => {
     const node = blockMap.get(block.externalId)!;
-
     if (block.parentId && blockMap.has(block.parentId)) {
+      console.log({blockParent:block.parentId})
       blockMap.get(block.parentId)!.children.push(node);
     } else {
       rootBlocks.push(node);
