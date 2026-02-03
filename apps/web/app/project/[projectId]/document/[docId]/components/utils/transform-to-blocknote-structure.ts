@@ -27,7 +27,6 @@ export const transformToBlockNoteStructure = (
   sortedBlocks.forEach((block) => {
     const node = blockMap.get(block.externalId)!;
     if (block.parentId && blockMap.has(block.parentId)) {
-      console.log({blockParent:block.parentId})
       blockMap.get(block.parentId)!.children.push(node);
     } else {
       rootBlocks.push(node);

@@ -2,6 +2,7 @@ import { BlockIdentifier } from "@blocknote/core";
 import { filterSuggestionItems } from "@blocknote/core/extensions";
 import { SuggestionMenuController } from "@blocknote/react";
 import {  CustomBlockNoteEditor } from "./custom-blocks/schema";
+import { v4 as uuid } from "uuid"
 
 export function SuggestionMenuForRequirements(props: {
   editor: CustomBlockNoteEditor;
@@ -36,25 +37,39 @@ const  classSuggestion= (props: {
             if (!currentBlock) return;
             const insertedBlocks = props.editor.insertBlocks ([
               {
+                id: uuid(),
                 type: "paragraph",
                 content: "@class:", 
                 children:[
                   {
+                    id: uuid(),
                     type: "paragraph",
                     content: "", 
                   },
                   {
+                    id: uuid(),
                     type: "paragraph",
                     content: "@function:", 
                     children:[
                       {
+                        id: uuid(),
                         type: "paragraph",
                         content: "", 
                       }
                     ]
+                  },
+                  {
+                    id: uuid(),
+                    type: "paragraph",
+                    content: "", 
+                  },
+                  {
+                    id: uuid(),
+                    type: "paragraph",
+                    content: "", 
                   }
                 ]
-              }
+              },
             ], currentBlock, "after");
 
             if(insertedBlocks.length > 0){
@@ -73,10 +88,12 @@ const  functionSuggestion= (props: {
             if (!currentBlock) return;
             const insertedBlocks = props.editor.insertBlocks ([
               {
+                id: uuid(),
                 type: "paragraph",
                 content: "@function:", 
                 children:[
                   {
+                    id: uuid(),
                     type: "paragraph",
                     content: "", 
                   }

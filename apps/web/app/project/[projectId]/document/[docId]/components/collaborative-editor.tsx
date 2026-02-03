@@ -88,10 +88,8 @@ export default function CollaborativeEditor() {
     initialContent: [{}],
     _tiptapOptions:{
       editorProps:{
-        handleKeyDown: (view,event)=>{console.log("handleKeyDown");
-          if(event.key === "Enter"){
-            return handleKeyDown(view,event,editor)
-          }
+        handleKeyDown: (view,event)=>{
+          return handleKeyDown(view,event,editor)
         }, 
       }
     }
