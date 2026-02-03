@@ -80,8 +80,18 @@ export const handleKeyDown = (view:any, event:KeyboardEvent, editor:CustomBlockN
     if (!currentBlock) return false;
     
     const parentBlock = editor.getParentBlock(currentBlock.id);
-    console.log({parentBlock})
-      
+    const prevBlock = editor.getPrevBlock(currentBlock.id);
+
+    const isFuncOrClassBlock = Array.isArray(currentBlock.content) &&
+            currentBlock.content.some((item: any) =>
+                item?.text?.startsWith('@class') ||
+                item?.text?.startsWith('@function')
+            );
+    if(isFuncOrClassBlock){
+        editor.removeBlocks([currentBlock.id]);
+        return true;
+    }
+    
     if (parentBlock) {
         const isInsideClassOrFunction =
             Array.isArray(parentBlock.content) &&
@@ -95,30 +105,20 @@ export const handleKeyDown = (view:any, event:KeyboardEvent, editor:CustomBlockN
             const isEmpty = Array.isArray(currentBlock.content) && 
                            (currentBlock.content.length === 0 || 
                             (currentBlock.content[0]?.type === "text" && currentBlock.content[0].text.length === 0));
-            
 
-            // Check if cursor is at the start of the block
-            const cursorPos = editor.getTextCursorPosition();
-            const isAtStart = cursorPos.prevBlock === null;
-            
-            if (isEmpty && isAtStart) {
-                // Block is empty, prevent deletion and move cursor up
-                event.preventDefault();
-                event.stopPropagation();
-                
-                const prevBlock = editor.getPrevBlock(currentBlock.id);
+            if(isEmpty){
                 if(prevBlock?.id){
+                    editor.removeBlocks([currentBlock.id]);
                     editor.setTextCursorPosition(prevBlock.id, "end");
+                }else{
+                    editor.setTextCursorPosition(parentBlock.id, "end");
                 }
                 return true;
             }
             
-            if (isAtStart && !isEmpty) {
-                // Cursor at start of non-empty block - prevent merging with previous block
-                event.preventDefault();
-                event.stopPropagation();
-                return true;
-            }
+            
+
+         
             
             // Allow normal backspace within the block (not at start)
             return false;
