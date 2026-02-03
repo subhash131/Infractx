@@ -27,57 +27,39 @@ export function SuggestionMenuForRequirements(props: {
 
 
 
-const  classSuggestion= (props: {
+const classSuggestion = (props: {
   editor: CustomBlockNoteEditor;
-}) =>{
-   return {
-          title: "class",
-          onItemClick: () => {
-            const currentBlock = props.editor.getTextCursorPosition().block;
-            if (!currentBlock) return;
-            const insertedBlocks = props.editor.insertBlocks ([
-              {
-                id: uuid(),
-                type: "paragraph",
-                content: "@class:", 
-                children:[
-                  {
-                    id: uuid(),
-                    type: "paragraph",
-                    content: "", 
-                  },
-                  {
-                    id: uuid(),
-                    type: "paragraph",
-                    content: "@function:", 
-                    children:[
-                      {
-                        id: uuid(),
-                        type: "paragraph",
-                        content: "", 
-                      }
-                    ]
-                  },
-                  {
-                    id: uuid(),
-                    type: "paragraph",
-                    content: "", 
-                  },
-                  {
-                    id: uuid(),
-                    type: "paragraph",
-                    content: "", 
-                  }
-                ]
-              },
-            ], currentBlock, "after");
-
-            if(insertedBlocks.length > 0){
-              props.editor.setTextCursorPosition(insertedBlocks[0] as BlockIdentifier, "end");
+}) => {
+  return {
+    title: "class",
+    onItemClick: () => {
+      const currentBlock = props.editor.getTextCursorPosition().block;
+      if (!currentBlock) return;
+      
+      const insertedBlocks = props.editor.insertBlocks([
+        {
+          id: uuid(),
+          type: "paragraph",
+          content: "@class:", 
+          children: [
+            {
+              id: uuid(),
+              type: "paragraph",
+              content: "", 
             }
-          },
+          ]
+        },
+        
+      ], currentBlock, "after");
+
+      if(insertedBlocks.length > 0){
+        props.editor.setTextCursorPosition(insertedBlocks[0] as BlockIdentifier, "end");
       }
- }
+    },
+  }
+}
+
+
 const  functionSuggestion= (props: {
   editor:  CustomBlockNoteEditor;
 }) =>{
