@@ -204,7 +204,7 @@ export default function CollaborativeEditor() {
         
         try {
           if (toCreate.length) {
-            // consoleg("To CREATE:", toCreate, "blocks");
+            console.log("To CREATE:", toCreate, "blocks");
             const blocksToInsert = toCreate.map((block) => {
               // consoleg(`CREATE [${block.id.slice(0, 6)}] with rank: ${block.rank}`);
               
@@ -212,7 +212,6 @@ export default function CollaborativeEditor() {
               if (block.type === 'table') {
                 // consoleg(`Original table content:`, JSON.stringify(block.content, null, 2));
               }
-              
               const sanitizedBlock = {
                 externalId: block.id,
                 type: block.type,
@@ -220,6 +219,7 @@ export default function CollaborativeEditor() {
                 content: sanitizeForConvex(block.content),
                 rank: block.rank,
                 parentId: block.parentId ?? null,
+                semanticType: block.props.semanticType ?? "default",
               };
               return sanitizedBlock;
             });
@@ -231,7 +231,7 @@ export default function CollaborativeEditor() {
           }
           
           if (toUpdate.length) {
-            // console.log("🟡 To UPDATE:", toUpdate, "blocks");
+            console.log("🟡 To UPDATE:", toUpdate, "blocks");
             const blocksToUpdate = toUpdate.map((block) => {
               if (block.rank) {
                 // // consoleg(`UPDATE [${block.id.slice(0, 6)}] with new rank: ${block.rank}`);
