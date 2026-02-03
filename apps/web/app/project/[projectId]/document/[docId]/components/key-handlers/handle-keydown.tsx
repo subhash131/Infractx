@@ -1,77 +1,67 @@
-import { Block } from "@blocknote/core";
 import { CustomBlockNoteEditor } from "../custom-blocks/schema";
-import { v4 as uuid } from "uuid";
+import { getNewParagraphBlock } from "../utils/get-new-paragraph-block";
 
 export const handleKeyDown = (view:any, event:KeyboardEvent, editor:CustomBlockNoteEditor) => {
+
     if(event.key === "Enter"){
         const currentBlock = editor.getTextCursorPosition().block;
         if (!currentBlock) return false;
-
-        const isFuncOrClass = Array.isArray(currentBlock.content) && ((currentBlock.content[0] as any)?.text?.startsWith('@class') || (currentBlock.content[0] as any)?.text?.startsWith('@function') || (currentBlock.content[0] as any)?.text?.startsWith('@context') || (currentBlock.content[0] as any)?.text?.startsWith('@schema'))
-
-        
-        if(isFuncOrClass){
-            event.preventDefault();
-            event.stopPropagation();
-            if(currentBlock.children?.length){
-                editor.setTextCursorPosition((currentBlock.children[0] as Block).id, "start");
-            }
-            return true;
+        //Handle Enter key press for parent blocks
+        const isParentSpecialBlock = Array.isArray(currentBlock.content) && ((currentBlock.content[0] as any)?.text?.startsWith('@class') || (currentBlock.content[0] as any)?.text?.startsWith('@function') || (currentBlock.content[0] as any)?.text?.startsWith('@context') || (currentBlock.content[0] as any)?.text?.startsWith('@schema'))   
+        console.log({isParentSpecialBlock})     
+        if(isParentSpecialBlock){
+            const newBlock = getNewParagraphBlock()
+           editor.updateBlock(currentBlock.id, {
+            children:[newBlock,...currentBlock.children]
+           })
+           editor.setTextCursorPosition(newBlock.id, "start");
+           return true;
         }
-        
+
         const parentBlock = editor.getParentBlock(currentBlock.id);
         if (!parentBlock) return false; 
-        if (parentBlock) {
-            const isInsideClassOrFunction =
-                Array.isArray(parentBlock.content) &&
-                parentBlock.content.some((item: any) =>
-                    item?.text?.includes('@class') ||
-                    item?.text?.includes('@function') ||
-                    item?.text?.includes('@context') ||
-                    item?.text?.includes('@schema')
-                );
-            const childCount = parentBlock.children?.length || 0;
-            if(childCount <= 1){ 
-                const newChildId = uuid();
-                const newChild:Block = { 
-                    type: "paragraph", 
-                    content: [{type:"text",text:"",styles:{}}],
-                    children:[],
-                    id: newChildId,
-                   props: {
-                        backgroundColor: "default",
-                        textColor: "default",
-                        textAlignment: "left"
-                    }
-                };
-  
-                editor.updateBlock(parentBlock.id, { 
-                    children: [...parentBlock.children, newChild] 
-                });
-  
-                editor.setTextCursorPosition(newChildId, "start"); 
-                return true; 
-            }
 
-            if (isInsideClassOrFunction) {
-                event.preventDefault();
-                event.stopPropagation();
-                
-                const newBlock = editor.insertBlocks(
-                    [{ type: "paragraph", content: "" }],
-                    currentBlock.id,
-                    "after"
-                );
-                
-                if(newBlock[0]?.id){
-                    editor.setTextCursorPosition(newBlock[0].id, "start");
-                }                
+        const grandParentBlock = editor.getParentBlock(parentBlock.id);
+        const isGrandParentSpecialBlock = grandParentBlock && (Array.isArray(grandParentBlock.content) && ((grandParentBlock.content[0] as any)?.text?.startsWith('@class') || (grandParentBlock.content[0] as any)?.text?.startsWith('@function') || (grandParentBlock.content[0] as any)?.text?.startsWith('@context') || (grandParentBlock.content[0] as any)?.text?.startsWith('@schema')))
+        console.log({isGrandParentSpecialBlock})     
+
+        //Handle Enter key press for child blocks
+        const isChildSpecialBlock = Array.isArray(parentBlock.content) && ((parentBlock.content[0] as any)?.text?.startsWith('@class') || (parentBlock.content[0] as any)?.text?.startsWith('@function') || (parentBlock.content[0] as any)?.text?.startsWith('@context') || (parentBlock.content[0] as any)?.text?.startsWith('@schema'))   
+        console.log({isChildSpecialBlock})     
+        if(isChildSpecialBlock){
+            const nextBlock = editor.getNextBlock(currentBlock.id)
+            if(nextBlock?.id){
+                editor.setTextCursorPosition(nextBlock?.id, "start");
+                return true;
+            }else{
+                if(grandParentBlock){
+                    const parentNextBlock = editor.getNextBlock(parentBlock.id)
+                    console.log({
+                        parentNextBlock
+                    })
+                    if(!parentNextBlock?.id){
+                        editor.updateBlock(grandParentBlock.id, {
+                            children:[...grandParentBlock.children,getNewParagraphBlock()]
+                    })
+                    }
+                }
+                const newBlock = getNewParagraphBlock()
+                editor.updateBlock(parentBlock.id, {
+                    children:[...parentBlock.children,newBlock]
+                })
+                editor.setTextCursorPosition(newBlock.id, "start");
+
                 return true;
             }
+
+           
         }
+
+        
        
-        return false;
+
     }
+    
     if(event.key === "Backspace"){
     console.log("Backspace")
     const currentBlock = editor.getTextCursorPosition().block;
@@ -82,7 +72,7 @@ export const handleKeyDown = (view:any, event:KeyboardEvent, editor:CustomBlockN
   
     
     if (parentBlock) {
-        const isInsideClassOrFunction =
+        const isInsideSpecialBlock =
             Array.isArray(parentBlock.content) &&
             parentBlock.content.some((item: any) =>
                 item?.text?.startsWith('@class') ||
@@ -91,7 +81,7 @@ export const handleKeyDown = (view:any, event:KeyboardEvent, editor:CustomBlockN
                 item?.text?.startsWith('@schema')
             );
 
-        if (isInsideClassOrFunction) {
+        if (isInsideSpecialBlock) {
             // Check if current block is empty
             const isEmpty = Array.isArray(currentBlock.content) && 
                            (currentBlock.content.length === 0 || 

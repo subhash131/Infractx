@@ -2,7 +2,7 @@ import { BlockIdentifier } from "@blocknote/core";
 import { filterSuggestionItems } from "@blocknote/core/extensions";
 import { SuggestionMenuController } from "@blocknote/react";
 import {  CustomBlockNoteEditor } from "./custom-blocks/schema";
-import { v4 as uuid } from "uuid"
+import { getNewParagraphBlock } from "./utils/get-new-paragraph-block";
 
 export function SuggestionMenuForRequirements(props: {
   editor: CustomBlockNoteEditor;
@@ -37,19 +37,13 @@ const customSuggestion = (props: {
     onItemClick: () => {
       const currentBlock = props.editor.getTextCursorPosition().block;
       if (!currentBlock) return;
+      const newBlock = getNewParagraphBlock()
       
       const insertedBlocks = props.editor.insertBlocks([
         {
-          id: uuid(),
-          type: "paragraph",
+          ...newBlock,
           content: "@context:",
-          children: [
-            {
-              id: uuid(),
-              type: "paragraph",
-              content: "", 
-            }
-          ]
+          children: [getNewParagraphBlock()]
         },
         
       ], currentBlock, "after");
@@ -71,16 +65,9 @@ const schemaSuggestion = (props: {
       
       const insertedBlocks = props.editor.insertBlocks([
         {
-          id: uuid(),
-          type: "paragraph",
+          ...getNewParagraphBlock(),
           content: "@schema:",
-          children: [
-            {
-              id: uuid(),
-              type: "paragraph",
-              content: "", 
-            }
-          ]
+          children: [getNewParagraphBlock()]
         },
         
       ], currentBlock, "after");
@@ -102,16 +89,9 @@ const classSuggestion = (props: {
       
       const insertedBlocks = props.editor.insertBlocks([
         {
-          id: uuid(),
-          type: "paragraph",
+          ...getNewParagraphBlock(),
           content: "@class:", 
-          children: [
-            {
-              id: uuid(),
-              type: "paragraph",
-              content: "", 
-            }
-          ]
+          children: [getNewParagraphBlock()]
         },
         
       ], currentBlock, "after");
@@ -134,16 +114,9 @@ const  functionSuggestion= (props: {
             if (!currentBlock) return;
             const insertedBlocks = props.editor.insertBlocks ([
               {
-                id: uuid(),
-                type: "paragraph",
+                ...getNewParagraphBlock(),
                 content: "@function:", 
-                children:[
-                  {
-                    id: uuid(),
-                    type: "paragraph",
-                    content: "", 
-                  }
-                ]
+                children: [getNewParagraphBlock()]
               }
             ], currentBlock, "after");
 
