@@ -42,15 +42,14 @@ const customSuggestion = (props: {
       const insertedBlocks = props.editor.insertBlocks([
         {
           ...newBlock,
-          content: "@context:",
+          content: "@custom:",
           children: [getNewParagraphBlock()]
         },
-        
       ], currentBlock, "after");
-
       if(insertedBlocks.length > 0){
         props.editor.setTextCursorPosition(insertedBlocks[0] as BlockIdentifier, "end");
       }
+      props.editor.insertInlineContent("demo")
     },
   }
 }
