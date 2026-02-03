@@ -3,6 +3,8 @@ import { v } from "convex/values";
 import { DESIGN_TOOLS_TYPE, MESSAGE_CONTEXT_TYPE } from "./design/constants";
 import { shapeInsertValidator } from "./design/utils";
 
+export const  semanticTypeValidator= v.union(v.literal("default"), v.literal("class"), v.literal("function"), v.literal("schema"), v.literal("custom"))
+
 export default defineSchema({
   // Users table for authentication
   users: defineTable({
@@ -205,11 +207,12 @@ export default defineSchema({
     props: v.any(),
     content: v.any(),
     rank: v.string(),
-    // uuid from the client
-    externalId:v.string(),
+    semanticType:semanticTypeValidator,
+    externalId:v.string(),// uuid from the client
   })
     .index("by_text_file", ["textFileId"])
     .index("by_parent_rank", ["textFileId", "parentId", "rank"])
     .index("by_external_id", ["externalId"])
 
 });
+

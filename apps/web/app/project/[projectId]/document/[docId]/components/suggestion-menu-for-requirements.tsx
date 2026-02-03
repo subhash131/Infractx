@@ -29,30 +29,39 @@ export function SuggestionMenuForRequirements(props: {
 
 
 
-const customSuggestion = (props: {
-  editor: CustomBlockNoteEditor;
-}) => {
+const customSuggestion = (props: { editor: CustomBlockNoteEditor }) => {
   return {
     title: "Custom",
     onItemClick: () => {
       const currentBlock = props.editor.getTextCursorPosition().block;
       if (!currentBlock) return;
-      const newBlock = getNewParagraphBlock()
-      
-      const insertedBlocks = props.editor.insertBlocks([
-        {
-          ...newBlock,
-          content: "@custom:",
-          children: [getNewParagraphBlock()]
-        },
-      ], currentBlock, "after");
-      if(insertedBlocks.length > 0){
-        props.editor.setTextCursorPosition(insertedBlocks[0] as BlockIdentifier, "end");
+
+      const insertedBlocks = props.editor.insertBlocks(
+        [
+          {
+            type: "smartBlock", 
+            props: {
+              semanticType: "custom", 
+            },
+            content: "@custom: ",
+            children: [getNewParagraphBlock()],
+          },
+        ],
+        currentBlock,
+        "after"
+      );
+
+      if (insertedBlocks.length > 0) {
+        props.editor.setTextCursorPosition(
+          insertedBlocks[0] as BlockIdentifier,
+          "end"
+        );
       }
-      props.editor.insertInlineContent("demo")
     },
-  }
-}
+  };
+};
+
+
 const schemaSuggestion = (props: {
   editor: CustomBlockNoteEditor;
 }) => {
@@ -64,8 +73,11 @@ const schemaSuggestion = (props: {
       
       const insertedBlocks = props.editor.insertBlocks([
         {
-          ...getNewParagraphBlock(),
-          content: "@schema:",
+          type: "smartBlock",
+          props: {
+            semanticType: "schema",
+          },
+          content: "@schema: ",
           children: [getNewParagraphBlock()]
         },
         
@@ -88,8 +100,11 @@ const classSuggestion = (props: {
       
       const insertedBlocks = props.editor.insertBlocks([
         {
-          ...getNewParagraphBlock(),
-          content: "@class:", 
+          type: "smartBlock",
+          props: {
+            semanticType: "class",
+          },
+          content: "@class: ",
           children: [getNewParagraphBlock()]
         },
         
@@ -113,8 +128,11 @@ const  functionSuggestion= (props: {
             if (!currentBlock) return;
             const insertedBlocks = props.editor.insertBlocks ([
               {
-                ...getNewParagraphBlock(),
-                content: "@function:", 
+                type: "smartBlock",
+                props: {
+                  semanticType: "function",
+                },
+                content: "@function: ",
                 children: [getNewParagraphBlock()]
               }
             ], currentBlock, "after");
