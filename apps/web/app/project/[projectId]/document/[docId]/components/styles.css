@@ -4,3 +4,7 @@
   border-radius: 0;
   padding-bottom: 15rem;
 }
+
+.bn-mantine .bn-suggestion-menu-item  {
+  height: fit-content;
+}
