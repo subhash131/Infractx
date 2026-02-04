@@ -23,7 +23,7 @@ import { calculateSmartDiff } from "./utils/calculate-smart-diff";
 import { handleKeyDown } from "./key-handlers/handle-keydown";
 
 
-const BASE_URL = "https://localhost:3000/ai";
+const BASE_URL = "https://localhost:3000/";
 
 // Sanitize function to clean data before sending to Convex 
 // for table data
@@ -81,8 +81,9 @@ export default function CollaborativeEditor() {
     extensions: [
       AIExtension({
         transport: new DefaultChatTransport({
-          api: `${BASE_URL}/regular/streamText`,
+          api:  `/api/ai`,
         }),
+
       }),
     ],
     initialContent: [{}],
