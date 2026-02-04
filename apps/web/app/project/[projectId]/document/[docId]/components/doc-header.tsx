@@ -65,7 +65,7 @@ export const DocHeader = () => {
   return (
     <div className="w-full h-fit bg-[#1F1F1F] text-white">
       <input
-        className="text-4xl font-semibold pl-16 w-full pt-4 border-0 focus:ring-0 outline-none"
+        className="text-4xl font-semibold pl-16 w-full pt-6 pb-2 border-0 focus:ring-0 outline-none"
         placeholder="Untitled"
         onKeyDown={(e) => {
           if (e.key === "Enter") {
