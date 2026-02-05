@@ -81,7 +81,7 @@ export default function CollaborativeEditor() {
     extensions: [
       AIExtension({
         transport: new DefaultChatTransport({
-          api:  `/api/ai`,
+          api:  `/api/ai/doc`,
         }),
 
       }),
