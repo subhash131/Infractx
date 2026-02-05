@@ -61,7 +61,6 @@ const customSuggestion = (props: { editor: CustomBlockNoteEditor }) => {
   };
 };
 
-
 const schemaSuggestion = (props: {
   editor: CustomBlockNoteEditor;
 }) => {
@@ -116,7 +115,6 @@ const classSuggestion = (props: {
     },
   }
 }
-
 
 const  functionSuggestion= (props: {
   editor:  CustomBlockNoteEditor;

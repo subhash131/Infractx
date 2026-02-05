@@ -116,7 +116,7 @@ export const handleKeyDown = (view:any, event:KeyboardEvent, editor:CustomBlockN
     }
    
     return false;
-}
+    }
     
     return false;
 }
