@@ -131,7 +131,7 @@ export async function POST(req: NextRequest) {
     messages: await convertToModelMessages(
       injectDocumentStateMessages(messages)
     ),
-    tools: toolDefinitionsToToolSet(smartToolDefinitions),
+    // tools: toolDefinitionsToToolSet(smartToolDefinitions),
     toolChoice: "required",
     onFinish: async (event) => {
       console.log("------------START RESPONSE---------------");
