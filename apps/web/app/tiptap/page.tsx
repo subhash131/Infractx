@@ -1,5 +1,5 @@
 import React from 'react'
-import { TiptapEditor } from './components/editor'
+import TiptapEditor from './components/editor'
 
 const TiptapPage = () => {
   return (
