@@ -78,6 +78,7 @@ import { SmartBlock } from "@/app/tiptap/components/extensions/smart-block"
 
 import { SmartBlockContent } from "@/app/tiptap/components/extensions/smart-block-content"
 import { SmartBlockGroup } from "@/app/tiptap/components/extensions/smart-block-group"
+import { GlobalBlockAttributes } from "@/app/tiptap/components/extensions/global-block-attributes"
 
 
 const MainToolbarContent = ({
@@ -211,6 +212,7 @@ export function SimpleEditor() {
       SmartBlock,
       SmartBlockContent,
       SmartBlockGroup,
+      GlobalBlockAttributes,
       StarterKit.configure({
         horizontalRule: false,
         link: {
