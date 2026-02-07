@@ -189,6 +189,9 @@ importers:
       '@tiptap/core':
         specifier: 3.19.0
         version: 3.19.0(@tiptap/pm@3.19.0)
+      '@tiptap/extension-document':
+        specifier: ^3.19.0
+        version: 3.19.0(@tiptap/core@3.19.0(@tiptap/pm@3.19.0))
       '@tiptap/extension-highlight':
         specifier: ^3.19.0
         version: 3.19.0(@tiptap/core@3.19.0(@tiptap/pm@3.19.0))
@@ -12648,7 +12651,7 @@ snapshots:
       isstream: 0.1.2
       jsonwebtoken: 9.0.3
       mime-types: 2.1.35
-      retry-axios: 2.6.0(axios@1.13.4)
+      retry-axios: 2.6.0(axios@1.13.4(debug@4.4.3))
       tough-cookie: 4.1.4
     transitivePeerDependencies:
       - supports-color
@@ -14783,7 +14786,7 @@ snapshots:
       onetime: 5.1.2
       signal-exit: 3.0.7
 
-  retry-axios@2.6.0(axios@1.13.4):
+  retry-axios@2.6.0(axios@1.13.4(debug@4.4.3)):
     dependencies:
       axios: 1.13.4(debug@4.4.3)
 

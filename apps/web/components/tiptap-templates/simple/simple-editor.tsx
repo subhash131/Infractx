@@ -74,6 +74,14 @@ import { handleImageUpload, MAX_FILE_SIZE } from "@/app/lib/tiptap-utils"
 import "@/components/tiptap-templates/simple/simple-editor.scss"
 
 import content from "@/components/tiptap-templates/simple/data/content.json"
+import { NestedBlock } from "@/app/tiptap/components/extensions/nested-block"
+
+import Document from '@tiptap/extension-document';
+import { BlockContent } from "@/app/tiptap/components/extensions/block-content"
+
+const CustomDocument = Document.extend({
+  content: 'nestedBlock+', 
+});
 
 const MainToolbarContent = ({
   onHighlighterClick,
@@ -203,6 +211,8 @@ export function SimpleEditor() {
       },
     },
     extensions: [
+      BlockContent,
+      NestedBlock,
       StarterKit.configure({
         horizontalRule: false,
         link: {
@@ -273,8 +283,10 @@ export function SimpleEditor() {
           editor={editor}
           role="presentation"
           className="simple-editor-content"
+          onKeyDown={(e)=>{console.log("key down", editor?.getJSON())}}
         />
       </EditorContext.Provider>
+      {JSON.stringify(editor?.getJSON())}
     </div>
   )
 }
