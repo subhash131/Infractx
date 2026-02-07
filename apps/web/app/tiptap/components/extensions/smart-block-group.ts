@@ -1,9 +1,8 @@
 import { Node } from "@tiptap/core";
 
-export const NestedBlockGroup = Node.create({
-  name: "nestedBlockGroup",
+export const SmartBlockGroup = Node.create({
+  name: "smartBlockGroup", 
   group: "block",
-  // This node holds all the children (paragraphs, images, etc.)
   content: "block+", 
   defining: true,
 
@@ -15,11 +14,10 @@ export const NestedBlockGroup = Node.create({
     return [
       "div",
       { 
-        "data-node-type": "nestedBlockGroup",
-        // This gives you the desired indentation for the whole group
+        "data-node-type": "smartBlockGroup", // Renamed
         style: "padding-left: 10px; width: 100%; border-left: 1px solid gray;" 
       },
-      0 // Renders all children inside this div
+      0 
     ];
   }
 });
