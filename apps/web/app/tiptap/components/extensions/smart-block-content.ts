@@ -1,8 +1,8 @@
 import { Node, mergeAttributes } from "@tiptap/core";
 
-export const BlockContent = Node.create({
-  name: "blockContent",
-  group: "block", // It must be a block to sit inside nestedBlock
+export const SmartBlockContent = Node.create({
+  name: "smartBlockContent", 
+  group: "block",
   content: "inline*", 
   defining: true,
 
