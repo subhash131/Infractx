@@ -78,6 +78,7 @@ import { NestedBlock } from "@/app/tiptap/components/extensions/nested-block"
 
 import Document from '@tiptap/extension-document';
 import { BlockContent } from "@/app/tiptap/components/extensions/block-content"
+import { NestedBlockGroup } from "@/app/tiptap/components/extensions/nested-group"
 
 const CustomDocument = Document.extend({
   content: 'nestedBlock+', 
@@ -202,7 +203,7 @@ export function SimpleEditor() {
   const editor = useEditor({
     immediatelyRender: false,
     editorProps: {
-      attributes: {
+      attributes: { 
         autocomplete: "off",
         autocorrect: "off",
         autocapitalize: "off",
@@ -213,6 +214,7 @@ export function SimpleEditor() {
     extensions: [
       BlockContent,
       NestedBlock,
+      NestedBlockGroup,
       StarterKit.configure({
         horizontalRule: false,
         link: {
@@ -286,7 +288,7 @@ export function SimpleEditor() {
           onKeyDown={(e)=>{console.log("key down", editor?.getJSON())}}
         />
       </EditorContext.Provider>
-      {JSON.stringify(editor?.getJSON())}
+      {JSON.stringify(editor?.getText())}
     </div>
   )
 }

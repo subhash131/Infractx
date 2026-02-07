@@ -1,5 +1,1 @@
-{
-  "type": "doc",
-  "content": [
-  ]
-}
+{"type":"doc","content":[{"type":"nestedBlock","content":[{"type":"blockContent","content":[{"type":"text","text":"parent"}]},{"type":"nestedBlockGroup","content":[{"type":"paragraph","attrs":{"textAlign":null},"content":[{"type":"text","text":"child"}]}]}]},{"type":"paragraph","attrs":{"textAlign":null}}]}
