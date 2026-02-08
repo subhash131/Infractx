@@ -130,7 +130,8 @@ export function SimpleEditor() {
       console.log({fetchTextFileBlocks})
       const document = parseBlocksToTiptapDocument(fetchTextFileBlocks)
       console.log({document})
-      editor?.commands.setContent(document)
+      editor.commands.setContent(document)
+      editor.commands.setTextSelection({from:0,to:0})
       isInitialLoaded.current = true;
     }
   },[editor, fetchTextFileBlocks])
