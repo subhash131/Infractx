@@ -11,6 +11,10 @@ export function calculateDiff(
   newBlocks: BlockData[]
 ): DiffResult {
   
+  console.log("=== CALCULATE DIFF START ===");
+  console.log("Old blocks count:", oldBlocks.length);
+  console.log("New blocks count:", newBlocks.length);
+  
   const toCreate: BlockData[] = [];
   const toUpdate: (Partial<BlockData> & { id: string })[] = [];
   const processedIds = new Set<string>();
@@ -28,40 +32,60 @@ export function calculateDiff(
 
     if (!oldBlock) {
       // --- CREATE ---
+      console.log(`[CREATE] Block ${newBlock.id} - not found in old blocks`);
       toCreate.push(newBlock);
     } else {
       // --- UPDATE ---
+      console.log(`\n[CHECKING] Block ${newBlock.id}`);
       const changes: Partial<BlockData> = {};
       let hasChange = false;
 
       // A. Check Structural Changes (Parent/Rank)
       if (oldBlock.parentId !== newBlock.parentId) {
+        console.log(`  [DIFF] parentId: "${oldBlock.parentId}" → "${newBlock.parentId}"`);
         changes.parentId = newBlock.parentId;
         hasChange = true;
       }
+      
       if (oldBlock.rank !== newBlock.rank) {
+        console.log(`  [DIFF] rank: ${oldBlock.rank} → ${newBlock.rank}`);
+        console.log(`    Old rank type: ${typeof oldBlock.rank}`);
+        console.log(`    New rank type: ${typeof newBlock.rank}`);
         changes.rank = newBlock.rank;
         hasChange = true;
       }
 
       // B. Check Content Changes
-      if (!deepEquals(oldBlock.content, newBlock.content)) {
+      const contentEqual = deepEquals(oldBlock.content, newBlock.content);
+      if (!contentEqual) {
+        console.log(`  [DIFF] content changed`);
+        console.log(`    Old:`, JSON.stringify(oldBlock.content, null, 2));
+        console.log(`    New:`, JSON.stringify(newBlock.content, null, 2));
         changes.content = newBlock.content;
         hasChange = true;
       }
 
       // C. Check Props/Type Changes
       if (oldBlock.type !== newBlock.type) {
+        console.log(`  [DIFF] type: "${oldBlock.type}" → "${newBlock.type}"`);
         changes.type = newBlock.type;
         hasChange = true;
       }
-      if (!deepEquals(oldBlock.props, newBlock.props)) {
+      
+      const propsEqual = deepEquals(oldBlock.props, newBlock.props);
+      if (!propsEqual) {
+        console.log(`  [DIFF] props changed`);
+        console.log(`    Old:`, JSON.stringify(oldBlock.props, null, 2));
+        console.log(`    New:`, JSON.stringify(newBlock.props, null, 2));
         changes.props = newBlock.props;
         hasChange = true;
       }
 
       if (hasChange) {
+        console.log(`  [UPDATE] Queuing update with changes:`, Object.keys(changes));
         toUpdate.push({ id: newBlock.id, ...changes });
+      } else {
+        console.log(`  [NO CHANGE] Block is identical`);
       }
     }
   }
@@ -70,9 +94,16 @@ export function calculateDiff(
   const toDelete: string[] = [];
   for (const oldId of oldMap.keys()) {
     if (!processedIds.has(oldId)) {
+      console.log(`[DELETE] Block ${oldId} - not found in new blocks`);
       toDelete.push(oldId);
     }
   }
+
+  console.log("\n=== CALCULATE DIFF RESULT ===");
+  console.log("To Create:", toCreate.length);
+  console.log("To Update:", toUpdate.length);
+  console.log("To Delete:", toDelete.length);
+  console.log("=== CALCULATE DIFF END ===\n");
 
   return { toCreate, toUpdate, toDelete };
 }
