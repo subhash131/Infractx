@@ -7,7 +7,7 @@ export const SmartBlockContent = Node.create({
   defining: true,
 
   parseHTML() {
-    return [{ tag: `div[data-node-type="${this.name}"]` }];
+  return [{ tag: `div[data-node-type="${this.name}"]` }];
   },
 
   renderHTML({ HTMLAttributes }) {

@@ -1,6 +1,5 @@
 import { mutation, query } from "../_generated/server";
 import { v } from "convex/values";
-import { semanticTypeValidator } from "../schema";
 
 
 export const createBlock = mutation({
@@ -12,10 +11,9 @@ export const createBlock = mutation({
     content: v.any(),
     rank: v.string(),
     parentId: v.optional(v.union(v.string(), v.null())),
-    semanticType: v.optional(semanticTypeValidator),
   },
   handler: async (ctx, args) => {
-    return await ctx.db.insert("blocks", {...args, semanticType: args.semanticType ?? "default"});
+    return await ctx.db.insert("blocks", {...args});
   },
 });
 
@@ -45,13 +43,12 @@ export const bulkCreate = mutation({
         content: v.any(),
         rank: v.string(),
         parentId: v.optional(v.union(v.string(), v.null())),
-        semanticType: v.optional(semanticTypeValidator),
       })
     ),
   },
   handler: async (ctx, { textFileId, blocks }) => {
     for (const block of blocks) {
-      await ctx.db.insert("blocks", { ...block, textFileId, semanticType: block.semanticType ?? "default" });
+      await ctx.db.insert("blocks", { ...block, textFileId, });
     }
   },
 });
@@ -68,7 +65,6 @@ export const bulkUpdate = mutation({
         rank: v.optional(v.string()),
         type: v.optional(v.string()),
         parentId: v.optional(v.union(v.string(), v.null())), 
-        semanticType: v.optional(semanticTypeValidator),
       })
     ),
   },
@@ -102,7 +98,6 @@ export const bulkUpdate = mutation({
           props: block.props ?? {},
           rank: block.rank ?? "a0",
           parentId: block.parentId ?? null,
-          semanticType: block.semanticType ?? "default",
         });
         console.log(`Inserted new block with UUID ${block.externalId}`);
       }
