@@ -9,7 +9,6 @@ export const GlobalBlockAttributes = Extension.create({
   addGlobalAttributes() {
     return [
       {
-        // Target your blocks
         types: [
           "paragraph", "heading", "smartBlock", "bulletList", "orderedList", 
           "listItem", "image", "table", "blockquote", "codeBlock"
@@ -17,13 +16,13 @@ export const GlobalBlockAttributes = Extension.create({
         attributes: {
           id: {
             default: null,
-            keepOnSplit: false, // Important: New blocks start empty
+            keepOnSplit: false,
             parseHTML: (element) => element.getAttribute("data-id"),
             renderHTML: (attributes) => ({ "data-id": attributes.id }),
           },
           rank: {
             default: null,
-            keepOnSplit: false, // Important: New blocks start empty
+            keepOnSplit: false,
             parseHTML: (element) => element.getAttribute("data-rank"),
             renderHTML: (attributes) => ({ "data-rank": attributes.rank }),
           },
@@ -37,14 +36,12 @@ export const GlobalBlockAttributes = Extension.create({
       new Plugin({
         key: new PluginKey("global-attributes-smart-rank"),
         appendTransaction: (transactions, oldState, newState) => {
-          // 1. Check if document changed
           if (!transactions.some((tr) => tr.docChanged)) return null;
 
           const tr = newState.tr;
           let modified = false;
           const seenIds = new Set<string>();
 
-          // 2. Iterate through all nodes
           newState.doc.descendants((node, pos) => {
             if (!node.isBlock || !("id" in node.attrs) || !("rank" in node.attrs)) return;
 
@@ -59,13 +56,12 @@ export const GlobalBlockAttributes = Extension.create({
             seenIds.add(id);
 
             // --- B. Fix Rank (Smart Insertion) ---
-            // We need to check context: Previous Sibling & Next Sibling
             const $pos = newState.doc.resolve(pos);
             const parent = $pos.parent;
-            const index = $pos.index(); // Index of this node in the parent
+            const index = $pos.index();
 
             // Get Prev Rank (if any)
-            let prevRank = null;
+            let prevRank: string | null = null;
             if (index > 0) {
               const prevNode = parent.child(index - 1);
               if (prevNode.attrs.rank) {
@@ -73,8 +69,8 @@ export const GlobalBlockAttributes = Extension.create({
               }
             }
 
-            // Get Next Rank (if any) - This is the secret sauce to stop cascading
-            let nextRank = null;
+            // Get Next Rank (if any)
+            let nextRank: string | null = null;
             if (index < parent.childCount - 1) {
               const nextNode = parent.child(index + 1);
               if (nextNode.attrs.rank) {
@@ -82,19 +78,31 @@ export const GlobalBlockAttributes = Extension.create({
               }
             }
 
-            // Detect Invalid State:
-            // 1. Missing rank
-            // 2. Collision/Order issue: Current rank is not strictly greater than Prev rank
-            const isOrderInvalid = prevRank && rank && rank <= prevRank;
+            // Detect Invalid State
             const isMissing = !rank;
+            const isOrderInvalid = prevRank && rank && rank <= prevRank;
+            
+            // CRITICAL FIX: Also check if prevRank >= nextRank (corrupted data)
+            const isRangeInvalid = prevRank && nextRank && prevRank >= nextRank;
 
-            if (isMissing || isOrderInvalid) {
-              // Generate a rank strictly BETWEEN prev and next.
-              // If we insert at top: prev=null, next='a0' -> generates 'Z' (no cascade!)
-              // If we insert at bottom: prev='a0', next=null -> generates 'a1'
-              // If we insert middle: prev='a0', next='a1' -> generates 'a0V'
-              rank = generateKeyBetween(prevRank, nextRank);
-              shouldUpdate = true;
+            if (isMissing || isOrderInvalid || isRangeInvalid) {
+              try {
+                // If the range itself is invalid, we need to fix it
+                if (isRangeInvalid) {
+                  console.warn(`Invalid rank range detected: prev="${prevRank}" >= next="${nextRank}". Regenerating from prevRank.`);
+                  // Generate after prevRank, ignoring the invalid nextRank
+                  rank = generateKeyBetween(prevRank, null);
+                } else {
+                  // Normal case: generate between valid bounds
+                  rank = generateKeyBetween(prevRank, nextRank);
+                }
+                shouldUpdate = true;
+              } catch (error) {
+                // Fallback: If generation still fails, create a fresh rank
+                console.error(`Failed to generate rank between "${prevRank}" and "${nextRank}":`, error);
+                rank = generateKeyBetween(null, null); // Start fresh
+                shouldUpdate = true;
+              }
             }
 
             // --- C. Apply Changes ---

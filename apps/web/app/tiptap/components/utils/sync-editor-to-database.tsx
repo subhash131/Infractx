@@ -11,7 +11,6 @@ export function syncEditorToDatabase(
   // const createBlocks = useMutation(api.requirements.textFileBlocks.bulkCreate);
   // 1. Parse Tiptap document into flat list
   const newBlocks = parseTiptapDocumentToBlock(tiptapDoc, textFileId);
-  console.log("newBlocks", newBlocks);
   
   
   // 2. Calculate diff

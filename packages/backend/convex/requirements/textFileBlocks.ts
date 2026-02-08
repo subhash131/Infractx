@@ -86,7 +86,7 @@ export const bulkUpdate = mutation({
           ...updates,
           // Only cast if your schema explicitly uses v.id("blocks")
           // If schema uses v.string(), remove the "as Id" cast
-          parentId: updates.parentId as any 
+          // parentId: updates.parentId 
         });
       } else {
         // Insert new block with all required fields

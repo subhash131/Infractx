@@ -52,6 +52,9 @@ import { api } from "@workspace/backend/_generated/api"
 import { MobileToolbarContent } from "./mobile-toolbar-content"
 import { MainToolbarContent } from "./main-toolbar-content"
 import { parseBlocksToTiptapDocument } from "@/app/tiptap/components/utils/parse-blocks-to-tiptap-doc"
+import { BlockData } from "@/app/tiptap/components/extensions/types"
+
+import { debounce } from "lodash"
 
 
 
@@ -120,6 +123,8 @@ export function SimpleEditor() {
   const bulkDeleteBlocks = useMutation(api.requirements.textFileBlocks.bulkDelete)
 
   const isInitialLoaded = useRef(false);
+  const lastSyncedContent = useRef<string>("");
+
   useEffect(()=>{
     if(editor &&fetchTextFileBlocks && !isInitialLoaded.current){
       console.log({fetchTextFileBlocks})
@@ -130,43 +135,89 @@ export function SimpleEditor() {
     }
   },[editor, fetchTextFileBlocks])
 
-  useEffect(()=>{
-    if(editor && fetchTextFileBlocks){
-      console.log("syncing")
-      const {toCreate,toDelete,toUpdate} = syncEditorToDatabase(editor?.getJSON(),[],"ns75m5g7e1h4z9dj5vb7y1ydsx80asp4" as Id<"text_files">)
-      if(toCreate.length>0){
-        const finalBlocks = toCreate.map((block)=>{
-          const {id, textFileId, ...rest} = block 
+  // Debounced sync on editor updates
+  useEffect(() => {
+    if (!editor || !fetchTextFileBlocks) return;
+
+    const performSync = () => {
+      const currentContent = JSON.stringify(editor.getJSON());
+      
+      // Only sync if content actually changed
+      if (currentContent === lastSyncedContent.current) {
+        return;
+      }
+      
+      console.log("syncing");
+      lastSyncedContent.current = currentContent;
+      
+      const blockData: BlockData[] = fetchTextFileBlocks.map((block) => {
+        return {
+          id: block.externalId,
+          textFileId: block.textFileId,
+          content: block.content,
+          props: block.props,
+          type: block.type,
+          rank: block.rank,
+          parentId: block.parentId,
+        };
+      });
+
+      const { toCreate, toDelete, toUpdate } = syncEditorToDatabase(
+        editor.getJSON(),
+        blockData,
+        "ns75m5g7e1h4z9dj5vb7y1ydsx80asp4" as Id<"text_files">
+      );
+
+      if (toCreate.length > 0) {
+        const finalBlocks = toCreate.map((block) => {
+          const { id, textFileId, ...rest } = block;
           return {
             ...rest,
-            externalId:id,
-          }
-        })
+            externalId: id,
+          };
+        });
         bulkCreateBlocks({
-          blocks:finalBlocks,
-          textFileId:"ns75m5g7e1h4z9dj5vb7y1ydsx80asp4" as Id<"text_files">
-        })
+          blocks: finalBlocks,
+          textFileId: "ns75m5g7e1h4z9dj5vb7y1ydsx80asp4" as Id<"text_files">
+        });
       }
-      if(toUpdate.length>0){
-        const finalBlocks = toUpdate.map((block)=>{
-          const {id, textFileId, ...rest} = block 
+
+      if (toUpdate.length > 0) {
+        const finalBlocks = toUpdate.map((block) => {
+          const { id, textFileId, ...rest } = block;
+          console.log("update block",block)
           return {
             ...rest,
-            externalId:id,
-          }
-        })
+            externalId: id,
+            parentId:block.parentId,
+          };
+        });
         bulkUpdateBlocks({
-          blocks:finalBlocks,
-          textFileId:"ns75m5g7e1h4z9dj5vb7y1ydsx80asp4" as Id<"text_files">
-        })
+          blocks: finalBlocks,
+          textFileId: "ns75m5g7e1h4z9dj5vb7y1ydsx80asp4" as Id<"text_files">
+        });
       }
-      if(toDelete.length>0){
+
+      if (toDelete.length > 0) {
         bulkDeleteBlocks({
-          externalIds:toDelete,
-        })
+          externalIds: toDelete,
+        });
       }
-    }
-  },[editor?.getJSON()])
+    };
+
+    // Create debounced version (1 second delay after user stops typing)
+    const debouncedSync = debounce(performSync, 1000);
+
+    // Listen to editor updates
+    editor.on('update', debouncedSync);
+
+    // Cleanup
+    return () => {
+      editor.off('update', debouncedSync);
+      debouncedSync.cancel(); // Cancel any pending debounced calls
+    };
+  }, [editor, fetchTextFileBlocks, bulkCreateBlocks, bulkUpdateBlocks, bulkDeleteBlocks]);
+
 
   useEffect(() => {
     if (!isMobile && mobileView !== "main") {
@@ -208,7 +259,6 @@ export function SimpleEditor() {
           
         />
       </EditorContext.Provider>
-      {JSON.stringify(editor?.getJSON())}
     </div>
   )
 }
