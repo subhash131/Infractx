@@ -80,6 +80,33 @@ export const SmartBlock = Node.create({
 
         return false;
       },
+      Backspace: () => {
+        const { state, dispatch } = this.editor.view;
+        const { $from, empty } = state.selection;
+
+        // Only handle if cursor is in smartBlockContent
+        if ($from.parent.type.name === "smartBlockContent") {
+          const content = $from.parent.textContent;
+          
+          // If there's content, allow normal backspace behavior
+          if (content.length > 0) {
+            return false;
+          }
+          
+          // If content is empty and cursor is at the start, delete the entire smartBlock
+          if (content.length === 0 && $from.parentOffset === 0 && empty) {
+            const smartBlockPos = $from.start(-1) - 1; // Position before the smartBlock
+            const smartBlockSize = $from.node(-1).nodeSize;
+            
+            return this.editor.commands.deleteRange({
+              from: smartBlockPos,
+              to: smartBlockPos + smartBlockSize
+            });
+          }
+        }
+        
+        return false;
+      }
     };
   },
 });

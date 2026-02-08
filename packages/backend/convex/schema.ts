@@ -207,7 +207,6 @@ export default defineSchema({
     props: v.any(),
     content: v.any(),
     rank: v.string(),
-    semanticType:semanticTypeValidator,
     externalId:v.string(),// uuid from the client
   })
     .index("by_text_file", ["textFileId"])

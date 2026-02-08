@@ -14,7 +14,7 @@ export const SmartBlockGroup = Node.create({
     return [
       "div",
       { 
-        "data-node-type": "smartBlockGroup", // Renamed
+        "data-node-type": "smartBlockGroup",
         style: "padding-left: 10px; width: 100%; border-left: 1px solid gray;" 
       },
       0 
