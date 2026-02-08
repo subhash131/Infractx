@@ -42,9 +42,9 @@ import "@/components/tiptap-templates/simple/simple-editor.scss"
 import content from "@/components/tiptap-templates/simple/data/content.json"
 import { SmartBlock } from "@/app/tiptap/components/extensions/smart-block"
 
-import { SmartBlockContent } from "@/app/tiptap/components/extensions/smart-block-content"
-import { SmartBlockGroup } from "@/app/tiptap/components/extensions/smart-block-group"
-import { GlobalBlockAttributes } from "@/app/tiptap/components/extensions/global-block-attributes"
+import { SmartBlockContent } from "@/app/tiptap/components/extensions/smart-block/smart-block-content"
+import { SmartBlockGroup } from "@/app/tiptap/components/extensions/smart-block/smart-block-group"
+import { GlobalBlockAttributes } from "@/app/tiptap/components/extensions/smart-block/global-block-attributes"
 import { syncEditorToDatabase } from "@/app/tiptap/components/utils/sync-editor-to-database"
 import { Id } from "@workspace/backend/_generated/dataModel"
 import { useMutation, useQuery } from "convex/react"
@@ -53,11 +53,9 @@ import { MobileToolbarContent } from "./mobile-toolbar-content"
 import { MainToolbarContent } from "./main-toolbar-content"
 import { parseBlocksToTiptapDocument } from "@/app/tiptap/components/utils/parse-blocks-to-tiptap-doc"
 import { BlockData } from "@/app/tiptap/components/extensions/types"
+import { BlockMention } from "@/app/tiptap/components/extensions/block-suggestions/block-mention"
 
 import { debounce } from "lodash"
-
-
-
 
 export function SimpleEditor() {
   const isMobile = useIsBreakpoint()
@@ -83,6 +81,7 @@ export function SimpleEditor() {
       SmartBlockContent,
       SmartBlockGroup,
       GlobalBlockAttributes,
+      BlockMention,
       StarterKit.configure({
         horizontalRule: false,
         link: {
