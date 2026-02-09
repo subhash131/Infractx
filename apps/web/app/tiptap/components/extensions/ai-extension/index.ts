@@ -51,8 +51,6 @@ class AISelectionMenuView {
 
       const { from, to } = this.editorView.state.selection;
       
-      console.log('Dispatching show-ai-input event', { from, to });
-      
       // Store editor reference globally (temporary solution)
       // Better approach: use a proper state management solution
       (window as any).__tiptapEditorView = this.editorView
@@ -111,6 +109,10 @@ class AISelectionMenuView {
 
   updatePosition(view: EditorView, from: number, to: number) {
     try {
+
+      const selectedText = view.state.doc.textBetween(from, to)
+
+      if(!selectedText.trim()) return
       // Get the coordinates of the selection
       const start = view.coordsAtPos(from)
       const end = view.coordsAtPos(to)
@@ -141,38 +143,5 @@ class AISelectionMenuView {
     this.menu.remove()
     // Clean up global reference
     delete (window as any).__tiptapEditorView
-  }
-}
-
-export interface AIRequest {
-  prompt: string
-  selectedText: string
-}
-
-export interface AIResponse {
-  result: string
-}
-
-export async function processAIRequest(
-  request: AIRequest
-): Promise<AIResponse> {
-  try {
-    const response = await fetch('/api/ai/tiptap', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(request),
-    })
-
-    if (!response.ok) {
-      throw new Error('AI request failed')
-    }
-
-    const data = await response.json()
-    return { result: data.result }
-  } catch (error) {
-    console.error('AI processing error:', error)
-    throw error
   }
 }

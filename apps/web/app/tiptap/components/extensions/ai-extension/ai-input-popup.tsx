@@ -58,49 +58,6 @@ export function AIInputPopup({ from, to, onClose, onSubmit }: AIInputPopupProps)
   }
 
   return (
-    // <div className="ai-input-popup-overlay" onClick={onClose}>
-    //   <div className="ai-input-popup" onClick={(e) => e.stopPropagation()}>
-    //     <div className="ai-input-header">
-    //       <h3>✨ Ask AI</h3>
-    //       <button className="ai-close-button" onClick={onClose}>
-    //         ✕
-    //       </button>
-    //     </div>
-        
-    //     <form onSubmit={handleSubmit}>
-    //       <textarea
-    //         ref={inputRef}
-    //         className="ai-input-textarea"
-    //         placeholder="Type..."
-    //         value={prompt}
-    //         onChange={(e) => setPrompt(e.target.value)}
-    //         onKeyDown={handleKeyDown}
-    //         rows={3}
-    //         disabled={isLoading}
-    //       />
-          
-    //       <div className="ai-input-actions w-60 overflow-hidden">
-    //         <div className="ai-input-buttons">
-    //           <button
-    //             type="button"
-    //             className="ai-cancel-button"
-    //             onClick={onClose}
-    //             disabled={isLoading}
-    //           >
-    //             Cancel
-    //           </button>
-    //           <button
-    //             type="submit"
-    //             className="ai-submit-button"
-    //             disabled={!prompt.trim() || isLoading}
-    //           >
-    //             {isLoading ? 'Processing...' : 'Submit'}
-    //           </button>
-    //         </div>
-    //       </div>
-    //     </form>
-    //   </div>
-    // </div>
-    <ChatWindow/>
+    <ChatWindow />
   )
 }

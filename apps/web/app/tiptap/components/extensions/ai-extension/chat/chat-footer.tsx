@@ -22,7 +22,7 @@ export const ChatFooter = ({ conversationId }: { conversationId: string }) => {
 
   const { activePageId, canvas, activeObject } = useCanvas();
   const [prompt, setPrompt] = useState("");
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
     sendMessage({
       conversationId: conversationId as Id<"conversations">,
@@ -37,7 +37,7 @@ export const ChatFooter = ({ conversationId }: { conversationId: string }) => {
     });
     setPrompt("");
   };
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLFormElement>) => {
     if (e.key === " " || e.code === "Space") {
       e.stopPropagation();
     }

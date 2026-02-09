@@ -14,9 +14,6 @@ import { Subscript } from "@tiptap/extension-subscript"
 import { Superscript } from "@tiptap/extension-superscript"
 import { Selection } from "@tiptap/extensions"
 
-// --- UI Primitives ---
-import {  Toolbar } from "@/components/tiptap-ui-primitive/toolbar"
-
 // --- Tiptap Node ---
 import { ImageUploadNode } from "@/components/tiptap-node/image-upload-node/image-upload-node-extension"
 import { HorizontalRule } from "@/components/tiptap-node/horizontal-rule-node/horizontal-rule-node-extension"
@@ -48,6 +45,8 @@ import { MainToolbarContent } from "./main-toolbar-content"
 import { parseBlocksToTiptapDocument } from "@/app/tiptap/components/utils/parse-blocks-to-tiptap-doc"
 import { debounce } from "lodash"
 
+import dynamic from "next/dynamic";
+
 // --- Custom extensions ---
 import content from "@/components/tiptap-templates/simple/data/content.json"
 import { SmartBlock } from "@/app/tiptap/components/extensions/smart-block"
@@ -59,6 +58,14 @@ import { BlockMention } from "@/app/tiptap/components/extensions/block-suggestio
 import { AIExtension } from "@/app/tiptap/components/extensions/ai-extension"
 import "@/app/tiptap/components/extensions/ai-extension/ai-extension.scss"
 import { AIInputPopup } from "@/app/tiptap/components/extensions/ai-extension/ai-input-popup"
+
+const Toolbar = dynamic(
+  () =>
+    import("@/components/tiptap-ui-primitive/toolbar").then(
+      (mod) => mod.Toolbar
+    ),
+  { ssr: false }
+);
 
 
 export function SimpleEditor() {
