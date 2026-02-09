@@ -18,7 +18,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Figma AI",
+  title: "InfraBhai",
   description: "Project by subhash",
 };
 

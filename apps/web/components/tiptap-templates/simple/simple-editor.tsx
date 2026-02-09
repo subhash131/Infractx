@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { Suspense, useEffect, useRef, useState } from "react"
 import { EditorContent, EditorContext, useEditor } from "@tiptap/react"
 
 // --- Tiptap Core Extensions ---
@@ -39,12 +39,6 @@ import { handleImageUpload, MAX_FILE_SIZE } from "@/app/lib/tiptap-utils"
 // --- Styles ---
 import "@/components/tiptap-templates/simple/simple-editor.scss"
 
-import content from "@/components/tiptap-templates/simple/data/content.json"
-import { SmartBlock } from "@/app/tiptap/components/extensions/smart-block"
-
-import { SmartBlockContent } from "@/app/tiptap/components/extensions/smart-block/smart-block-content"
-import { SmartBlockGroup } from "@/app/tiptap/components/extensions/smart-block/smart-block-group"
-import { GlobalBlockAttributes } from "@/app/tiptap/components/extensions/smart-block/global-block-attributes"
 import { syncEditorToDatabase } from "@/app/tiptap/components/utils/sync-editor-to-database"
 import { Id } from "@workspace/backend/_generated/dataModel"
 import { useMutation, useQuery } from "convex/react"
@@ -52,10 +46,20 @@ import { api } from "@workspace/backend/_generated/api"
 import { MobileToolbarContent } from "./mobile-toolbar-content"
 import { MainToolbarContent } from "./main-toolbar-content"
 import { parseBlocksToTiptapDocument } from "@/app/tiptap/components/utils/parse-blocks-to-tiptap-doc"
+import { debounce } from "lodash"
+
+// --- Custom extensions ---
+import content from "@/components/tiptap-templates/simple/data/content.json"
+import { SmartBlock } from "@/app/tiptap/components/extensions/smart-block"
+import { SmartBlockContent } from "@/app/tiptap/components/extensions/smart-block/smart-block-content"
+import { SmartBlockGroup } from "@/app/tiptap/components/extensions/smart-block/smart-block-group"
+import { GlobalBlockAttributes } from "@/app/tiptap/components/extensions/smart-block/global-block-attributes"
 import { BlockData } from "@/app/tiptap/components/extensions/types"
 import { BlockMention } from "@/app/tiptap/components/extensions/block-suggestions/block-mention"
+import { AIExtension } from "@/app/tiptap/components/extensions/ai-extension"
+import "@/app/tiptap/components/extensions/ai-extension/ai-extension.scss"
+import { AIInputPopup } from "@/app/tiptap/components/extensions/ai-extension/ai-input-popup"
 
-import { debounce } from "lodash"
 
 export function SimpleEditor() {
   const isMobile = useIsBreakpoint()
@@ -82,6 +86,7 @@ export function SimpleEditor() {
       SmartBlockGroup,
       GlobalBlockAttributes,
       BlockMention,
+      AIExtension,
       StarterKit.configure({
         horizontalRule: false,
         link: {
@@ -225,40 +230,90 @@ export function SimpleEditor() {
     }
   }, [isMobile, mobileView])
 
+  const [showAIPopup, setShowAIPopup] = useState(false)
+  const [selectionRange, setSelectionRange] = useState<{ from: number; to: number } | null>(null)
+
+
+  useEffect(() => {
+    const handleShowAIInput = (event: Event) => {
+      const customEvent = event as CustomEvent
+      const { from, to } = customEvent.detail
+      
+      console.log('Received show-ai-input event:', { from, to })
+      
+      setSelectionRange({ from, to })
+      setShowAIPopup(true)
+    }
+
+    window.addEventListener('show-ai-input', handleShowAIInput)
+
+    return () => {
+      window.removeEventListener('show-ai-input', handleShowAIInput)
+    }
+  }, [])
+
+  const handleAISubmit = async (prompt: string, selectedText: string) => {
+    console.log('AI Submit:', { prompt, selectedText })
+    
+    // Here you would call your AI API
+    // For now, just log the values
+    
+    // Example of how you might replace the selected text:
+    if (editor && selectionRange) {
+      // You can insert AI response here
+      // editor.chain().focus().insertContentAt(selectionRange, 'AI response here').run()
+    }
+  }
+
+  const handleClosePopup = () => {
+    setShowAIPopup(false)
+    setSelectionRange(null)
+  }
+  
   return (
-    <div className="simple-editor-wrapper">
-      <EditorContext.Provider value={{ editor }}>
-        <Toolbar
-          ref={toolbarRef}
-          style={{
-            ...(isMobile
-              ? {
-                  bottom: `calc(100% - ${height - rect.y}px)`,
-                }
-              : {}),
-          }}
-        >
-          {mobileView === "main" ? (
-            <MainToolbarContent
-              onHighlighterClick={() => setMobileView("highlighter")}
-              onLinkClick={() => setMobileView("link")}
-              isMobile={isMobile}
-            />
-          ) : (
-            <MobileToolbarContent
-              type={mobileView === "highlighter" ? "highlighter" : "link"}
-              onBack={() => setMobileView("main")}
+    <Suspense fallback={<div className="text-white">Loading...</div>}>
+      <div className="simple-editor-wrapper">
+        <EditorContext.Provider value={{ editor }}>
+          <Toolbar
+            ref={toolbarRef}
+            style={{
+              ...(isMobile
+                ? {
+                    bottom: `calc(100% - ${height - rect.y}px)`,
+                  }
+                : {}),
+            }}
+          >
+            {mobileView === "main" ? (
+              <MainToolbarContent
+                onHighlighterClick={() => setMobileView("highlighter")}
+                onLinkClick={() => setMobileView("link")}
+                isMobile={isMobile}
+              />
+            ) : (
+              <MobileToolbarContent
+                type={mobileView === "highlighter" ? "highlighter" : "link"}
+                onBack={() => setMobileView("main")}
+              />
+            )}
+          </Toolbar>
+
+          <EditorContent
+            editor={editor}
+            role="presentation"
+            className="simple-editor-content"
+            
+          />
+          {showAIPopup && selectionRange && (
+            <AIInputPopup
+              from={selectionRange.from}
+              to={selectionRange.to}
+              onClose={handleClosePopup}
+              onSubmit={handleAISubmit}
             />
           )}
-        </Toolbar>
-
-        <EditorContent
-          editor={editor}
-          role="presentation"
-          className="simple-editor-content"
-          
-        />
-      </EditorContext.Provider>
-    </div>
+        </EditorContext.Provider>
+      </div>
+    </Suspense>
   )
 }
