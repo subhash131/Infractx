@@ -2,9 +2,11 @@ import React, { Fragment, useEffect, useRef } from "react";
 import { SentMessage } from "./sent-message";
 import { ReceivedMessage } from "./received-message";
 import { Doc } from "@workspace/backend/_generated/dataModel";
+import { useChatStore } from "../../../store/chat-store";
 
 export const ChatBody = ({ messages }: { messages: Doc<"messages">[] }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { streamingText } = useChatStore()
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -24,6 +26,7 @@ export const ChatBody = ({ messages }: { messages: Doc<"messages">[] }) => {
           </Fragment>
         );
       })}
+      {streamingText && <ReceivedMessage message={streamingText} />}
       <div ref={messagesEndRef} />
     </div>
   );
