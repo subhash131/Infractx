@@ -109,8 +109,21 @@ class AISelectionMenuView {
 
   updatePosition(view: EditorView, from: number, to: number) {
     try {
+      
+      if (!view) return
+      const { state } = view
+      if (!state) return
 
-      const selectedText = view.state.doc.textBetween(from, to)
+      const { selection, doc } = state
+      if (!selection || !doc) return
+
+      if (selection.empty) return
+
+      const selectedText = doc.textBetween(
+        selection.from,
+        selection.to,
+        " "
+      )
 
       if(!selectedText.trim()) return
       // Get the coordinates of the selection
