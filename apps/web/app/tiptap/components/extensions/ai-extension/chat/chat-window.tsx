@@ -7,8 +7,14 @@ import { cn } from "@workspace/ui/lib/utils";
 import { api } from "@workspace/backend/_generated/api";
 import { Id } from "@workspace/backend/_generated/dataModel";
 import { useQuery } from "convex/react";
+import { Editor } from "@tiptap/react";
 
-export const ChatWindow = () => {
+interface ChatWindowProps {
+  editor: Editor;
+  selection: { from: number; to: number };
+}
+
+export const ChatWindow = ({ editor, selection }: ChatWindowProps) => {
   const [position, setPosition] = useState({
     x: innerWidth * 0.75,
     y: innerHeight * 0.25,
@@ -85,7 +91,7 @@ export const ChatWindow = () => {
     >
       <ChatHeader onMouseDown={handleMouseDown} />
       <ChatBody messages={messages ?? []} />
-      <ChatFooter conversationId={conversationId} />
+      <ChatFooter conversationId={conversationId} editor={editor} selection={selection}/>
     </div>
   );
 };

@@ -311,8 +311,9 @@ export function SimpleEditor() {
             className="simple-editor-content"
             
           />
-          {showAIPopup && selectionRange && (
+          {editor && showAIPopup && selectionRange && (
             <AIInputPopup
+              editor={editor}
               from={selectionRange.from}
               to={selectionRange.to}
               onClose={handleClosePopup}
