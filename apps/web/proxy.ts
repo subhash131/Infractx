@@ -8,7 +8,16 @@ const isPublicRoute = createRouteMatcher([
   "/api/public(.*)",
 ]);
 
+const isIgnoredRoute = createRouteMatcher([
+  "/api/inngest(.*)",
+]);
+
 export default clerkMiddleware(async (auth, req) => {
+  // Skip authentication for ignored routes
+  if (isIgnoredRoute(req)) {
+    return NextResponse.next();
+  }
+
   const session = await auth();
 
   // 1. If user is signed in and tries to access auth pages, send them home
@@ -18,7 +27,7 @@ export default clerkMiddleware(async (auth, req) => {
 
   // 2. Protect non-public routes
   if (!isPublicRoute(req) && !session.userId) {
-    return session.redirectToSignIn(); // Use Clerk's built-in helper
+    return session.redirectToSignIn();
   }
 });
 

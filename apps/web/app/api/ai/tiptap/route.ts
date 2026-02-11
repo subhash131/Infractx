@@ -1,7 +1,7 @@
 import { createGroq } from "@ai-sdk/groq";
 import { streamText } from "ai";
 
-const groq = createGroq({
+export const groqModel = createGroq({
   apiKey: process.env.GROQ_API_KEY!,
 });
 
@@ -10,7 +10,7 @@ export async function POST(req: Request) {
     const { messages } = await req.json();
     
     const result = streamText({
-      model: groq("openai/gpt-oss-120b"),
+      model: groqModel("openai/gpt-oss-120b"),
       messages,
     });
 
