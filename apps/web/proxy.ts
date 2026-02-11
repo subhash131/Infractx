@@ -10,6 +10,7 @@ const isPublicRoute = createRouteMatcher([
 
 const isIgnoredRoute = createRouteMatcher([
   "/api/inngest(.*)",
+  "/api/ai(.*)",
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
