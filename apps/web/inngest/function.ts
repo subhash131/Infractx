@@ -10,7 +10,6 @@ export const helloWorld = inngest.createFunction(
   },
 );
 
-// lib/event-bus.ts
 import { EventEmitter } from 'events';
 
 class StreamEventBus extends EventEmitter {

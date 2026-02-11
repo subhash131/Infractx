@@ -1,44 +1,61 @@
+import { v4 as uuidv4 } from "uuid";
 import { createGroq } from "@ai-sdk/groq";
-import { streamText } from "ai";
+import { invokeAgent, resumeAgent, AgentResponse } from "./agent";
 
+// Re-export for backward compatibility (used by inngest/function.ts)
 export const groqModel = createGroq({
   apiKey: process.env.GROQ_API_KEY!,
 });
 
 export async function POST(req: Request) {
   try {
-    const { messages } = await req.json();
-    
-    const result = streamText({
-      model: groqModel("openai/gpt-oss-120b"),
-      messages,
+    const body = await req.json();
+    const { query, projectId, threadId, resumeInput } = body;
+
+    let result: AgentResponse;
+
+    // --- Resume from human-in-the-loop interrupt ---
+    if (resumeInput && threadId) {
+      console.log(`[API] Resuming thread ${threadId} with: "${resumeInput}"`);
+
+      result = await resumeAgent({
+        userResponse: resumeInput,
+        threadId,
+      });
+
+      return Response.json(result);
+    }
+
+    // --- New query ---
+    if (!query) {
+      return Response.json(
+        { error: "Missing 'query' in request body" },
+        { status: 400 }
+      );
+    }
+
+    if (!projectId) {
+      return Response.json(
+        { error: "Missing 'projectId' in request body" },
+        { status: 400 }
+      );
+    }
+
+    const activeThreadId = threadId || uuidv4();
+    console.log(`[API] New query on thread ${activeThreadId}: "${query}"`);
+
+    result = await invokeAgent({
+      query,
+      projectId,
+      threadId: activeThreadId,
     });
 
-    const stream = result.textStream
-      .pipeThrough(
-        new TransformStream({
-          transform(chunk, controller) {
-            controller.enqueue(JSON.stringify({ content: chunk }) + "\n");
-          },
-        })
-      )
-      .pipeThrough(new TextEncoderStream());
-
-    return new Response(stream, {
-      headers: {
-        "Content-Type": "application/x-ndjson",
-        "Cache-Control": "no-cache",
-        "Connection": "keep-alive",
-      },
-    });
-  } catch (error) {
-    console.error("API Error:", error);
-    return new Response(
-      JSON.stringify({ error: "Failed to generate content" }),
-      {
-        status: 500,
-        headers: { "Content-Type": "application/json" },
-      }
+    return Response.json(result);
+  } catch (error: any) {
+    console.error("[API] Unhandled error:", error);
+    return Response.json(
+      { error: error.message || "Internal server error" },
+      { status: 500 }
     );
   }
 }
