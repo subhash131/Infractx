@@ -28,9 +28,10 @@ export const ChatFooter = ({ conversationId, editor, selection }: ChatFooterProp
   const handleSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    const context = selectedContext
+    const content = prompt + " " + selectedContext
       .map((context) => context.text)
       .join("\n");
+    if(!content.trim()) return
 
     const response = await fetch("/api/ai/tiptap", {
       method: "POST",
@@ -38,7 +39,7 @@ export const ChatFooter = ({ conversationId, editor, selection }: ChatFooterProp
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        messages: [{ role: "user", content: prompt + " " + context }],
+        messages: [{ role: "user", content }],
       }),
     });
 
@@ -123,10 +124,47 @@ export const ChatFooter = ({ conversationId, editor, selection }: ChatFooterProp
   const removeSelectedContext = (id: string) => {
     removeContext(id)
   }
+
+  const [isStreaming, setIsStreaming] = useState(false);
+
+  const startStream = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const sessionId = crypto.randomUUID();
+    setIsStreaming(true);
+
+    // 1. Connect to SSE FIRST
+    const eventSource = new EventSource(`/api/inngest/stream/${sessionId}`);
+
+    eventSource.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      
+      if (data.type === 'chunk') {
+        setStreamingText(JSON.stringify(data));
+      } else if (data.type === 'done') {
+        setIsStreaming(false);
+        eventSource.close();
+      }
+    };
+
+    eventSource.onerror = () => {
+      setIsStreaming(false);
+      eventSource.close();
+    };
+
+    // 2. THEN trigger Inngest
+    await fetch('/api/inngest/stream/trigger', {
+      method: 'POST',
+      body: JSON.stringify({ sessionId }),
+    });
+  };
+
+
+
   return (
     <form
       className="w-full shrink-0 bg-background border-t p-1"
-      onSubmit={handleSubmit}
+      // onSubmit={handleSubmit}
+      onSubmit={startStream}
       onKeyDown={handleKeyDown}
     >
       <div className="w-full flex justify-between">
