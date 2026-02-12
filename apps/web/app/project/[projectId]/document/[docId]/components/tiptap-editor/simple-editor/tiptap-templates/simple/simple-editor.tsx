@@ -58,6 +58,7 @@ import { parseBlocksToTiptapDocument } from "../../../utils/parse-blocks-to-tipt
 import { BlockData } from "../../../extensions/types"
 import { syncEditorToDatabase } from "../../../utils/sync-editor-to-database"
 import { AIInputPopup } from "../../../extensions/ai-extension/ai-input-popup"
+import { TableToolbar } from "../../tiptap-ui/table-toolbar/table-toolbar"
 
 const Toolbar = dynamic(
   () =>
@@ -325,6 +326,7 @@ export function SimpleEditor({textFileId}:{textFileId:Id<"text_files">}) {
               onSubmit={handleAISubmit}
             />
           )}
+          {editor && <TableToolbar editor={editor} />}
         </EditorContext.Provider>
       </div>
     </Suspense>

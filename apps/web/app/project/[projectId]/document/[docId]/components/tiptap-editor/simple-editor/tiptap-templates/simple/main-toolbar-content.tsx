@@ -10,7 +10,6 @@ import { ListDropdownMenu } from "../../tiptap-ui/list-dropdown-menu"
 import { MarkButton } from "../../tiptap-ui/mark-button"
 import { TextAlignButton } from "../../tiptap-ui/text-align-button"
 import { UndoRedoButton } from "../../tiptap-ui/undo-redo-button"
-import { ThemeToggle } from "./theme-toggle"
 
 export const MainToolbarContent = ({
   onHighlighterClick,
@@ -82,10 +81,6 @@ export const MainToolbarContent = ({
       <Spacer />
 
       {isMobile && <ToolbarSeparator />}
-
-      <ToolbarGroup>
-        <ThemeToggle />
-      </ToolbarGroup>
     </>
   )
 }
