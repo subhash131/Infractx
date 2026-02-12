@@ -11,6 +11,8 @@ import { MarkButton } from "../../tiptap-ui/mark-button"
 import { TextAlignButton } from "../../tiptap-ui/text-align-button"
 import { UndoRedoButton } from "../../tiptap-ui/undo-redo-button"
 
+import { TableButton } from "../../tiptap-ui/table-button/table-button"
+
 export const MainToolbarContent = ({
   onHighlighterClick,
   onLinkClick,
@@ -38,6 +40,7 @@ export const MainToolbarContent = ({
         />
         <BlockquoteButton />
         <CodeBlockButton />
+        <TableButton />
       </ToolbarGroup>
 
       <ToolbarSeparator />
@@ -72,7 +75,6 @@ export const MainToolbarContent = ({
         <TextAlignButton align="justify" />
       </ToolbarGroup>
 
-      <ToolbarSeparator />
 
       {/* <ToolbarGroup>
         <ImageUploadButton text="Add" />
