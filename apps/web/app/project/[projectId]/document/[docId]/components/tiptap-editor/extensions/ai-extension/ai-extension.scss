@@ -1,0 +1,27 @@
+.ai-selection-menu-floating {
+  background: #1e1e1e;
+  color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+  pointer-events: auto;
+  .ai-ask-button {
+    background: transparent;
+    color: #fff;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;   
+    scale: 1;
+    transition: all 0.2s;
+    &:hover {
+      scale: 0.95;
+    }
+    &:active {
+      scale: 1;
+    }
+  }
+}

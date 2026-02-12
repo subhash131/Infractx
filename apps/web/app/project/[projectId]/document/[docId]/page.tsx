@@ -6,10 +6,10 @@ import { DocHeader } from "./components/doc-header";
 import { FileManagementMenu } from "./components/file-management-menu";
 import { Id } from "@workspace/backend/_generated/dataModel";
 
-// const CollaborativeEditor = dynamic(
-//   () => import("./components/collaborative-editor"),
-//   { ssr: false },
-// );
+const TiptapEditor = dynamic(
+  () => import("./components/tiptap-editor/editor"),
+  { ssr: false },
+);
 
 const RequirementsDraftingPage = () => {
   const params = useParams();
@@ -21,7 +21,7 @@ const RequirementsDraftingPage = () => {
       <FileManagementMenu docId={docId} />
       <div className="w-full h-screen overflow-hidden overflow-y-scroll hide-scrollbar">
         <DocHeader />
-        {/* <CollaborativeEditor /> */}
+        <TiptapEditor />
       </div>
     </div>
   );
