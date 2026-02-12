@@ -121,4 +121,38 @@ export const blockSuggestions: BlockSuggestionItem[] = [
       }
     },
   },
+  {
+    id: 'table',
+    label: 'Table',
+    icon: '▦',
+    description: 'Insert a table',
+    command: (editor: Editor) => {
+      const makeCell = (type: 'tableHeader' | 'tableCell') => ({
+        type,
+        content: [{ type: 'tableParagraph' }],
+      })
+
+      editor
+        .chain()
+        .focus()
+        .insertContent({
+          type: 'table',
+          content: [
+            {
+              type: 'tableRow',
+              content: [makeCell('tableHeader'), makeCell('tableHeader'), makeCell('tableHeader')],
+            },
+            {
+              type: 'tableRow',
+              content: [makeCell('tableCell'), makeCell('tableCell'), makeCell('tableCell')],
+            },
+            {
+              type: 'tableRow',
+              content: [makeCell('tableCell'), makeCell('tableCell'), makeCell('tableCell')],
+            },
+          ],
+        })
+        .run()
+    },
+  },
 ]
