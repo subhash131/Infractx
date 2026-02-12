@@ -1,193 +1,193 @@
-"use node";
-import { ConvexError, v } from "convex/values";
-import { action } from "../_generated/server";
-import { createWorkflow } from "./designAgent";
-import { api } from "../_generated/api";
-import {
-  AIMessage,
-  BaseMessage,
-  HumanMessage,
-  SystemMessage,
-  ToolMessage,
-} from "@langchain/core/messages";
-import { allShapeTools, groqWithShapeTools } from "./tools/primitiveLayerTools";
-import { UIDesignAgent } from "./uiDesign/designAgent";
-import { Id } from "../_generated/dataModel";
+// "use node";
+// import { ConvexError, v } from "convex/values";
+// import { action } from "../_generated/server";
+// import { createWorkflow } from "./designAgent";
+// import { api } from "../_generated/api";
+// import {
+//   AIMessage,
+//   BaseMessage,
+//   HumanMessage,
+//   SystemMessage,
+//   ToolMessage,
+// } from "@langchain/core/messages";
+// import { allShapeTools, groqWithShapeTools } from "./tools/primitiveLayerTools";
+// import { UIDesignAgent } from "./uiDesign/designAgent";
+// import { Id } from "../_generated/dataModel";
 
-export const create = action({
-  args: {
-    prompt: v.string(),
-    conversationId: v.id("conversations"),
-    pageId: v.id("pages"),
-    canvasWidth: v.number(),
-    canvasHeight: v.number(),
-    frameId: v.optional(v.id("layers")),
-  },
-  handler: async (ctx, args) => {
-    const {
-      prompt,
-      conversationId,
-      pageId,
-      canvasWidth,
-      canvasHeight,
-      frameId,
-    } = args;
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      return new ConvexError({
-        code: "UNAUTHORIZED",
-        message: "User not authenticated",
-      });
-    }
+// export const create = action({
+//   args: {
+//     prompt: v.string(),
+//     conversationId: v.id("conversations"),
+//     pageId: v.id("pages"),
+//     canvasWidth: v.number(),
+//     canvasHeight: v.number(),
+//     frameId: v.optional(v.id("layers")),
+//   },
+//   handler: async (ctx, args) => {
+//     const {
+//       prompt,
+//       conversationId,
+//       pageId,
+//       canvasWidth,
+//       canvasHeight,
+//       frameId,
+//     } = args;
+//     const identity = await ctx.auth.getUserIdentity();
+//     if (!identity) {
+//       return new ConvexError({
+//         code: "UNAUTHORIZED",
+//         message: "User not authenticated",
+//       });
+//     }
 
-    await ctx.runMutation(api.ai.messages.insertMessage, {
-      conversationId,
-      content: prompt,
-      role: "USER",
-    });
-    const workflow = createWorkflow();
-    const messages = await ctx.runQuery(api.ai.messages.listMessages, {
-      conversationId,
-    });
+//     await ctx.runMutation(api.ai.messages.insertMessage, {
+//       conversationId,
+//       content: prompt,
+//       role: "USER",
+//     });
+//     const workflow = createWorkflow();
+//     const messages = await ctx.runQuery(api.ai.messages.listMessages, {
+//       conversationId,
+//     });
 
-    const baseMessages: BaseMessage[] = messages.map((msg) => {
-      const content = msg.message.content;
-      switch (msg.message.role) {
-        case "USER":
-          return new HumanMessage(content);
-        case "AI":
-          return new AIMessage(content);
-        case "SYSTEM":
-          return new SystemMessage(content);
-        default:
-          throw new Error(`Unknown role: ${msg.message.role}`);
-      }
-    });
-    await workflow.invoke({
-      convexState: ctx,
-      messages: [],
-      userInput: prompt,
-      conversationId,
-      pageId,
-      frameId,
-      canvasWidth,
-      canvasHeight,
-    });
-  },
-});
+//     const baseMessages: BaseMessage[] = messages.map((msg) => {
+//       const content = msg.message.content;
+//       switch (msg.message.role) {
+//         case "USER":
+//           return new HumanMessage(content);
+//         case "AI":
+//           return new AIMessage(content);
+//         case "SYSTEM":
+//           return new SystemMessage(content);
+//         default:
+//           throw new Error(`Unknown role: ${msg.message.role}`);
+//       }
+//     });
+//     await workflow.invoke({
+//       convexState: ctx,
+//       messages: [],
+//       userInput: prompt,
+//       conversationId,
+//       pageId,
+//       frameId,
+//       canvasWidth,
+//       canvasHeight,
+//     });
+//   },
+// });
 
-export const workflowMermaid = action({
-  args: {},
-  handler: async () => {
-    const workflow = new UIDesignAgent();
-    return workflow.getGraphMermaid();
-  },
-});
+// export const workflowMermaid = action({
+//   args: {},
+//   handler: async () => {
+//     const workflow = new UIDesignAgent();
+//     return workflow.getGraphMermaid();
+//   },
+// });
 
-export const testWorkflowTools = action({
-  args: {
-    message: v.string(),
-  },
-  handler: async (ctx, args) => {
-    const systemMessage =
-      new SystemMessage(`You are a design assistant that creates visual elements using tools.
+// export const testWorkflowTools = action({
+//   args: {
+//     message: v.string(),
+//   },
+//   handler: async (ctx, args) => {
+//     const systemMessage =
+//       new SystemMessage(`You are a design assistant that creates visual elements using tools.
 
-When calling tools, you MUST provide ALL required parameters:
-- name: descriptive name for the element
-- fill: color as hex code (e.g., "#3b82f6" for blue)
-- width, height: dimensions in pixels
-- left, top: position values (can be negative)
+// When calling tools, you MUST provide ALL required parameters:
+// - name: descriptive name for the element
+// - fill: color as hex code (e.g., "#3b82f6" for blue)
+// - width, height: dimensions in pixels
+// - left, top: position values (can be negative)
 
-Example requests and correct tool calls:
-User: "Add a blue rectangle at the top left"
-Tool call: addRectangle with {name: "Blue Rectangle", fill: "#3b82f6", width: 200, height: 100, left: -400, top: -600}
+// Example requests and correct tool calls:
+// User: "Add a blue rectangle at the top left"
+// Tool call: addRectangle with {name: "Blue Rectangle", fill: "#3b82f6", width: 200, height: 100, left: -400, top: -600}
 
-User: "Add a red circle at the bottom"
+// User: "Add a red circle at the bottom"
 
-Always provide complete parameters for each tool call.`);
-    const messages: BaseMessage[] = [
-      systemMessage,
-      new HumanMessage(args.message),
-    ];
-    const allResults = [];
-    let iterations = 0;
-    const maxIterations = 1; // Prevent infinite loops
+// Always provide complete parameters for each tool call.`);
+//     const messages: BaseMessage[] = [
+//       systemMessage,
+//       new HumanMessage(args.message),
+//     ];
+//     const allResults = [];
+//     let iterations = 0;
+//     const maxIterations = 1; // Prevent infinite loops
 
-    while (iterations < maxIterations) {
-      const response = await groqWithShapeTools.invoke(messages);
+//     while (iterations < maxIterations) {
+//       const response = await groqWithShapeTools.invoke(messages);
 
-      // Add AI response to history
-      messages.push(response);
+//       // Add AI response to history
+//       messages.push(response);
 
-      // Check if there are tool calls
-      if (response.tool_calls && response.tool_calls.length > 0) {
-        console.log(
-          `Iteration ${iterations + 1}: ${response.tool_calls.length} tool(s) called`,
-        );
+//       // Check if there are tool calls
+//       if (response.tool_calls && response.tool_calls.length > 0) {
+//         console.log(
+//           `Iteration ${iterations + 1}: ${response.tool_calls.length} tool(s) called`,
+//         );
 
-        // Execute all tool calls
-        for (const toolCall of response.tool_calls) {
-          const tool = allShapeTools.find((t) => t.name === toolCall.name);
+//         // Execute all tool calls
+//         for (const toolCall of response.tool_calls) {
+//           const tool = allShapeTools.find((t) => t.name === toolCall.name);
 
-          if (tool) {
-            const result = await (tool as any).invoke(toolCall.args);
-            allResults.push({
-              tool: toolCall.name,
-              result: JSON.parse(result),
-            });
+//           if (tool) {
+//             const result = await (tool as any).invoke(toolCall.args);
+//             allResults.push({
+//               tool: toolCall.name,
+//               result: JSON.parse(result),
+//             });
 
-            // Add tool result to conversation
-            messages.push(
-              new ToolMessage({
-                content: result,
-                tool_call_id: toolCall.id!,
-              }),
-            );
-          }
-        }
+//             // Add tool result to conversation
+//             messages.push(
+//               new ToolMessage({
+//                 content: result,
+//                 tool_call_id: toolCall.id!,
+//               }),
+//             );
+//           }
+//         }
 
-        iterations++;
-      } else {
-        // No more tool calls, we're done
-        console.log("Finished. Final message:", response.content);
-        break;
-      }
-    }
+//         iterations++;
+//       } else {
+//         // No more tool calls, we're done
+//         console.log("Finished. Final message:", response.content);
+//         break;
+//       }
+//     }
 
-    return {
-      results: allResults,
-      message: messages?.[messages.length - 1]?.content ?? "",
-    };
-  },
-});
+//     return {
+//       results: allResults,
+//       message: messages?.[messages.length - 1]?.content ?? "",
+//     };
+//   },
+// });
 
-export const testAgents = action({
-  args: {
-    // prompt: v.string(),
-    // pageId: v.id("pages"),
-    // canvasWidth: v.number(),
-    // canvasHeight: v.number(),
-    frameId: v.optional(v.id("layers")),
-  },
-  handler: async (ctx, args) => {
-    // const { prompt, pageId, canvasWidth, canvasHeight, frameId } = args;
+// export const testAgents = action({
+//   args: {
+//     // prompt: v.string(),
+//     // pageId: v.id("pages"),
+//     // canvasWidth: v.number(),
+//     // canvasHeight: v.number(),
+//     frameId: v.optional(v.id("layers")),
+//   },
+//   handler: async (ctx, args) => {
+//     // const { prompt, pageId, canvasWidth, canvasHeight, frameId } = args;
 
-    const agent = new UIDesignAgent();
-    const userMessage = `Add a navbar`;
+//     const agent = new UIDesignAgent();
+//     const userMessage = `Add a navbar`;
 
-    // Generate a new design
-    const result = await agent.generateDesign({
-      userMessage,
-      convex: ctx,
-      pageId: "kh7c7nnh5hneq00xyrt3p8c8px7xyhe5" as Id<"pages">,
-      verbose: true,
-    });
+//     // Generate a new design
+//     const result = await agent.generateDesign({
+//       userMessage,
+//       convex: ctx,
+//       pageId: "kh7c7nnh5hneq00xyrt3p8c8px7xyhe5" as Id<"pages">,
+//       verbose: true,
+//     });
 
-    // Access the generated layers
-    console.log("Layers:", result.design.layers);
-    console.log("Hierarchy:", result.design.hierarchy);
-    console.log("Requirements:", result.requirements);
+//     // Access the generated layers
+//     console.log("Layers:", result.design.layers);
+//     console.log("Hierarchy:", result.design.hierarchy);
+//     console.log("Requirements:", result.requirements);
 
-    return result;
-  },
-});
+//     return result;
+//   },
+// });
