@@ -62,7 +62,7 @@ export const BlockSuggestionList = forwardRef<
   }))
 
   return (
-    <div className="block-suggestion-list">
+    <div className="block-suggestion-list hide-scrollbar">
       {props.items.length ? (
         props.items.map((item, index) => (
           <button

@@ -35,6 +35,11 @@ declare module "@tiptap/core" {
       toggleHeaderRow: () => ReturnType;
       mergeCells: () => ReturnType;
       splitCell: () => ReturnType;
+      insertCustomTable: (options?: {
+        rows?: number;
+        cols?: number;
+        withHeaderRow?: boolean;
+      }) => ReturnType;
     };
   }
 }
@@ -84,6 +89,62 @@ export const TableExtension = Extension.create({
         () =>
         ({ state, dispatch }) =>
           splitCell(state, dispatch),
+      insertCustomTable:
+        ({ rows = 3, cols = 3, withHeaderRow = true } = {}) =>
+        ({ state, dispatch, editor }) => {
+          console.log("TableExtension: insertCustomTable called", { rows, cols, withHeaderRow });
+          
+          const { table, tableRow, tableHeader, tableCell, tableParagraph } =
+            editor.schema.nodes;
+
+          if (!table || !tableRow || !tableHeader || !tableCell || !tableParagraph) {
+            console.error("TableExtension: Missing table nodes in schema", {
+                table: !!table,
+                tableRow: !!tableRow,
+                tableHeader: !!tableHeader,
+                tableCell: !!tableCell,
+                tableParagraph: !!tableParagraph,
+            });
+            return false;
+          }
+
+          try {
+              const node = table.create(
+                {},
+                Array.from({ length: rows }).map((_, rowIndex) => {
+                  return tableRow.create(
+                    {},
+                    Array.from({ length: cols }).map((_, colIndex) => {
+                      const cellContent = tableParagraph.create(
+                        {},
+                        editor.schema.text(" "),
+                      );
+                      if (withHeaderRow && rowIndex === 0) {
+                        return tableHeader.create(
+                          {},
+                          cellContent, // Direct content, no wrapper
+                        );
+                      }
+                      return tableCell.create(
+                        {},
+                        cellContent, // Direct content, no wrapper
+                      );
+                    }),
+                  );
+                }),
+              );
+              
+              if (dispatch) {
+                console.log("TableExtension: Dispatching transaction");
+                const tr = state.tr.replaceSelectionWith(node);
+                dispatch(tr);
+              }
+              return true;
+          } catch (error) {
+              console.error("TableExtension: Error creating table node", error);
+              return false;
+          }
+        },
     };
   },
 
