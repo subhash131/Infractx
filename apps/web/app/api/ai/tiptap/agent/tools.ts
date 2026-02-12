@@ -9,9 +9,7 @@ import { z } from "zod";
 export const listProjectDocuments = tool(
   async ({ projectId }) => {
     console.log(`[TOOL] listProjectDocuments called with projectId: ${projectId}`);
-
     // TODO: Replace with ConvexHttpClient call to projects.getProjectById
-
     // Stub: simulate known projects. Unknown IDs return not_found.
     const knownProjects: Record<string, any> = {
       proj_ecommerce_123: {

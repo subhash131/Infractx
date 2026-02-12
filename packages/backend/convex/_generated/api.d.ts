@@ -9,33 +9,7 @@
  */
 
 import type * as ai_conversations from "../ai/conversations.js";
-import type * as ai_designAgent from "../ai/designAgent.js";
 import type * as ai_messages from "../ai/messages.js";
-import type * as ai_nodes_index from "../ai/nodes/index.js";
-import type * as ai_nodes_utils from "../ai/nodes/utils.js";
-import type * as ai_tools_advancedLayerTools from "../ai/tools/advancedLayerTools.js";
-import type * as ai_tools_primitiveLayerTools from "../ai/tools/primitiveLayerTools.js";
-import type * as ai_uiDesign_designAgent from "../ai/uiDesign/designAgent.js";
-import type * as ai_uiDesign_graph from "../ai/uiDesign/graph.js";
-import type * as ai_uiDesign_layoutRules from "../ai/uiDesign/layoutRules.js";
-import type * as ai_uiDesign_model from "../ai/uiDesign/model.js";
-import type * as ai_uiDesign_nodes_calculateHierarchyDepth from "../ai/uiDesign/nodes/calculateHierarchyDepth.js";
-import type * as ai_uiDesign_nodes_componentGenerationNode from "../ai/uiDesign/nodes/componentGenerationNode.js";
-import type * as ai_uiDesign_nodes_framePlanningNode from "../ai/uiDesign/nodes/framePlanningNode.js";
-import type * as ai_uiDesign_nodes_generateComponentsLayer from "../ai/uiDesign/nodes/generateComponentsLayer.js";
-import type * as ai_uiDesign_nodes_generateFromTemplate from "../ai/uiDesign/nodes/generateFromTemplate.js";
-import type * as ai_uiDesign_nodes_generateProgrammaticFallback from "../ai/uiDesign/nodes/generateProgrammaticFallback.js";
-import type * as ai_uiDesign_nodes_hierarchyResolutionNode from "../ai/uiDesign/nodes/hierarchyResolutionNode.js";
-import type * as ai_uiDesign_nodes_intentUnderstandingNode from "../ai/uiDesign/nodes/intentUnderstandingNode.js";
-import type * as ai_uiDesign_nodes_matchFrameFromMessage from "../ai/uiDesign/nodes/matchFrameFromMessage.js";
-import type * as ai_uiDesign_nodes_requirementsNode from "../ai/uiDesign/nodes/requirementsNode.js";
-import type * as ai_uiDesign_nodes_shouldRunDesignPlanning from "../ai/uiDesign/nodes/shouldRunDesignPlanning.js";
-import type * as ai_uiDesign_nodes_validateFrame from "../ai/uiDesign/nodes/validateFrame.js";
-import type * as ai_uiDesign_nodes_validationNode from "../ai/uiDesign/nodes/validationNode.js";
-import type * as ai_uiDesign_state from "../ai/uiDesign/state.js";
-import type * as ai_uiDesign_types from "../ai/uiDesign/types.js";
-import type * as ai_uiDesign_utils from "../ai/uiDesign/utils.js";
-import type * as ai_workflowAction from "../ai/workflowAction.js";
 import type * as auth_auth from "../auth/auth.js";
 import type * as design_constants from "../design/constants.js";
 import type * as design_files from "../design/files.js";
@@ -57,33 +31,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   "ai/conversations": typeof ai_conversations;
-  "ai/designAgent": typeof ai_designAgent;
   "ai/messages": typeof ai_messages;
-  "ai/nodes/index": typeof ai_nodes_index;
-  "ai/nodes/utils": typeof ai_nodes_utils;
-  "ai/tools/advancedLayerTools": typeof ai_tools_advancedLayerTools;
-  "ai/tools/primitiveLayerTools": typeof ai_tools_primitiveLayerTools;
-  "ai/uiDesign/designAgent": typeof ai_uiDesign_designAgent;
-  "ai/uiDesign/graph": typeof ai_uiDesign_graph;
-  "ai/uiDesign/layoutRules": typeof ai_uiDesign_layoutRules;
-  "ai/uiDesign/model": typeof ai_uiDesign_model;
-  "ai/uiDesign/nodes/calculateHierarchyDepth": typeof ai_uiDesign_nodes_calculateHierarchyDepth;
-  "ai/uiDesign/nodes/componentGenerationNode": typeof ai_uiDesign_nodes_componentGenerationNode;
-  "ai/uiDesign/nodes/framePlanningNode": typeof ai_uiDesign_nodes_framePlanningNode;
-  "ai/uiDesign/nodes/generateComponentsLayer": typeof ai_uiDesign_nodes_generateComponentsLayer;
-  "ai/uiDesign/nodes/generateFromTemplate": typeof ai_uiDesign_nodes_generateFromTemplate;
-  "ai/uiDesign/nodes/generateProgrammaticFallback": typeof ai_uiDesign_nodes_generateProgrammaticFallback;
-  "ai/uiDesign/nodes/hierarchyResolutionNode": typeof ai_uiDesign_nodes_hierarchyResolutionNode;
-  "ai/uiDesign/nodes/intentUnderstandingNode": typeof ai_uiDesign_nodes_intentUnderstandingNode;
-  "ai/uiDesign/nodes/matchFrameFromMessage": typeof ai_uiDesign_nodes_matchFrameFromMessage;
-  "ai/uiDesign/nodes/requirementsNode": typeof ai_uiDesign_nodes_requirementsNode;
-  "ai/uiDesign/nodes/shouldRunDesignPlanning": typeof ai_uiDesign_nodes_shouldRunDesignPlanning;
-  "ai/uiDesign/nodes/validateFrame": typeof ai_uiDesign_nodes_validateFrame;
-  "ai/uiDesign/nodes/validationNode": typeof ai_uiDesign_nodes_validationNode;
-  "ai/uiDesign/state": typeof ai_uiDesign_state;
-  "ai/uiDesign/types": typeof ai_uiDesign_types;
-  "ai/uiDesign/utils": typeof ai_uiDesign_utils;
-  "ai/workflowAction": typeof ai_workflowAction;
   "auth/auth": typeof auth_auth;
   "design/constants": typeof design_constants;
   "design/files": typeof design_files;
