@@ -65,7 +65,7 @@ export const DocHeader = () => {
   return (
     <div className="w-full h-fit bg-[#1F1F1F] text-white">
       <input
-        className="text-4xl font-semibold pl-16 w-full pt-6 pb-2 border-0 focus:ring-0 outline-none"
+        className="text-4xl font-semibold pl-12 w-full pt-6 pb-2 border-0 focus:ring-0 outline-none"
         placeholder="Untitled"
         onKeyDown={(e) => {
           if (e.key === "Enter") {
@@ -77,7 +77,7 @@ export const DocHeader = () => {
         onChange={handleTitleChange}
       />
       <Textarea
-        className="focus-visible:ring-0 border-0 outline-none ring-0 pl-16 bg-transparent max-h-20 h-fit hide-scrollbar dark:bg-transparent"
+        className="focus-visible:ring-0 border-0 outline-none ring-0 pl-12 bg-transparent max-h-10 text-sm h-fit hide-scrollbar dark:bg-transparent"
         placeholder="Description (Eg: This doc describes the technical design of the postgres backend)"
         ref={textareaRef}
         value={description}

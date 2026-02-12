@@ -66,7 +66,7 @@ const Toolbar = dynamic(
 );
 
 
-export function SimpleEditor() {
+export function SimpleEditor({textFileId}:{textFileId:Id<"text_files">}) {
   const isMobile = useIsBreakpoint()
   const { height } = useWindowSize()
   const [mobileView, setMobileView] = useState<"main" | "highlighter" | "link">(
@@ -124,7 +124,6 @@ export function SimpleEditor() {
     overlayHeight: toolbarRef.current?.getBoundingClientRect().height ?? 0,
   })
 
-  const textFileId = "ns75m5g7e1h4z9dj5vb7y1ydsx80asp4" as Id<"text_files">
   const fetchTextFileBlocks = useQuery(api.requirements.textFileBlocks.getBlocksByFileId,{textFileId})
   const bulkCreateBlocks = useMutation(api.requirements.textFileBlocks.bulkCreate)
   const bulkUpdateBlocks = useMutation(api.requirements.textFileBlocks.bulkUpdate)
@@ -133,16 +132,20 @@ export function SimpleEditor() {
   const isInitialLoaded = useRef(false);
   const lastSyncedContent = useRef<string>("");
 
+  // Reset when textFileId changes so content reloads for the new file
+  useEffect(() => {
+    isInitialLoaded.current = false;
+    lastSyncedContent.current = "";
+  }, [textFileId]);
+
   useEffect(()=>{
     if(editor &&fetchTextFileBlocks && !isInitialLoaded.current){
-      console.log({fetchTextFileBlocks})
       const document = parseBlocksToTiptapDocument(fetchTextFileBlocks)
-      console.log({document})
       editor.commands.setContent(document)
       editor.commands.setTextSelection({from:0,to:0})
       isInitialLoaded.current = true;
     }
-  },[editor, fetchTextFileBlocks])
+  },[editor, fetchTextFileBlocks, textFileId])
 
   // Debounced sync on editor updates
   useEffect(() => {
@@ -174,7 +177,7 @@ export function SimpleEditor() {
       const { toCreate, toDelete, toUpdate } = syncEditorToDatabase(
         editor.getJSON(),
         blockData,
-        "ns75m5g7e1h4z9dj5vb7y1ydsx80asp4" as Id<"text_files">
+        textFileId
       );
 
       if (toCreate.length > 0) {
@@ -187,7 +190,7 @@ export function SimpleEditor() {
         });
         bulkCreateBlocks({
           blocks: finalBlocks,
-          textFileId: "ns75m5g7e1h4z9dj5vb7y1ydsx80asp4" as Id<"text_files">
+          textFileId,
         });
       }
 
@@ -203,7 +206,7 @@ export function SimpleEditor() {
         });
         bulkUpdateBlocks({
           blocks: finalBlocks,
-          textFileId: "ns75m5g7e1h4z9dj5vb7y1ydsx80asp4" as Id<"text_files">
+          textFileId,
         });
       }
 
@@ -309,7 +312,6 @@ export function SimpleEditor() {
             editor={editor}
             role="presentation"
             className="simple-editor-content"
-            
           />
           {editor && showAIPopup && selectionRange && (
             <AIInputPopup
