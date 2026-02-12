@@ -1,19 +1,91 @@
 import { callOrReturn, Extension, getExtensionField } from "@tiptap/core";
-import { columnResizing, goToNextCell, tableEditing } from "prosemirror-tables";
+import {
+  addColumnAfter,
+  addColumnBefore,
+  addRowAfter,
+  addRowBefore,
+  columnResizing,
+  deleteColumn,
+  deleteRow,
+  deleteTable,
+  goToNextCell,
+  mergeCells,
+  splitCell,
+  tableEditing,
+  toggleHeaderRow,
+} from "prosemirror-tables";
 
 export const RESIZE_MIN_WIDTH = 35;
 export const EMPTY_CELL_WIDTH = 120;
 export const EMPTY_CELL_HEIGHT = 31;
 
-// We need to declare this here because we aren't using the table extensions from tiptap, so the types are not automatically inferred.
 declare module "@tiptap/core" {
   interface NodeConfig {
     tableRole?: string;
+  }
+  interface Commands<ReturnType> {
+    tableExtension: {
+      addRowBefore: () => ReturnType;
+      addRowAfter: () => ReturnType;
+      addColumnBefore: () => ReturnType;
+      addColumnAfter: () => ReturnType;
+      deleteRow: () => ReturnType;
+      deleteColumn: () => ReturnType;
+      deleteTable: () => ReturnType;
+      toggleHeaderRow: () => ReturnType;
+      mergeCells: () => ReturnType;
+      splitCell: () => ReturnType;
+    };
   }
 }
 
 export const TableExtension = Extension.create({
   name: "BlockNoteTableExtension",
+
+  addCommands() {
+    return {
+      addRowBefore:
+        () =>
+        ({ state, dispatch }) =>
+          addRowBefore(state, dispatch),
+      addRowAfter:
+        () =>
+        ({ state, dispatch }) =>
+          addRowAfter(state, dispatch),
+      addColumnBefore:
+        () =>
+        ({ state, dispatch }) =>
+          addColumnBefore(state, dispatch),
+      addColumnAfter:
+        () =>
+        ({ state, dispatch }) =>
+          addColumnAfter(state, dispatch),
+      deleteRow:
+        () =>
+        ({ state, dispatch }) =>
+          deleteRow(state, dispatch),
+      deleteColumn:
+        () =>
+        ({ state, dispatch }) =>
+          deleteColumn(state, dispatch),
+      deleteTable:
+        () =>
+        ({ state, dispatch }) =>
+          deleteTable(state, dispatch),
+      toggleHeaderRow:
+        () =>
+        ({ state, dispatch }) =>
+          toggleHeaderRow(state, dispatch),
+      mergeCells:
+        () =>
+        ({ state, dispatch }) =>
+          mergeCells(state, dispatch),
+      splitCell:
+        () =>
+        ({ state, dispatch }) =>
+          splitCell(state, dispatch),
+    };
+  },
 
   addProseMirrorPlugins: () => {
     return [

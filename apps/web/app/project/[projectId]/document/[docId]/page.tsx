@@ -19,9 +19,9 @@ const RequirementsDraftingPage = () => {
   const fileId = searchParams?.get("fileId") as Id<"text_files">;
 
   return (
-    <div className="w-screen h-screen overflow-hidden hide-scrollbar flex bg-[#1F1F1F]">
+    <div className="w-full h-full overflow-hidden hide-scrollbar flex bg-[#1F1F1F]">
       <FileManagementMenu docId={docId} />
-      <div className="w-full h-screen overflow-hidden overflow-y-scroll hide-scrollbar">
+      <div className="w-full h-full overflow-hidden overflow-y-auto hide-scrollbar">
         <DocHeader />
         <TiptapEditor textFileId={fileId} />
       </div>
