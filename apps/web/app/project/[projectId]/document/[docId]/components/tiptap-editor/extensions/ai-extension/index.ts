@@ -1,6 +1,7 @@
 import { Extension } from '@tiptap/core'
 import { Plugin, PluginKey } from '@tiptap/pm/state'
 import { EditorView } from '@tiptap/pm/view'
+import "./ai-extension.scss"
 
 export const AIExtension = Extension.create({
   name: 'aiExtension',
