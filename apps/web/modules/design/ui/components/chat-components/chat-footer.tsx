@@ -18,23 +18,23 @@ import { Id } from "@workspace/backend/_generated/dataModel";
 import useCanvas from "@/modules/design/store";
 
 export const ChatFooter = ({ conversationId }: { conversationId: string }) => {
-  const sendMessage = useAction(api.ai.workflowAction.create);
+  // const sendMessage = useAction(api.ai.workflowAction.create);
 
   const { activePageId, canvas, activeObject } = useCanvas();
   const [prompt, setPrompt] = useState("");
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    sendMessage({
-      conversationId: conversationId as Id<"conversations">,
-      prompt,
-      pageId: activePageId as Id<"pages">,
-      canvasWidth: canvas?.width || innerWidth,
-      canvasHeight: canvas?.height || innerHeight,
-      frameId:
-        activeObject?.obj_type === "FRAME"
-          ? (activeObject._id as Id<"layers">)
-          : undefined,
-    });
+    // sendMessage({
+    //   conversationId: conversationId as Id<"conversations">,
+    //   prompt,
+    //   pageId: activePageId as Id<"pages">,
+    //   canvasWidth: canvas?.width || innerWidth,
+    //   canvasHeight: canvas?.height || innerHeight,
+    //   frameId:
+    //     activeObject?.obj_type === "FRAME"
+    //       ? (activeObject._id as Id<"layers">)
+    //       : undefined,
+    // });
     setPrompt("");
   };
   const handleKeyDown = (e: React.KeyboardEvent) => {
