@@ -69,6 +69,17 @@ export function parseBlocksToTiptapDocument(blocksData: Doc<"blocks">[]): Tiptap
           : undefined,
       };
     }
+    else if (block.type === "table") {
+      return {
+        type: "table",
+        attrs: {
+          id: block.id,
+          rank: block.rank,
+          parentId: block.parentId,
+        },
+        content: block.content.tableData,
+      };
+    }
     
     throw new Error(`Unknown block type: ${block.type}`);
   }

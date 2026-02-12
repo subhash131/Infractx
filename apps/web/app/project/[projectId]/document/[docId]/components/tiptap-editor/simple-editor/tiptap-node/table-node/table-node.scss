@@ -1,0 +1,65 @@
+.tiptap.ProseMirror {
+  /* ── Table Wrapper ────────────────────────────── */
+  .tableWrapper {
+    margin: 1.5rem 0;
+    overflow-x: auto;
+
+    .tableWrapper-inner {
+      display: inline-block;
+      min-width: 100%;
+    }
+  }
+
+  /* ── Table ────────────────────────────────────── */
+  table {
+    border-collapse: collapse;
+    table-layout: fixed;
+    width: 100%;
+    overflow: hidden;
+
+    td,
+    th {
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      min-width: 80px;
+      padding: 8px 12px;
+      position: relative;
+      text-align: left;
+      vertical-align: top;
+      box-sizing: border-box;
+
+      > p {
+        margin: 0;
+        line-height: 1.5;
+      }
+
+      &.selectedCell {
+        background-color: rgba(255, 255, 255, 0.08);
+      }
+    }
+
+    th {
+      background-color: rgba(255, 255, 255, 0.06);
+      font-weight: 600;
+    }
+
+    td {
+      background-color: transparent;
+    }
+
+    /* Column resize handle */
+    .column-resize-handle {
+      background-color: rgba(100, 160, 255, 0.6);
+      bottom: -2px;
+      pointer-events: none;
+      position: absolute;
+      right: -2px;
+      top: 0;
+      width: 4px;
+    }
+  }
+
+  /* Resize cursor */
+  &.resize-cursor {
+    cursor: col-resize;
+  }
+}

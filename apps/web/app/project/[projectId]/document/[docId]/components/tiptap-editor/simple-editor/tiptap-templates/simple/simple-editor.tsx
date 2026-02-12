@@ -22,6 +22,7 @@ import "../../tiptap-node/list-node/list-node.scss"
 import "../../tiptap-node/image-node/image-node.scss"
 import "../../tiptap-node/heading-node/heading-node.scss"
 import "../../tiptap-node/paragraph-node/paragraph-node.scss"
+import "../../tiptap-node/table-node/table-node.scss"
 
 // --- Hooks ---
 import { useIsBreakpoint } from "@/app/project/[projectId]/document/[docId]/components/tiptap-editor/simple-editor/hooks/use-is-breakpoint"
@@ -52,6 +53,7 @@ import { SmartBlockGroup } from "../../../extensions/smart-block/smart-block-gro
 import { GlobalBlockAttributes } from "../../../extensions/smart-block/global-block-attributes"
 import { BlockMention } from "../../../extensions/block-suggestions/block-mention"
 import { AIExtension } from "../../../extensions/ai-extension"
+import { TableBlockExtensions } from "../../../extensions/table/block"
 import { parseBlocksToTiptapDocument } from "../../../utils/parse-blocks-to-tiptap-doc"
 import { BlockData } from "../../../extensions/types"
 import { syncEditorToDatabase } from "../../../utils/sync-editor-to-database"
@@ -109,6 +111,7 @@ export function SimpleEditor({textFileId}:{textFileId:Id<"text_files">}) {
       Superscript,
       Subscript,
       Selection,
+      ...TableBlockExtensions,
       ImageUploadNode.configure({
         accept: "image/*",
         maxSize: MAX_FILE_SIZE,

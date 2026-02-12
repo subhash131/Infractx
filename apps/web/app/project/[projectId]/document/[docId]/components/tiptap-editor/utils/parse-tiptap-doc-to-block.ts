@@ -70,6 +70,26 @@ export function parseTiptapDocumentToBlock(
         textFileId,
       });
     }
+    // Handle table nodes — store the entire table as a single block
+    else if (node.type === "table") {
+      const blockId = node.attrs?.id;
+      const rank = node.attrs?.rank;
+
+      if (!blockId || !rank) {
+        console.warn("table missing id or rank", node);
+        return;
+      }
+
+      blocks.push({
+        id: blockId,
+        parentId,
+        type: "table",
+        content: { tableData: node.content },
+        rank,
+        props: {},
+        textFileId,
+      });
+    }
     // Handle other block types if needed
     else if (node.content) {
       // Recursively process children for other node types
