@@ -30,7 +30,8 @@ class AISelectionMenuView {
     this.menu = document.createElement('div')
     this.menu.className = 'ai-selection-menu-floating'
     this.menu.style.position = 'absolute'
-    this.menu.style.zIndex = '1000'
+    this.menu.style.zIndex = '10'
+    this.menu.style.display = 'none' 
     this.menu.style.visibility = 'hidden'
     this.menu.style.opacity = '0'
     this.menu.style.transition = 'opacity 0.2s'
@@ -86,6 +87,7 @@ class AISelectionMenuView {
   hide() {
     this.menu.style.visibility = 'hidden'
     this.menu.style.opacity = '0'
+    this.menu.style.display = 'none'
   }
 
   update(view: EditorView, lastState?: any) {
@@ -132,6 +134,7 @@ class AISelectionMenuView {
       const end = view.coordsAtPos(to)
 
       // Make menu visible first to get its dimensions
+      this.menu.style.display = 'block'
       this.menu.style.visibility = 'visible'
       this.menu.style.opacity = '0' // Keep invisible while calculating
 

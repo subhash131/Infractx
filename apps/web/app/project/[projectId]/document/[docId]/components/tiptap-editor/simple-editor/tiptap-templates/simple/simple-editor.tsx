@@ -256,10 +256,29 @@ export function SimpleEditor({textFileId}:{textFileId:Id<"text_files">}) {
       setShowAIPopup(true)
     }
 
+    const handleToggleAIInput = (event: Event) => {
+      const customEvent = event as CustomEvent
+      const { from, to } = customEvent.detail
+      
+      console.log('Received toggle-ai-chat event:', { from, to })
+      
+      setShowAIPopup(prev => {
+        if (prev) {
+          setSelectionRange(null)
+          return false
+        } else {
+          setSelectionRange({ from, to })
+          return true
+        }
+      })
+    }
+
     window.addEventListener('show-ai-input', handleShowAIInput)
+    window.addEventListener('toggle-ai-chat', handleToggleAIInput)
 
     return () => {
       window.removeEventListener('show-ai-input', handleShowAIInput)
+      window.removeEventListener('toggle-ai-chat', handleToggleAIInput)
     }
   }, [])
 
@@ -283,7 +302,7 @@ export function SimpleEditor({textFileId}:{textFileId:Id<"text_files">}) {
   
   return (
     <Suspense fallback={<div className="text-white">Loading...</div>}>
-      <div className="simple-editor-wrapper">
+      <div className="simple-editor-wrapper h-screen overflow-y-hidden">
         <EditorContext.Provider value={{ editor }}>
           <div className="simple-editor-floating-toolbar">
             <Toolbar

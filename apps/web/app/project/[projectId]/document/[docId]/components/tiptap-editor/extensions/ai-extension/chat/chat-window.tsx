@@ -12,12 +12,13 @@ import { Editor } from "@tiptap/react";
 interface ChatWindowProps {
   editor: Editor;
   selection: { from: number; to: number };
+  onClose?: () => void;
 }
 
-export const ChatWindow = ({ editor, selection }: ChatWindowProps) => {
+export const ChatWindow = ({ editor, selection, onClose }: ChatWindowProps) => {
   const [position, setPosition] = useState({
-    x: innerWidth * 0.75,
-    y: innerHeight * 0.25,
+    x: innerWidth * 0.65,
+    y: innerHeight * 0.2,
   });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
@@ -89,7 +90,7 @@ export const ChatWindow = ({ editor, selection }: ChatWindowProps) => {
         top: `${position.y}px`,
       }}
     >
-      <ChatHeader onMouseDown={handleMouseDown} />
+      <ChatHeader onMouseDown={handleMouseDown} onClose={onClose} />
       <ChatBody messages={messages ?? []} />
       <ChatFooter conversationId={conversationId} editor={editor} selection={selection}/>
     </div>
