@@ -23,7 +23,9 @@ html,
 body {
   overscroll-behavior-x: none;
   height: 100vh;
+  max-height: 100vh;
   overflow: hidden;
+  position: relative;
 }
 
 html,

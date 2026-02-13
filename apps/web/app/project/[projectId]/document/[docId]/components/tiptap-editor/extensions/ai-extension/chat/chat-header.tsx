@@ -10,8 +10,10 @@ import React from "react";
 
 export const ChatHeader = ({
   onMouseDown,
+  onClose,
 }: {
   onMouseDown: React.MouseEventHandler<HTMLDivElement>;
+  onClose?: () => void;
 }) => {
   return (
     <div
@@ -26,7 +28,7 @@ export const ChatHeader = ({
         <Button variant={"ghost"}>
           <HugeiconsIcon icon={TransactionHistoryIcon} strokeWidth={2} />
         </Button>
-        <Button variant={"ghost"}>
+        <Button variant={"ghost"} onClick={onClose}>
           <HugeiconsIcon icon={CancelCircleIcon} strokeWidth={2} />
         </Button>
       </div>

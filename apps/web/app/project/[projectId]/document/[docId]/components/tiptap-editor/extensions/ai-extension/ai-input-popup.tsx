@@ -73,6 +73,6 @@ export function AIInputPopup({ editor, from, to, onClose, onSubmit }: AIInputPop
   }
 
   return (
-    <ChatWindow editor={editor} selection={{from, to}}/>
+    <ChatWindow editor={editor} selection={{from, to}} onClose={onClose}/>
   )
 }

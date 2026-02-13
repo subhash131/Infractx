@@ -13,6 +13,7 @@ import { UndoRedoButton } from "../../tiptap-ui/undo-redo-button"
 
 import { TableButton } from "../../tiptap-ui/table-button/table-button"
 import { FormattingDropdownMenu } from "../../tiptap-ui/formatting-dropdown-menu/formatting-dropdown-menu"
+import { AIButton } from "../../tiptap-ui/ai-button"
 
 
 export const MainToolbarContent = ({
@@ -68,6 +69,12 @@ export const MainToolbarContent = ({
 
       <ToolbarGroup>
         <TextAlignDropdownMenu />
+      </ToolbarGroup>
+
+      <ToolbarSeparator /> 
+
+      <ToolbarGroup>
+        <AIButton />
       </ToolbarGroup>
 
 
