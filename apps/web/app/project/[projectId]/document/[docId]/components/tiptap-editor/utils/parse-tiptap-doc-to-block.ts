@@ -18,18 +18,19 @@ export function parseTiptapDocumentToBlock(
         return;
       }
 
+
       // Extract content from smartBlockContent
       const smartBlockContent = node.content?.find(
         (n) => n.type === "smartBlockContent"
       );
-      const contentText = extractTextContent(smartBlockContent);
+      // const contentText = extractTextContent(smartBlockContent);
 
       // Create the smartBlock entry
       blocks.push({
         id: blockId,
         parentId,
         type: "smartBlock",
-        content: { text: contentText },
+        content: smartBlockContent?.content || [], // Store the full content array
         rank,
         props: {}, // Add any custom props from node.attrs if needed
         textFileId,
@@ -72,7 +73,7 @@ export function parseTiptapDocumentToBlock(
 
       // If the node has an ID and rank, treat it as a block
       if (blockId && rank) {
-        const contentText = extractTextContent(node);
+        // const contentText = extractTextContent(node);
         
         // Extract all attributes as props, excluding reserved internal attributes
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -82,7 +83,7 @@ export function parseTiptapDocumentToBlock(
           id: blockId,
           parentId,
           type: node.type,
-          content: { text: contentText },
+          content: node.content || [], // Store the full content array
           rank,
           props: otherAttrs,
           textFileId,
