@@ -162,7 +162,7 @@ export const ChatFooter = ({ conversationId, editor, selection }: ChatFooterProp
 
   return (
     <form
-      className="w-full shrink-0 bg-background border-t p-1"
+      className="w-full shrink-0 bg-[#1f1f1f] border-t p-1"
       // onSubmit={handleSubmit}
       onSubmit={startStream}
       onKeyDown={handleKeyDown}

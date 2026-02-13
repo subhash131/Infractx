@@ -282,19 +282,6 @@ export function SimpleEditor({textFileId}:{textFileId:Id<"text_files">}) {
     }
   }, [])
 
-  const handleAISubmit = async (prompt: string, selectedText: string) => {
-    console.log('AI Submit:', { prompt, selectedText })
-    
-    // Here you would call your AI API
-    // For now, just log the values
-    
-    // Example of how you might replace the selected text:
-    if (editor && selectionRange) {
-      // You can insert AI response here
-      // editor.chain().focus().insertContentAt(selectionRange, 'AI response here').run()
-    }
-  }
-
   const handleClosePopup = () => {
     setShowAIPopup(false)
     setSelectionRange(null)
@@ -342,7 +329,6 @@ export function SimpleEditor({textFileId}:{textFileId:Id<"text_files">}) {
               from={selectionRange.from}
               to={selectionRange.to}
               onClose={handleClosePopup}
-              onSubmit={handleAISubmit}
             />
           )}
           {editor && <TableToolbar editor={editor} />}

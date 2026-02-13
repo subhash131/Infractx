@@ -82,7 +82,7 @@ export const ChatWindow = ({ editor, selection, onClose }: ChatWindowProps) => {
   return (
     <div
       className={cn(
-        "z-99 border shadow-lg absolute rounded-xl w-80 h-[30rem] bg-background overflow-hidden flex flex-col transition",
+        "z-99 border absolute rounded-xl w-80 h-[30rem] bg-[#1f1f1f] shadow-2xl overflow-hidden flex flex-col transition",
         isDragging && "select-none"
       )}
       style={{
