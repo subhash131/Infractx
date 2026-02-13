@@ -45,31 +45,6 @@ export function parseTiptapDocumentToBlock(
         }
       }
     }
-    // Handle paragraph nodes
-    else if (node.type === "paragraph") {
-      const blockId = node.attrs?.id;
-      const rank = node.attrs?.rank;
-      const textAlign = node.attrs?.textAlign;
-
-      if (!blockId || !rank) {
-        console.warn("paragraph missing id or rank", node);
-        return;
-      }
-
-      const contentText = extractTextContent(node);
-
-      blocks.push({
-        id: blockId,
-        parentId,
-        type: "paragraph",
-        content: { text: contentText },
-        rank,
-        props: {
-          textAlign: textAlign || null,
-        },
-        textFileId,
-      });
-    }
     // Handle table nodes — store the entire table as a single block
     else if (node.type === "table") {
       const blockId = node.attrs?.id;
@@ -90,11 +65,43 @@ export function parseTiptapDocumentToBlock(
         textFileId,
       });
     }
-    // Handle other block types if needed
-    else if (node.content) {
-      // Recursively process children for other node types
-      for (const child of node.content) {
-        traverse(child, parentId);
+    // Generic handler for all other block types (paragraph, heading, list, etc.)
+    else {
+      const blockId = node.attrs?.id;
+      const rank = node.attrs?.rank;
+
+      // If the node has an ID and rank, treat it as a block
+      if (blockId && rank) {
+        const contentText = extractTextContent(node);
+        
+        // Extract all attributes as props, excluding reserved internal attributes
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { id, rank: _rank, ...otherAttrs } = node.attrs || {};
+
+        blocks.push({
+          id: blockId,
+          parentId,
+          type: node.type,
+          content: { text: contentText },
+          rank,
+          props: otherAttrs,
+          textFileId,
+        });
+
+        // Traverse children for this block
+        if (node.content) {
+          for (const child of node.content) {
+            traverse(child, blockId);
+          }
+        }
+      } else {
+         // If it's a structural node (like a list wrapper without ID) or we just processed it as a block
+        // check if it has children that also need to be traversed.
+        if (node.content) {
+          for (const child of node.content) {
+            traverse(child, parentId);
+          }
+        }
       }
     }
   }

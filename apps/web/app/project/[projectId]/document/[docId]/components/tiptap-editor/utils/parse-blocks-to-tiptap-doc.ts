@@ -55,20 +55,6 @@ export function parseBlocksToTiptapDocument(blocksData: Doc<"blocks">[]): Tiptap
         ],
       };
     } 
-    else if (block.type === "paragraph") {
-      return {
-        type: "paragraph",
-        attrs: {
-          id: block.id,
-          rank: block.rank,
-          parentId: block.parentId,
-          textAlign: block.props?.textAlign || null,
-        },
-        content: block.content.text
-          ? [{ type: "text", text: block.content.text }]
-          : undefined,
-      };
-    }
     else if (block.type === "table") {
       return {
         type: "table",
@@ -81,7 +67,26 @@ export function parseBlocksToTiptapDocument(blocksData: Doc<"blocks">[]): Tiptap
       };
     }
     
-    throw new Error(`Unknown block type: ${block.type}`);
+    // Generic handler for all other block types
+    const children = childrenMap.get(block.id) || [];
+    const content: TiptapNode[] = [];
+
+    if (children.length > 0) {
+      content.push(...children.map(buildNode));
+    } else if (block.content.text) {
+      content.push({ type: "text", text: block.content.text });
+    }
+
+    return {
+      type: block.type,
+      attrs: {
+        id: block.id,
+        rank: block.rank,
+        parentId: block.parentId,
+        ...block.props, // Spread generic props back to attrs
+      },
+      content: content.length > 0 ? content : undefined,
+    };
   }
 
   // 4. Build root-level nodes (where parentId === null)
