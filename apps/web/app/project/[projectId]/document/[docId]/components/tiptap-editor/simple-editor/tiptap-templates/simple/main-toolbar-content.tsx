@@ -8,10 +8,12 @@ import { HeadingDropdownMenu } from "../../tiptap-ui/heading-dropdown-menu"
 import { LinkButton, LinkPopover } from "../../tiptap-ui/link-popover"
 import { ListDropdownMenu } from "../../tiptap-ui/list-dropdown-menu"
 import { MarkButton } from "../../tiptap-ui/mark-button"
-import { TextAlignButton } from "../../tiptap-ui/text-align-button"
+import { TextAlignDropdownMenu } from "../../tiptap-ui/text-align-button"
 import { UndoRedoButton } from "../../tiptap-ui/undo-redo-button"
 
 import { TableButton } from "../../tiptap-ui/table-button/table-button"
+import { FormattingDropdownMenu } from "../../tiptap-ui/formatting-dropdown-menu/formatting-dropdown-menu"
+
 
 export const MainToolbarContent = ({
   onHighlighterClick,
@@ -38,7 +40,7 @@ export const MainToolbarContent = ({
           types={["bulletList", "orderedList", "taskList"]}
           portal={isMobile}
         />
-        <BlockquoteButton />
+        {/* <BlockquoteButton /> */}
         <CodeBlockButton />
         <TableButton />
       </ToolbarGroup>
@@ -46,11 +48,7 @@ export const MainToolbarContent = ({
       <ToolbarSeparator />
 
       <ToolbarGroup>
-        <MarkButton type="bold" />
-        <MarkButton type="italic" />
-        <MarkButton type="strike" />
-        <MarkButton type="code" />
-        <MarkButton type="underline" />
+        <FormattingDropdownMenu portal={isMobile} />
         {!isMobile ? (
           <ColorHighlightPopover />
         ) : (
@@ -61,18 +59,15 @@ export const MainToolbarContent = ({
 
       <ToolbarSeparator />
 
-      <ToolbarGroup>
+      {/* <ToolbarGroup>
         <MarkButton type="superscript" />
         <MarkButton type="subscript" />
       </ToolbarGroup>
 
-      <ToolbarSeparator />
+      <ToolbarSeparator /> */}
 
       <ToolbarGroup>
-        <TextAlignButton align="left" />
-        <TextAlignButton align="center" />
-        <TextAlignButton align="right" />
-        <TextAlignButton align="justify" />
+        <TextAlignDropdownMenu />
       </ToolbarGroup>
 
 
