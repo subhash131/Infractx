@@ -32,6 +32,17 @@ export function parseBlocksToTiptapDocument(blocksData: Doc<"blocks">[]): Tiptap
       // Find all children where parentId === this block's id
       const children = childrenMap.get(block.id) || [];
       
+      // Determine content for smartBlockContent
+      let textContent: TiptapNode[] | undefined;
+      
+      if (Array.isArray(block.content)) {
+        // NEW: Rich text content
+        textContent = block.content;
+      } else if (block.content.text) {
+        // OLD: Plain text content
+        textContent = [{ type: "text", text: block.content.text }];
+      }
+
       return {
         type: "smartBlock",
         attrs: {
@@ -43,9 +54,7 @@ export function parseBlocksToTiptapDocument(blocksData: Doc<"blocks">[]): Tiptap
           // smartBlockContent with the text
           {
             type: "smartBlockContent",
-            content: block.content.text
-              ? [{ type: "text", text: block.content.text }]
-              : undefined,
+            content: textContent,
           },
           // smartBlockGroup with children (recursively build each child)
           {
@@ -73,7 +82,11 @@ export function parseBlocksToTiptapDocument(blocksData: Doc<"blocks">[]): Tiptap
 
     if (children.length > 0) {
       content.push(...children.map(buildNode));
+    } else if (Array.isArray(block.content)) {
+      // NEW: Handle rich text content (array of nodes)
+      content.push(...block.content);
     } else if (block.content.text) {
+      // OLD: Handle plain text
       content.push({ type: "text", text: block.content.text });
     }
 
