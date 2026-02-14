@@ -1,4 +1,3 @@
-import { createGroq } from "@ai-sdk/groq";
 import { ChatGroq } from "@langchain/groq";
 import { StateGraph, START, END } from "@langchain/langgraph";
 import { Annotation } from "@langchain/langgraph";
@@ -292,28 +291,11 @@ export async function executeDocAgent(input: {
     error: undefined
   };
 
-  try {
-    const result = await docEditAgent.invoke(initialState);
-    
-    console.log("✅ Agent completed successfully");
-    
-    return {
-      success: true,
-      operations: result.operations,
-      metadata: {
-        intent: result.intent,
-        confidence: result.confidence
-      }
-    };
-  } catch (error) {
-    console.error("❌ Agent failed:", error);
-    
-    return {
-      success: false,
-      error,
-      operations: []
-    };
-  }
+  const stream = await docEditAgent.stream(initialState, {
+    streamMode: "updates",
+  });
+
+  return stream;
 }
 
 // ============= EXPORT =============
