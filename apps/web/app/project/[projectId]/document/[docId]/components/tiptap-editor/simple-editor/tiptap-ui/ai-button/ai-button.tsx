@@ -1,5 +1,4 @@
 "use client"
-
 import { forwardRef, useCallback } from "react"
 import { useTiptapEditor } from "../../hooks/use-tiptap-editor"
 import { Button } from "../../tiptap-ui-primitive/button"
@@ -41,6 +40,7 @@ export const AIButton = forwardRef<HTMLButtonElement>((props, ref) => {
        aria-label="Ask AI"
        tooltip="Ask AI"
        ref={ref}
+       className="whitespace-nowrap"
     >
       <SparklesIcon className="tiptap-button-icon" />
       <span className="tiptap-button-text">Ask AI</span>
