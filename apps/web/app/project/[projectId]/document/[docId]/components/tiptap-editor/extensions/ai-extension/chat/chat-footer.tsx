@@ -28,18 +28,41 @@ export const ChatFooter = ({ conversationId, editor }: ChatFooterProps) => {
   const handleSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    const content = prompt + " " + selectedContext
-      .map((context) => context.text)
-      .join("\n");
-    if(!content.trim()) return
+    let selectedText = selectedContext.map((context) => context.text).join("\n");
+    let cursorPosition = editor.state.selection.from;
+    
+    // Selection coordinates to pass to handler (for UI update)
+    let handlerSelection = { from: 0, to: 0 };
 
-    const response = await fetch("http://localhost:3000/api/ai/doc/agent/demo", {
+    if (selectedContext.length > 0) {
+        handlerSelection = { 
+            from: selectedContext[0]?.from || 0,
+            to: selectedContext[0]?.to || 0 
+        };
+    } else {
+        // Use current editor selection if context is empty
+        const { from, to, empty } = editor.state.selection;
+        if (!empty) {
+             selectedText = editor.state.doc.textBetween(from, to, "\n");
+             handlerSelection = { from, to };
+             cursorPosition = from;
+        }
+    }
+
+    const docContext = editor.getText(); // Sending full text for context
+
+    if(!prompt.trim() && !selectedText) return
+
+    const response = await fetch("http://localhost:3000/api/ai/doc/agent", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        content,
+        userMessage: prompt,
+        selectedText,
+        docContext,
+        cursorPosition
       }),
     });
 
@@ -48,10 +71,7 @@ export const ChatFooter = ({ conversationId, editor }: ChatFooterProps) => {
         return;
     }
 
-    handleAIResponse(response, editor, {
-      from: selectedContext[0]?.from || 0,
-      to: selectedContext[0]?.to || 0,
-    });
+    handleAIResponse(response, editor, handlerSelection);
 
     setPrompt("");
     setSelectedContext("reset");
