@@ -41,6 +41,7 @@ import { api } from "@workspace/backend/_generated/api"
 import { MobileToolbarContent } from "./mobile-toolbar-content"
 import { MainToolbarContent } from "./main-toolbar-content"
 import { debounce } from "lodash"
+import { v4 as uuid } from "uuid"
 
 import dynamic from "next/dynamic";
 
@@ -59,6 +60,7 @@ import { BlockData } from "../../../extensions/types"
 import { syncEditorToDatabase } from "../../../utils/sync-editor-to-database"
 import { AIInputPopup } from "../../../extensions/ai-extension/ai-input-popup"
 import { TableToolbar } from "../../tiptap-ui/table-toolbar/table-toolbar"
+import { useChatStore } from "../../../store/chat-store"
 
 const Toolbar = dynamic(
   () =>
@@ -75,6 +77,7 @@ export function SimpleEditor({textFileId}:{textFileId:Id<"text_files">}) {
   const [mobileView, setMobileView] = useState<"main" | "highlighter" | "link">(
     "main"
   )
+  const {selectedContext, setSelectedContext} = useChatStore()
   const toolbarRef = useRef<HTMLDivElement>(null)
 
   const editor = useEditor({
@@ -230,7 +233,7 @@ export function SimpleEditor({textFileId}:{textFileId:Id<"text_files">}) {
     // Cleanup
     return () => {
       editor.off('update', debouncedSync);
-      debouncedSync.cancel(); // Cancel any pending debounced calls
+      debouncedSync.cancel(); 
     };
   }, [editor, fetchTextFileBlocks, bulkCreateBlocks, bulkUpdateBlocks, bulkDeleteBlocks]);
 
@@ -242,49 +245,42 @@ export function SimpleEditor({textFileId}:{textFileId:Id<"text_files">}) {
   }, [isMobile, mobileView])
 
   const [showAIPopup, setShowAIPopup] = useState(false)
-  const [selectionRange, setSelectionRange] = useState<{ from: number; to: number } | null>(null)
 
 
   useEffect(() => {
-    const handleShowAIInput = (event: Event) => {
-      const customEvent = event as CustomEvent
-      const { from, to } = customEvent.detail
-      
-      console.log('Received show-ai-input event:', { from, to })
-      
-      setSelectionRange({ from, to })
-      setShowAIPopup(true)
-    }
-
     const handleToggleAIInput = (event: Event) => {
       const customEvent = event as CustomEvent
-      const { from, to } = customEvent.detail
+      const { from, to, togglePopup } = customEvent.detail
       
-      console.log('Received toggle-ai-chat event:', { from, to })
-      
-      setShowAIPopup(prev => {
-        if (prev) {
-          setSelectionRange(null)
-          return false
-        } else {
-          setSelectionRange({ from, to })
-          return true
-        }
-      })
+      console.log('Received toggle-ai-chat event:', { from, to, togglePopup })
+      if(togglePopup){
+        setShowAIPopup(prev=>!prev)
+      }else{
+        setShowAIPopup(true)
+      }
+
+      console.log({editor})
+      const selectedText = editor?.state?.doc?.textBetween(from, to);
+      console.log({selectedText})
+      if(selectedText?.trim()){
+        setSelectedContext({
+          text: selectedText,
+          from: from,
+          to: to,
+          id: uuid()
+        });
+      }      
     }
 
-    window.addEventListener('show-ai-input', handleShowAIInput)
     window.addEventListener('toggle-ai-chat', handleToggleAIInput)
 
     return () => {
-      window.removeEventListener('show-ai-input', handleShowAIInput)
       window.removeEventListener('toggle-ai-chat', handleToggleAIInput)
     }
-  }, [])
+  }, [editor])
 
   const handleClosePopup = () => {
     setShowAIPopup(false)
-    setSelectionRange(null)
   }
   
   return (
@@ -323,11 +319,9 @@ export function SimpleEditor({textFileId}:{textFileId:Id<"text_files">}) {
             role="presentation"
             className="simple-editor-content"
           />
-          {editor && showAIPopup && selectionRange && (
+          {editor && showAIPopup && (
             <AIInputPopup
               editor={editor}
-              from={selectionRange.from}
-              to={selectionRange.to}
               onClose={handleClosePopup}
             />
           )}

@@ -13,18 +13,18 @@ export const AIButton = forwardRef<HTMLButtonElement>((props, ref) => {
       
       if (!editor) return
 
-      const { state, view } = editor
+      const { state } = editor
       const { selection } = state
       const { from, to } = selection;
 
       // Compatibility for existing AI extension
-      (window as any).__tiptapEditorView = view
 
       window.dispatchEvent(
         new CustomEvent("toggle-ai-chat", {
           detail: {
             from,
             to,
+            togglePopup:true
           },
         })
       )

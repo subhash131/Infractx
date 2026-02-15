@@ -53,21 +53,14 @@ class AISelectionMenuView {
 
       const { from, to } = this.editorView.state.selection;
       
-      // Store editor reference globally (temporary solution)
-      // Better approach: use a proper state management solution
-      (window as any).__tiptapEditorView = this.editorView
-      
-      // Dispatch event with selection positions only
       window.dispatchEvent(
-        new CustomEvent('show-ai-input', {
-          detail: { 
-            from, 
-            to
+        new CustomEvent("toggle-ai-chat", {
+          detail: {
+            from,
+            to,
           },
         })
-      )
-      
-      // Hide menu after click
+      )      
       this.hide()
     }
 
@@ -158,7 +151,5 @@ class AISelectionMenuView {
 
   destroy() {
     this.menu.remove()
-    // Clean up global reference
-    delete (window as any).__tiptapEditorView
   }
 }
