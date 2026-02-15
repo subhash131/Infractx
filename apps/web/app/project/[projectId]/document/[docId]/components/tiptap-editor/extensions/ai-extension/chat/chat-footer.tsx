@@ -14,14 +14,14 @@ import {
 import { Editor } from "@tiptap/core";
 import { RESET_STREAMING_TEXT, useChatStore } from "../../../store/chat-store";
 import { v4 as uuid } from "uuid";
+import { handleAIResponse } from "./ai-response-handlers/handle-ai-response";
 
 interface ChatFooterProps {
   conversationId: string;
   editor: Editor;
-  selection: { from: number; to: number };
 }
 
-export const ChatFooter = ({ conversationId, editor, selection }: ChatFooterProps) => {
+export const ChatFooter = ({ conversationId, editor }: ChatFooterProps) => {
   const {selectedContext, setSelectedContext, removeContext, setStreamingText} = useChatStore()
 
   const [prompt, setPrompt] = useState("");
@@ -33,138 +33,43 @@ export const ChatFooter = ({ conversationId, editor, selection }: ChatFooterProp
       .join("\n");
     if(!content.trim()) return
 
-    const response = await fetch("/api/ai/tiptap", {
+    const response = await fetch("http://localhost:3000/api/ai/doc/agent/demo", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        messages: [{ role: "user", content }],
+        content,
       }),
     });
 
-    if (!response.ok || !response.body) {
-      console.error("Request failed");
-      return;
+    if (!response.ok) {
+        console.error("Failed to fetch AI response");
+        return;
     }
 
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
+    handleAIResponse(response, editor, {
+      from: selectedContext[0]?.from || 0,
+      to: selectedContext[0]?.to || 0,
+    });
 
-    let buffer = "";
-    let fullText = "";
-
-    try {
-      setStreamingText(RESET_STREAMING_TEXT)
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || ""; // Keep incomplete line in buffer
-
-        for (const line of lines) {
-          if (!line.trim()) continue;
-
-          try {
-            const json = JSON.parse(line);
-            if (json.content) {
-              fullText += json.content;
-              // console.log({ json });
-              setStreamingText(json.content)
-            }
-          } catch (e) {
-            console.error("Parse error:", e, "Line:", line);
-          }
-        }
-      }
-    } catch (error) {
-      console.error("Stream reading error:", error);
-    }
-
-    console.log("Final text:", fullText);
     setPrompt("");
     setSelectedContext("reset");
+    
   };
   const handleKeyDown = (e: React.KeyboardEvent<HTMLFormElement>) => {
     if (e.key === " " || e.code === "Space") {
       e.stopPropagation();
     }
   };
-  useEffect(()=>{
-    if (!editor) return
-
-    const { state } = editor
-    if (!state) return
-
-    const { selection, doc } = state
-    if (!selection || !doc) return
-
-    if (selection.empty) return
-
-    const selectedText = doc.textBetween(
-      selection.from,
-      selection.to,
-      " "
-    )
-    if(selectedText){
-      console.log(selectedText)
-
-      setSelectedContext({
-        text: selectedText,
-        from: selection.from,
-        to: selection.to,
-        id: uuid()
-      });
-    }
-  },[selection])
-
   const removeSelectedContext = (id: string) => {
     removeContext(id)
   }
 
-  const [isStreaming, setIsStreaming] = useState(false);
-
-  const startStream = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const sessionId = crypto.randomUUID();
-    setIsStreaming(true);
-
-    // 1. Connect to SSE FIRST
-    const eventSource = new EventSource(`/api/inngest/stream/${sessionId}`);
-
-    eventSource.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      
-      if (data.type === 'chunk') {
-        setStreamingText(JSON.stringify(data));
-      } else if (data.type === 'done') {
-        setIsStreaming(false);
-        eventSource.close();
-      }
-    };
-
-    eventSource.onerror = () => {
-      setIsStreaming(false);
-      eventSource.close();
-    };
-
-    // 2. THEN trigger Inngest
-    await fetch('/api/inngest/stream/trigger', {
-      method: 'POST',
-      body: JSON.stringify({ sessionId }),
-    });
-  };
-
-
-
   return (
     <form
       className="w-full shrink-0 bg-[#1f1f1f] border-t p-1"
-      // onSubmit={handleSubmit}
-      onSubmit={startStream}
+      onSubmit={handleSubmit}
       onKeyDown={handleKeyDown}
     >
       <div className="w-full flex justify-between">
@@ -212,6 +117,7 @@ export const ChatFooter = ({ conversationId, editor, selection }: ChatFooterProp
         placeholder="Describe your thoughts..."
         rows={2}
         value={prompt}
+        // value={JSON.stringify(editor.getJSON())}
         onChange={(e) => setPrompt(e.target.value)}
         autoFocus
         onKeyDown={(e) => {

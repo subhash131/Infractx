@@ -11,11 +11,10 @@ import { Editor } from "@tiptap/react";
 
 interface ChatWindowProps {
   editor: Editor;
-  selection: { from: number; to: number };
   onClose?: () => void;
 }
 
-export const ChatWindow = ({ editor, selection, onClose }: ChatWindowProps) => {
+export const ChatWindow = ({ editor, onClose }: ChatWindowProps) => {
   const [position, setPosition] = useState({
     x: innerWidth * 0.65,
     y: innerHeight * 0.2,
@@ -92,7 +91,7 @@ export const ChatWindow = ({ editor, selection, onClose }: ChatWindowProps) => {
     >
       <ChatHeader onMouseDown={handleMouseDown} onClose={onClose} />
       <ChatBody messages={messages ?? []} />
-      <ChatFooter conversationId={conversationId} editor={editor} selection={selection}/>
+      <ChatFooter conversationId={conversationId} editor={editor}/>
     </div>
   );
 };

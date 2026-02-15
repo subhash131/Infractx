@@ -5,13 +5,11 @@ import { Editor } from '@tiptap/react'
 
 interface AIInputPopupProps {
   editor:Editor
-  from: number
-  to: number
   onClose: () => void
 }
 
-export function AIInputPopup({ editor, from, to, onClose }: AIInputPopupProps) {
+export function AIInputPopup({ editor, onClose }: AIInputPopupProps) {
   return (
-    <ChatWindow editor={editor} selection={{from, to}} onClose={onClose}/>
+    <ChatWindow editor={editor} onClose={onClose}/>
   )
 }
