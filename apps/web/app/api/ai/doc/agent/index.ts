@@ -2,6 +2,7 @@ import { createGroq } from "@ai-sdk/groq";
 import { ChatGroq } from "@langchain/groq";
 import { StateGraph, START, END } from "@langchain/langgraph";
 import { Annotation } from "@langchain/langgraph";
+import { RunnableConfig } from "@langchain/core/runnables";
 
 // ============= STATE ANNOTATION =============
 const AgentStateAnnotation = Annotation.Root({
@@ -12,7 +13,7 @@ const AgentStateAnnotation = Annotation.Root({
   cursorPosition: Annotation<number>,
   
   // Processing
-  intent: Annotation<'schema' | 'table' | 'list' | 'code' | 'text' | 'general' | null>,
+  intent: Annotation<'schema' | 'table' | 'list' | 'code' | 'text' | 'general' | 'delete' | null>,
   extractedData: Annotation<any>,
   confidence: Annotation<number>,
   
@@ -22,7 +23,7 @@ const AgentStateAnnotation = Annotation.Root({
 });
 
 export interface EditOperation {
-  type: 'insert_smartblock' | 'insert_table' | 'replace' | 'delete';
+  type: 'insert_smartblock' | 'insert_table' | 'replace' | 'delete' | 'chat_response';
   position: number;
   content: any;
 }
@@ -34,58 +35,80 @@ const groq = new ChatGroq({model:"openai/gpt-oss-120b"});
 async function callAI(prompt: string, options: {
   returnJson?: boolean;
   temperature?: number;
+  tags?: string[];
+  config?: RunnableConfig;
 } = {}) {
-  const message = await groq.invoke([
+  // Merge tags explicitly to avoid overwriting
+  const tags = [...(options.tags || []), ...(options.config?.tags || [])];
+  const runConfig = { ...options.config, tags };
+
+  const stream = await groq.stream([
     {
       role: "user",
       content: prompt,
     },
-  ]);
+  ], runConfig);
 
-  // console.log(JSON.stringify(message,null,2));
+  let text = "";
+  for await (const chunk of stream) {
+      if (typeof chunk.content === 'string') {
+          text += chunk.content;
+      }
+  }
 
-  const content = typeof message.content === 'string' ? message.content : message.content;
-  if (content && typeof content === 'string') {
-    return options.returnJson ? JSON.parse(content) : content;
+  const content = text;
+  
+  if (content) {
+    if(options.returnJson){
+        // clean json string
+        let cleaned = content.replace(/```json/g,"").replace(/```/g,"").trim();
+        try{
+            return JSON.parse(cleaned);
+        }catch(e){
+            console.error("Failed to parse JSON:", cleaned);
+            throw e;
+        }
+    }
+    return content;
   }
-  if (Array.isArray(content) && content[0]) {
-      // Assuming text content block if array
-       const text = (content[0] as any).text || "";
-       return options.returnJson ? JSON.parse(text) : text;
-  }
-  throw new Error("Unexpected response type");
+  // Fallback for array content if valid structure (unlikely in stream accumulation of simple text)
+  throw new Error("Unexpected response type or empty response");
 }
 
 // ============= NODE 1: CLASSIFY INTENT =============
 async function classifyIntent(state: typeof AgentStateAnnotation.State) {
   console.log("🔍 Classifying intent...");
   
-  const prompt = `You are analyzing a user's request to edit a document.
+  const prompt = `You are analyzing a user's request to edit a document or chat.
 
 User Message: "${state.userMessage}"
 Selected Text: "${state.selectedText}"
 
-Classify the intent. Return ONLY valid JSON:
+Classify the intent into ONE of these categories:
 
+1. **schema**: Request to generate a database schema.
+2. **table**: Request to create a comparison or data table.
+3. **list**: Request to create a list (bullet points, checklist).
+4. **text**: Request to GENERATE, WRITE, REPHRASE, REWRITE, or SUMMARIZE text that should appear IN THE DOCUMENT. Examples: "Write a paragraph about...", "Expand this", "Rewrite this".
+5. **delete**: Request to remove, delete, or omit the selected text.
+6. **general**: A conversational query (e.g., "Hi", "Explain this") that should be answered in CHAT, NOT inserted into the document. Use this ONLY if the user is asking a question about the AI or a general topic WITHOUT implying it should be written into the doc.
+
+Return ONLY valid JSON:
 {
-  "intent": "schema" | "table" | "list" | "code" | "text" | "general",
+  "intent": "schema" | "table" | "list" | "text" | "delete" | "general",
   "confidence": 0.0-1.0,
   "reasoning": "brief explanation"
 }
 
-Intent definitions:
-- "schema": Database schema, mentions fields/types/constraints/UUID/primary key
-- "table": Comparison table, pros/cons, feature matrix
-- "list": Bullet points, numbered steps, checklist
-- "code": Code snippet, algorithm, function
-- "text": General text edit/insertion
-- "general" : greeting, normal queries, etc.
-
 Examples:
-- "Add fields for user auth" → schema
-- "Compare React vs Vue" → table
-- "Steps to deploy" → list
-- "Hello" → general`;
+- "Add fields for usage tracking" -> schema
+- "Make a table comparing X and Y" -> table
+- "Rewrite this to be funnier" -> text
+- "Write a paragraph about elephants" -> text
+- "Remove this paragraph" -> delete
+- "What is the capital of France?" -> general (chat response)
+- "Hi there" -> general
+`;
 
   try {
     const result = await callAI(prompt, { returnJson: true });
@@ -184,7 +207,7 @@ Return ONLY valid JSON:
 }
 
 // ============= NODE 4: GENERATE OPERATIONS =============
-async function generateOperations(state: typeof AgentStateAnnotation.State) {
+async function generateOperations(state: typeof AgentStateAnnotation.State, config: RunnableConfig) {
   console.log("⚙️ Generating edit operations...");
   
   const operations: EditOperation[] = [];
@@ -226,14 +249,49 @@ async function generateOperations(state: typeof AgentStateAnnotation.State) {
   }
   else if (state.intent === 'list') {
     // Handle list generation
+    const prompt = `Generate a markdown list for the following request: "${state.userMessage}". Return ONLY the markdown list content.`;
+    const text = await callAI(prompt, { tags: ['streamable'], config });
+    
     operations.push({
-      type: 'insert_smartblock',
+      type: 'replace',
       position: state.cursorPosition,
-      content: {
-        blockType: 'list',
-        items: [] // Extract from userMessage
-      }
+      content: text
     });
+  }
+  else if (state.intent === 'text') {
+    const prompt = `You are an AI editor.
+User Request: "${state.userMessage}"
+Context (Selected Text): "${state.selectedText}"
+Document Context: "${state.docContext}"
+
+Perform the requested text generation, rewriting, or editing.
+Return ONLY the new/modified text content. Do not include quotes or conversational filler.`;
+
+    const text = await callAI(prompt, { tags: ['streamable'], config });
+    operations.push({
+      type: 'replace',
+      position: state.cursorPosition,
+      content: text
+    });
+  }
+  else if (state.intent === 'delete') {
+      operations.push({
+          type: 'delete',
+          position: state.cursorPosition,
+          content: null
+      });
+  }
+  else if (state.intent === 'general') {
+      const prompt = `You are a helpful AI assistant.
+User Message: "${state.userMessage}"
+
+Provide a helpful, concise response to the user.`;
+      const response = await callAI(prompt, { tags: ['streamable'], config });
+      operations.push({
+          type: 'chat_response',
+          position: state.cursorPosition,
+          content: response
+      });
   }
 
   return { operations };
@@ -253,9 +311,11 @@ function routeByIntent(state: typeof AgentStateAnnotation.State): string {
     case 'list':
     case 'code':
     case 'text':
+    case 'delete':
+    case 'general':
       return 'generateOps';
     default:
-      return END;
+      return 'generateOps'; // Fallback to general handling
   }
 }
 
@@ -271,7 +331,7 @@ const workflow = new StateGraph(AgentStateAnnotation)
   .addEdge('extractTable', 'generateOps')
   .addEdge('generateOps', END);
 
-const docEditAgent = workflow.compile();
+export const docEditAgent = workflow.compile();
 
 // ============= MAIN AGENT EXECUTOR =============
 export async function executeDocAgent(input: {

@@ -270,6 +270,8 @@ export function SimpleEditor({textFileId}:{textFileId:Id<"text_files">}) {
           id: uuid()
         });
       }      
+
+      editor?.commands.setTextSelection({from:0,to:0})
     }
 
     window.addEventListener('toggle-ai-chat', handleToggleAIInput)
