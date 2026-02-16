@@ -22,7 +22,6 @@ interface SmartBlockData {
     title?: string;
   };
 }
-
 import { api } from "@workspace/backend/_generated/api";
 
 const resolveContextFromPath = (
@@ -109,7 +108,15 @@ export const getMentionSuggestions = async (
                 icon: '⚡',
                 description: `Smart Block in ${targetFile.title}`,
                 command: (editor: any) => {
-                    editor.chain().focus().insertContent(title).run()
+                    editor.chain().focus().insertContent({
+                        type: 'smartBlockMention',
+                        attrs: {
+                            blockId: b.externalId,
+                            label: title,
+                            fileId: targetFile._id,
+                            fileName: targetFile.title,
+                        },
+                    }).run()
                 }
             };
          });
@@ -174,13 +181,19 @@ export const getMentionSuggestions = async (
          return matches;
      })
      .map(b => ({
-     id: b.externalId,
-     label: (b.content && b.content[0] && b.content[0].text) || "Untitled Smart Block",
-     icon: '⚡',
-     description: 'Smart Block',
-     command: (editor: any) => {
-        const title = (b.content && b.content[0] && b.content[0].text) || "Untitled Smart Block";
-        editor.chain().focus().insertContent(title).run()
-     }
-  }));
+      id: b.externalId,
+      label: (b.content && b.content[0] && b.content[0].text) || "Untitled Smart Block",
+      icon: '⚡',
+      description: 'Smart Block',
+      command: (editor: any) => {
+         const title = (b.content && b.content[0] && b.content[0].text) || "Untitled Smart Block";
+         editor.chain().focus().insertContent({
+            type: 'smartBlockMention',
+            attrs: {
+               blockId: b.externalId,
+               label: title,
+            },
+         }).run()
+      }
+   }));
 };

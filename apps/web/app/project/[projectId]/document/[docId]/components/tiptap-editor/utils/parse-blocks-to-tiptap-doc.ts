@@ -1,7 +1,6 @@
 import { Doc } from "@workspace/backend/_generated/dataModel";
 import { BlockData, TiptapDocument, TiptapNode } from "../extensions/types";
 
-
 export function parseBlocksToTiptapDocument(blocksData: Doc<"blocks">[]): TiptapDocument {
   // 1. Create a map of parentId -> children
   const childrenMap = new Map<string | null | undefined, BlockData[]>();
