@@ -261,23 +261,28 @@ async function generateOperations(state: typeof AgentStateAnnotation.State, conf
     });
   }
   else if (state.intent === 'code') {
+    // 1. Generate Title
+    const titlePrompt = `Generate a concise title (1-4 words) for this code snippet.
+    Request: "${state.userMessage}"
+    Format: "Type: Name" (e.g., "Func: Multiply", "Class: Router", "Script: Setup").
+    Return ONLY the title text.`;
+
+    const title = await callAI(titlePrompt, { tags: ['generate_title'], config });
+
+    // 2. Generate Code
     const prompt = `Generate a pseudo-code/logic description for the following request:
     "${state.userMessage}"
     
-    Return ONLY valid JSON:
-    {
-        "title": "Title of the functionality (e.g. Function: Multiply)",
-        "content": "Detailed pseudo-logic or explanation..."
-    }`;
+    Return ONLY the detailed pseudo-logic or explanation. Do NOT wrap in JSON. Start directly with the content.`;
     
     try {
-        const result = await callAI(prompt, { returnJson: true, config });
+        const text = await callAI(prompt, { tags: ['streamable'], config });
          operations.push({
             type: 'insert_smartblock',
             position: state.cursorPosition,
             content: {
-                title: result.title,
-                content: result.content
+                title: title || "Smart Block",
+                content: text
             }
         });
     } catch (e) {
