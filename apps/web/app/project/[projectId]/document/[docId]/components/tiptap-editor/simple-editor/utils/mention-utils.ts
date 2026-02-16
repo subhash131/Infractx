@@ -34,7 +34,7 @@ export const getMentionSuggestions = async (
   convex: any
 ): Promise<SuggestionItem[]> => {
   // 1. File Drill-down (@./filename:...)
-  if (query.startsWith('./') && query.includes(':')) {
+  if (query.startsWith('.') && query.includes(':')) {
     const colIndex = query.indexOf(':');
     const filePart = query.substring(0, colIndex); // e.g. "./file"
     const filterPart = query.substring(colIndex + 1); // e.g. "" or "search"
@@ -54,14 +54,21 @@ export const getMentionSuggestions = async (
       targetParentId = currentFile?.parentId ?? null;
 
     } else {
-      if (ancestors && ancestors.length >= depth) {
-        targetParentId = ancestors[ancestors.length - depth]?._id ?? null;
-      } else if (depth > (ancestors?.length || 0)) {
-          return []
+      if (ancestors) {
+          const index = ancestors.length - 1 - depth;
+          if (index >= 0) {
+             targetParentId = ancestors[index]._id;
+          } else if (index === -1) {
+             targetParentId = null;
+          } else {
+             return [];
+          }
+      } else {
+        return [];
       }
     }
 
-    const targetFile = files?.find(f => f.parentId === targetParentId && f.title === fileName && f.type === 'FILE');
+    const targetFile = files?.find(f => (targetParentId === null ? !f.parentId : f.parentId === targetParentId) && f.title === fileName && f.type === 'FILE');
 
     if (targetFile) {
         const blocks = await convex.query(api.requirements.textFileBlocks.getSmartBlocks, { textFileId: targetFile._id });
@@ -88,7 +95,7 @@ export const getMentionSuggestions = async (
   }
 
   // 2. Files Navigation (@./...)
-  if (query.startsWith('./')) {
+  if (query.startsWith('.')) {
     if (!files || !ancestors) return [];
 
     const parts = query.split('/');
@@ -108,16 +115,22 @@ export const getMentionSuggestions = async (
     } else {
       // @./../ -> Parent of current file 
       // ancestors list is ordered [root, ..., parent]
-      // index = ancestors.length - depth
-      if (ancestors.length >= depth) {
-        targetParentId = ancestors[ancestors.length - depth]?._id ?? null;
-      } else if (depth > ancestors.length) {
-          // trying to go above root
-          return []
+      // We want parent of parent (grandparent) etc.
+      if (ancestors) {
+          const index = ancestors.length - 1 - depth;
+          if (index >= 0) {
+             targetParentId = ancestors[index]._id;
+          } else if (index === -1) {
+             targetParentId = null;
+          } else {
+             return [];
+          }
+      } else {
+        return [];
       }
     }
 
-    const relevantFiles = files.filter(f => f.parentId === targetParentId);
+    const relevantFiles = files.filter(f => targetParentId === null ? !f.parentId : f.parentId === targetParentId);
 
     return relevantFiles.map(f => ({
       id: f._id,
