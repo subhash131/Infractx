@@ -124,7 +124,19 @@ export const handleAIResponse = async (
                         }
                      }
                      
-                     editor.chain().insertContent(json.content).run();
+                     if (!hasStartedStreaming) {
+                         // For the first token, if we have a valid selection range (from < to), 
+                         // we want to ensure we are replacing THAT range, not just inserting 
+                         // at whatever the current cursor position happens to be (which might be 0 if focus lost).
+                         if (selection && selection.to > selection.from) {
+                             editor.chain().setTextSelection(selection).insertContent(json.content).run();
+                         } else {
+                             editor.chain().insertContent(json.content).run();
+                         }
+                     } else {
+                         editor.chain().insertContent(json.content).run();
+                     }
+
                      hasStartedStreaming = true;
                  }
              }

@@ -272,6 +272,12 @@ async function generateOperations(state: typeof AgentStateAnnotation.State, conf
     // 2. Generate Code
     const prompt = `Generate a pseudo-code/logic description for the following request:
     "${state.userMessage}"
+
+    Context:
+    - Document Context: "${state.docContext}"
+    - Selected Text: "${state.selectedText}"
+    
+    If the request implies editing the selected text or using the document context, ensure the generated logic reflects that.
     
     Return ONLY the detailed pseudo-logic or explanation. Do NOT wrap in JSON. Start directly with the content.`;
     
@@ -295,8 +301,11 @@ User Request: "${state.userMessage}"
 Context (Selected Text): "${state.selectedText}"
 Document Context: "${state.docContext}"
 
-Perform the requested text generation, rewriting, or editing.
-Return ONLY the new/modified text content. Do not include quotes or conversational filler.`;
+Perform the requested text generation, rewriting, or editing on the 'Selected Text'.
+Return ONLY the replacement text for the 'Selected Text'.
+- Do NOT include any conversational text.
+- Do NOT repeat the Document Context unless it is part of the replacement.
+- If the request is a simple fix (typo, grammar), return only the corrected text.`;
 
     const text = await callAI(prompt, { tags: ['streamable'], config });
     operations.push({
