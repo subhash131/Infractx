@@ -14,6 +14,7 @@ export const SmartBlock = Node.create({
     return [
       "div",
       {
+        id: HTMLAttributes["data-id"] || undefined,
         class: "bn-block-outer",
         "data-node-type": "blockOuter",
         style: "display: flex; flex-direction: row; align-items: flex-start;"

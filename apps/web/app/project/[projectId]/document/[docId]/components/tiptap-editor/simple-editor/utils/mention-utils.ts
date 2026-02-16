@@ -58,7 +58,6 @@ const resolveContextFromPath = (
       if (childFolder) {
         currentContextId = childFolder._id;
       } else {
-        // Path invalid
         return undefined;
       }
     }

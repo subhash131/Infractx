@@ -1,13 +1,27 @@
 "use client";
 
 import { NodeViewWrapper } from "@tiptap/react";
-import { useState, useRef, useEffect } from "react";
+import { Node as PmNode } from "@tiptap/pm/model";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { useQueryState } from "nuqs";
+import { SmartBlockMentionAttrs } from "./smart-block-mention";
 import "./smart-block-mention.scss";
 
-export const SmartBlockMentionView = ({ node }: { node: any }) => {
-  const { label, blockId, fileId } = node.attrs;
+function scrollToBlock(blockId: string) {
+  const element = document.getElementById(blockId);
+  if (!element) return;
+
+  element.scrollIntoView({
+    behavior: "smooth",
+    block: "start", 
+  });
+}
+
+export const SmartBlockMentionView = ({ node }: { node: PmNode }) => {
+  const { label, blockId, fileId, fileName } = node.attrs as SmartBlockMentionAttrs;
   const [showTooltip, setShowTooltip] = useState(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [currentFileId, setFileId] = useQueryState("fileId", { history: "push" });
 
   const handleMouseEnter = () => {
     timeoutRef.current = setTimeout(() => {
@@ -23,12 +37,17 @@ export const SmartBlockMentionView = ({ node }: { node: any }) => {
     setShowTooltip(false);
   };
 
-  const handleNavigate = () => {
-    const event = new CustomEvent("navigate-to-smart-block", {
-      detail: { blockId, fileId },
-    });
-    window.dispatchEvent(event);
-  };
+  const handleNavigate = useCallback(async () => {
+    if (!blockId) return;
+    if (fileId && fileId !== currentFileId) {
+      await setFileId(fileId);
+      // Wait for new file content to render, then scroll via hash
+      setTimeout(() => scrollToBlock(blockId), 500);
+    } else {
+      scrollToBlock(blockId);
+    }
+    setShowTooltip(false);
+  }, [blockId, fileId, currentFileId, setFileId]);
 
   useEffect(() => {
     return () => {
@@ -44,8 +63,10 @@ export const SmartBlockMentionView = ({ node }: { node: any }) => {
       onMouseLeave={handleMouseLeave}
       contentEditable={false}
     >
-      <span className="smart-block-mention__icon">⚡</span>
-      <span className="smart-block-mention__label">{label || "Untitled"}</span>
+      <span className="smart-block-mention__icon" onClick={handleNavigate}>⚡</span>
+      <span className="smart-block-mention__label" onClick={handleNavigate}>
+        {label || "Untitled"}
+      </span>
 
       {showTooltip && (
         <span className="smart-block-mention__tooltip" contentEditable={false}>
@@ -54,7 +75,7 @@ export const SmartBlockMentionView = ({ node }: { node: any }) => {
             onClick={handleNavigate}
             type="button"
           >
-            Go to block →
+            Go to {fileName}
           </button>
         </span>
       )}

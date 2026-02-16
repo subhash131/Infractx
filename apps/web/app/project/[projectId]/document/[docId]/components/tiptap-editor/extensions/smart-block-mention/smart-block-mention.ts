@@ -2,6 +2,13 @@ import { Node, mergeAttributes } from "@tiptap/core";
 import { ReactNodeViewRenderer } from "@tiptap/react";
 import { SmartBlockMentionView } from "./smart-block-mention-view";
 
+export interface SmartBlockMentionAttrs {
+  blockId: string | null;
+  label: string | null;
+  fileId: string | null;
+  fileName: string | null;
+}
+
 export interface SmartBlockMentionOptions {
   HTMLAttributes: Record<string, any>;
 }
