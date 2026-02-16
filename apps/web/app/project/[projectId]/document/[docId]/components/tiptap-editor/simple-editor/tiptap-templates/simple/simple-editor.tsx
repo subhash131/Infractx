@@ -182,6 +182,9 @@ export function SimpleEditor({textFileId}:{textFileId:Id<"text_files">}) {
   useEffect(() => {
     isInitialLoaded.current = false;
     lastSyncedContent.current = "";
+    // Reset both scrollable containers
+    document.getElementById("editor-scroll-container")?.scrollTo(0, 0);
+    document.querySelector(".simple-editor-content")?.scrollTo(0, 0);
   }, [textFileId]);
 
   useEffect(()=>{

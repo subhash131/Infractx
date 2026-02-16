@@ -37,7 +37,7 @@ const RequirementsDraftingPage = () => {
   return (
     <div className="w-full h-full overflow-hidden hide-scrollbar flex bg-[#1F1F1F]">
       <FileManagementMenu docId={docId} />
-      {fileId && <div className="w-full h-full overflow-hidden overflow-y-auto hide-scrollbar">
+      {fileId && <div id="editor-scroll-container" className="w-full h-full overflow-hidden overflow-y-auto hide-scrollbar">
         <DocHeader />
         <TiptapEditor textFileId={fileId as Id<"text_files">} />
       </div>}
