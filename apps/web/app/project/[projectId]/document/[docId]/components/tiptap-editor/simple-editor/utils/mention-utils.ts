@@ -25,6 +25,49 @@ interface SmartBlockData {
 
 import { api } from "@workspace/backend/_generated/api";
 
+const resolveContextFromPath = (
+  pathParts: string[],
+  files: FileData[] | undefined,
+  currentFileId: Id<"text_files">
+): Id<"text_files"> | null | undefined => {
+  if (!files) return undefined;
+
+  const currentFile = files.find(f => f._id === currentFileId);
+  let currentContextId = currentFile?.parentId ?? null;
+
+  for (const part of pathParts) {
+    if (part === "" || part === ".") {
+      continue;
+    }
+    
+    if (part === "..") {
+      if (currentContextId === null) {
+        // Already at root, stay at root (or could be error, but loose is better for UX)
+        continue;
+      }
+      const parentFolder = files.find(f => f._id === currentContextId);
+      currentContextId = parentFolder?.parentId ?? null;
+    } else {
+      // Navigate down to child folder
+      // We look for a FOLDER with this title and the current parentId
+      const childFolder = files.find(
+        f => (currentContextId === null ? !f.parentId : f.parentId === currentContextId) 
+             && f.title === part 
+             && f.type === "FOLDER"
+      );
+      
+      if (childFolder) {
+        currentContextId = childFolder._id;
+      } else {
+        // Path invalid
+        return undefined;
+      }
+    }
+  }
+
+  return currentContextId;
+};
+
 export const getMentionSuggestions = async (
   query: string,
   files: FileData[] | undefined,
@@ -42,31 +85,11 @@ export const getMentionSuggestions = async (
     const parts = filePart.split('/');
     const fileName = parts.pop();
     
-    let depth = 0;
-    for (const part of parts) {
-      if (part === '..') depth++;
-    }
-
-    let targetParentId: Id<"text_files"> | null = null;
+    // parts is e.g. ['.', '..', 'backend'] for "./../backend/File"
+    // We already popped the filename, so parts is the directory path.
+    const targetParentId = resolveContextFromPath(parts, files, currentFileId);
     
-    if (depth === 0) {
-      const currentFile = files?.find(f => f._id === currentFileId);
-      targetParentId = currentFile?.parentId ?? null;
-
-    } else {
-      if (ancestors) {
-          const index = ancestors.length - 1 - depth;
-          if (index >= 0) {
-             targetParentId = ancestors[index]._id;
-          } else if (index === -1) {
-             targetParentId = null;
-          } else {
-             return [];
-          }
-      } else {
-        return [];
-      }
-    }
+    if (targetParentId === undefined) return [];
 
     const targetFile = files?.find(f => (targetParentId === null ? !f.parentId : f.parentId === targetParentId) && f.title === fileName && f.type === 'FILE');
 
@@ -99,36 +122,25 @@ export const getMentionSuggestions = async (
     if (!files || !ancestors) return [];
 
     const parts = query.split('/');
-    // Count how many '..' segments
-    let depth = 0;
-    for (const part of parts) {
-      if (part === '..') depth++;
-    }
-
-    let targetParentId: Id<"text_files"> | null = null;
+    // parts has the search term at the end. We want the directory path.
+    // e.g. "@./../back" -> parts=["."] (split error?), query="./../back"
+    // split('/') -> [".", "..", "back"]
+    // pop -> "back" (filter)
+    // path -> [".", ".."]
+    // if query ends in /, split gives [..., ""] -> pop -> "" (filter empty) -> path [..., "backend"]
     
-    // Determine target folder based on depth
-    if (depth === 0) {
-      const currentFile = files.find(f => f._id === currentFileId);
-      targetParentId = currentFile?.parentId ?? null;
-
-    } else {
-      // @./../ -> Parent of current file 
-      // ancestors list is ordered [root, ..., parent]
-      // We want parent of parent (grandparent) etc.
-      if (ancestors) {
-          const index = ancestors.length - 1 - depth;
-          if (index >= 0) {
-             targetParentId = ancestors[index]._id;
-          } else if (index === -1) {
-             targetParentId = null;
-          } else {
-             return [];
-          }
-      } else {
-        return [];
-      }
-    }
+    // We already popped the last part in the logic below (lines 127-128 in original code, but we need to do it here for context resolution)
+    // Wait, existing code did NOT pop before resolving depth. Use `parts` from split?
+    // In original code: `const parts = query.split('/');`
+    // Then loop counted `..`.
+    // We need to act on `parts` minus the last element (which is the partial match).
+    
+    const dirParts = [...parts];
+    dirParts.pop(); // Remove the filter/search part
+    
+    const targetParentId = resolveContextFromPath(dirParts, files, currentFileId);
+    
+    if (targetParentId === undefined) return [];
 
     const relevantFiles = files.filter(f => targetParentId === null ? !f.parentId : f.parentId === targetParentId);
 
