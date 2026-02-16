@@ -8,13 +8,13 @@ import { SmartBlockMentionAttrs } from "./smart-block-mention";
 import "./smart-block-mention.scss";
 
 function scrollToBlock(blockId: string) {
-  const el = document.querySelector(`[data-id="${blockId}"]`);
-  if (el) {
-    el.scrollIntoView({ behavior: "smooth", block: "center" });
-    // Brief highlight effect
-    el.classList.add("smart-block--highlighted");
-    setTimeout(() => el.classList.remove("smart-block--highlighted"), 1500);
-  }
+  const element = document.getElementById(blockId);
+  if (!element) return;
+
+  element.scrollIntoView({
+    behavior: "smooth",
+    block: "start", 
+  });
 }
 
 export const SmartBlockMentionView = ({ node }: { node: PmNode }) => {
@@ -40,12 +40,10 @@ export const SmartBlockMentionView = ({ node }: { node: PmNode }) => {
   const handleNavigate = useCallback(async () => {
     if (!blockId) return;
     if (fileId && fileId !== currentFileId) {
-      // Different file — switch first, then scroll after load
       await setFileId(fileId);
-      // Wait for the new file's content to render
+      // Wait for new file content to render, then scroll via hash
       setTimeout(() => scrollToBlock(blockId), 500);
     } else {
-      // Same file — just scroll
       scrollToBlock(blockId);
     }
     setShowTooltip(false);
