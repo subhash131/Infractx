@@ -55,6 +55,7 @@ import { SmartBlockContent } from "../../../extensions/smart-block/smart-block-c
 import { SmartBlockGroup } from "../../../extensions/smart-block/smart-block-group"
 import { GlobalBlockAttributes } from "../../../extensions/smart-block/global-block-attributes"
 import { BlockMention } from "../../../extensions/block-suggestions/block-mention"
+import { SmartBlockMention } from "../../../extensions/smart-block-mention"
 import { AIExtension } from "../../../extensions/ai-extension"
 import { TableBlockExtensions } from "../../../extensions/table/block"
 import { parseBlocksToTiptapDocument } from "../../../utils/parse-blocks-to-tiptap-doc"
@@ -129,6 +130,7 @@ export function SimpleEditor({textFileId}:{textFileId:Id<"text_files">}) {
       SmartBlock,
       SmartBlockContent,
       SmartBlockGroup,
+      SmartBlockMention,
       GlobalBlockAttributes,
 
       BlockMention.configure({
@@ -184,10 +186,12 @@ export function SimpleEditor({textFileId}:{textFileId:Id<"text_files">}) {
 
   useEffect(()=>{
     if(editor &&fetchTextFileBlocks && !isInitialLoaded.current){
-      const document = parseBlocksToTiptapDocument(fetchTextFileBlocks)
-      editor.commands.setContent(document)
-      editor.commands.setTextSelection({from:0,to:0})
       isInitialLoaded.current = true;
+      const document = parseBlocksToTiptapDocument(fetchTextFileBlocks)
+      queueMicrotask(() => {
+        editor.commands.setContent(document)
+        editor.commands.setTextSelection({from:0,to:0})
+      })
     }
   },[editor, fetchTextFileBlocks, textFileId])
 
