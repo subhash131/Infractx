@@ -31,6 +31,7 @@ import { useCursorVisibility } from "@/app/project/[projectId]/document/[docId]/
 
 // --- Lib ---
 import { handleImageUpload, MAX_FILE_SIZE } from "../../../utils/tiptap-utils"
+import { getMentionSuggestions } from "@/app/project/[projectId]/document/[docId]/components/tiptap-editor/simple-editor/utils/mention-utils"
 
 // --- Styles ---
 import "./simple-editor.scss"
@@ -42,6 +43,7 @@ import { MobileToolbarContent } from "./mobile-toolbar-content"
 import { MainToolbarContent } from "./main-toolbar-content"
 import { debounce } from "lodash"
 import { v4 as uuid } from "uuid"
+import { useConvex } from "convex/react"
 
 import dynamic from "next/dynamic";
 
@@ -70,8 +72,12 @@ const Toolbar = dynamic(
   { ssr: false }
 );
 
+import { useParams } from "next/navigation";
 
 export function SimpleEditor({textFileId}:{textFileId:Id<"text_files">}) {
+  const params = useParams();
+  const docId = params.docId as Id<"documents">;
+  
   const isMobile = useIsBreakpoint()
   const { height } = useWindowSize()
   const [mobileView, setMobileView] = useState<"main" | "highlighter" | "link">(
@@ -79,6 +85,34 @@ export function SimpleEditor({textFileId}:{textFileId:Id<"text_files">}) {
   )
   const {setSelectedContext, showAIPopup, setShowAIPopup} = useChatStore()
   const toolbarRef = useRef<HTMLDivElement>(null)
+  
+  const convex = useConvex();
+  const file = useQuery(api.requirements.textFiles.getTextFileById, { fileId: textFileId });
+  const ancestors = useQuery(api.requirements.textFiles.getAncestors, { fileId: textFileId });
+
+  const allFiles = useQuery(api.requirements.textFiles.getFilesByDocumentId, { documentId: docId });
+  const smartBlocks = useQuery(api.requirements.textFileBlocks.getSmartBlocks, { textFileId });
+  
+  // Use refs to avoid stale closures in the editor extension
+  const allFilesRef = useRef(allFiles);
+  const smartBlocksRef = useRef(smartBlocks);
+  const ancestorsRef = useRef(ancestors);
+
+  useEffect(() => {
+    allFilesRef.current = allFiles;
+    smartBlocksRef.current = smartBlocks;
+    ancestorsRef.current = ancestors;
+  }, [allFiles, smartBlocks, ancestors]);
+
+  const handleMentionSearch = async (query: string) => {
+    const files = allFilesRef.current;
+    const blocks = smartBlocksRef.current;
+    const currentAncestors = ancestorsRef.current;
+
+    if (!files || !blocks || !currentAncestors) return [];
+    
+    return getMentionSuggestions(query, files, blocks, textFileId, currentAncestors, convex);
+  }
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -96,7 +130,10 @@ export function SimpleEditor({textFileId}:{textFileId:Id<"text_files">}) {
       SmartBlockContent,
       SmartBlockGroup,
       GlobalBlockAttributes,
-      BlockMention,
+
+      BlockMention.configure({
+        onSearch: handleMentionSearch
+      }),
       AIExtension,
       StarterKit.configure({
         horizontalRule: false,

@@ -149,3 +149,17 @@ export const getBlockByExternalId = query({
       .unique();
   },
 });
+
+export const getSmartBlocks = query({
+  args: {
+    textFileId: v.id("text_files"),
+  },
+  handler: async (ctx, { textFileId }) => {
+    const blocks = await ctx.db
+      .query("blocks")
+      .withIndex("by_text_file", (q) => q.eq("textFileId", textFileId))
+      .collect();
+    
+    return blocks.filter(b => b.type === "smartBlock");
+  },
+});
