@@ -1,4 +1,3 @@
-import { createGroq } from "@ai-sdk/groq";
 import { ChatGroq } from "@langchain/groq";
 import { StateGraph, START, END } from "@langchain/langgraph";
 import { Annotation } from "@langchain/langgraph";
@@ -91,11 +90,12 @@ Classify the intent into ONE of these categories:
 3. **list**: Request to create a list (bullet points, checklist).
 4. **text**: Request to GENERATE, WRITE, REPHRASE, REWRITE, or SUMMARIZE text that should appear IN THE DOCUMENT. Examples: "Write a paragraph about...", "Expand this", "Rewrite this".
 5. **delete**: Request to remove, delete, or omit the selected text.
-6. **general**: A conversational query (e.g., "Hi", "Explain this") that should be answered in CHAT, NOT inserted into the document. Use this ONLY if the user is asking a question about the AI or a general topic WITHOUT implying it should be written into the doc.
+6. **code**: Request to generate pseudo-code, algorithms, functions, classes, or system logic. Examples: "Create a multiply function", "design a generic interface", "pseudo code for auth flow".
+7. **general**: A conversational query (e.g., "Hi", "Explain this") that should be answered in CHAT, NOT inserted into the document. Use this ONLY if the user is asking a question about the AI or a general topic WITHOUT implying it should be written into the doc.
 
 Return ONLY valid JSON:
 {
-  "intent": "schema" | "table" | "list" | "text" | "delete" | "general",
+  "intent": "schema" | "table" | "list" | "text" | "delete" | "code" | "general",
   "confidence": 0.0-1.0,
   "reasoning": "brief explanation"
 }
@@ -106,6 +106,8 @@ Examples:
 - "Rewrite this to be funnier" -> text
 - "Write a paragraph about elephants" -> text
 - "Remove this paragraph" -> delete
+- "Create a function to calculate factorial" -> code
+- "Design a User class interface" -> code
 - "What is the capital of France?" -> general (chat response)
 - "Hi there" -> general
 `;
@@ -257,6 +259,30 @@ async function generateOperations(state: typeof AgentStateAnnotation.State, conf
       position: state.cursorPosition,
       content: text
     });
+  }
+  else if (state.intent === 'code') {
+    const prompt = `Generate a pseudo-code/logic description for the following request:
+    "${state.userMessage}"
+    
+    Return ONLY valid JSON:
+    {
+        "title": "Title of the functionality (e.g. Function: Multiply)",
+        "content": "Detailed pseudo-logic or explanation..."
+    }`;
+    
+    try {
+        const result = await callAI(prompt, { returnJson: true, config });
+         operations.push({
+            type: 'insert_smartblock',
+            position: state.cursorPosition,
+            content: {
+                title: result.title,
+                content: result.content
+            }
+        });
+    } catch (e) {
+        console.error("Failed to generate code logic:", e);
+    }
   }
   else if (state.intent === 'text') {
     const prompt = `You are an AI editor.
