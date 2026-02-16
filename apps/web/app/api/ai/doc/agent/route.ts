@@ -3,7 +3,7 @@ import { docEditAgent } from "./index";
 
 export const POST = async (req:NextRequest) => {
     const {selectedText, userMessage, docContext, cursorPosition} = await req.json();
-
+    console.log({docContext,cursorPosition})
     const encoder = new TextEncoder();
     
     const stream = new ReadableStream({
@@ -22,12 +22,9 @@ export const POST = async (req:NextRequest) => {
                 }, { version: "v2" });
 
                 for await (const event of events) {
-                    console.log("Event:", event.event, event.name);
-
                     if (event.event === "on_chain_end") {
                          if (event.name === "classifyIntent" && event.data?.output?.intent) {
                             console.log("Sending Intent:", event.data.output.intent);
-                            console.log("Sending Intent Payload...");
                             controller.enqueue(encoder.encode(JSON.stringify({ 
                                 type: "intent", 
                                 intent: event.data.output.intent 
@@ -40,14 +37,12 @@ export const POST = async (req:NextRequest) => {
                         
                         if (event.tags?.includes("generate_title")) {
                             if (token) {
-                                // console.log("Sending Title Token:", token);
                                 controller.enqueue(encoder.encode(JSON.stringify({ type: "title", content: token }) + "\n"));
                             }
                         }
                         else if (event.tags?.includes("streamable")) {
-                            // console.log("Stream Chunk:", JSON.stringify(chunk.content, null, 2));
                             if (token) {
-                                console.log("Sending Token:", token);
+                                console.log(token);
                                 controller.enqueue(encoder.encode(JSON.stringify({ type: "token", content: token }) + "\n"));
                             }
                         }
@@ -58,7 +53,6 @@ export const POST = async (req:NextRequest) => {
                                 type: "response",
                                 response: { operations: event.data.output.operations } 
                             }) + "\n";
-                            console.log("Sending Final Response Payload...");
                             controller.enqueue(encoder.encode(payload));
                         }
                     }

@@ -325,7 +325,12 @@ Return ONLY the replacement text for the 'Selected Text'.
       const prompt = `You are a helpful AI assistant.
 User Message: "${state.userMessage}"
 
-Provide a helpful, concise response to the user.`;
+Context:
+- Document Content: "${state.docContext}"
+- Selected Text: "${state.selectedText}"
+
+Provide a helpful, concise response to the user.
+If the user asks about the document, use the provided Context.`;
       const response = await callAI(prompt, { tags: ['streamable'], config });
       operations.push({
           type: 'chat_response',

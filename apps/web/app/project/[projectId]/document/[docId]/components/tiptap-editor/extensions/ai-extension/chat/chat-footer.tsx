@@ -133,6 +133,11 @@ export const ChatFooter = ({ conversationId, editor }: ChatFooterProps) => {
         </div>
       </div>
       <Textarea
+        ref={(textarea) => {
+            if (textarea) {
+                textarea.focus();
+            }
+        }}
         className="p-1 h-10 max-h-10"
         placeholder="Describe your thoughts..."
         rows={2}
