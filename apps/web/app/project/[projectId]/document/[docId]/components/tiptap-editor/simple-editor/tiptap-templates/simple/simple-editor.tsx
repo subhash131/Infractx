@@ -60,7 +60,7 @@ import { BlockData } from "../../../extensions/types"
 import { syncEditorToDatabase } from "../../../utils/sync-editor-to-database"
 import { AIInputPopup } from "../../../extensions/ai-extension/ai-input-popup"
 import { TableToolbar } from "../../tiptap-ui/table-toolbar/table-toolbar"
-import { useChatStore } from "../../../store/chat-store"
+import { TOGGLE_POPUP, useChatStore } from "../../../store/chat-store"
 
 const Toolbar = dynamic(
   () =>
@@ -77,7 +77,7 @@ export function SimpleEditor({textFileId}:{textFileId:Id<"text_files">}) {
   const [mobileView, setMobileView] = useState<"main" | "highlighter" | "link">(
     "main"
   )
-  const {selectedContext, setSelectedContext} = useChatStore()
+  const {setSelectedContext, showAIPopup, setShowAIPopup} = useChatStore()
   const toolbarRef = useRef<HTMLDivElement>(null)
 
   const editor = useEditor({
@@ -244,9 +244,6 @@ export function SimpleEditor({textFileId}:{textFileId:Id<"text_files">}) {
     }
   }, [isMobile, mobileView])
 
-  const [showAIPopup, setShowAIPopup] = useState(false)
-
-
   useEffect(() => {
     const handleToggleAIInput = (event: Event) => {
       const customEvent = event as CustomEvent
@@ -254,7 +251,7 @@ export function SimpleEditor({textFileId}:{textFileId:Id<"text_files">}) {
       
       console.log('Received toggle-ai-chat event:', { from, to, togglePopup })
       if(togglePopup){
-        setShowAIPopup(prev=>!prev)
+        setShowAIPopup(TOGGLE_POPUP)
       }else{
         setShowAIPopup(true)
       }
@@ -274,10 +271,19 @@ export function SimpleEditor({textFileId}:{textFileId:Id<"text_files">}) {
       editor?.commands.setTextSelection({from:0,to:0})
     }
 
+    const handleKeyPress = (event: KeyboardEvent) => {
+      if (event.key === 'Tab' && event.shiftKey) {
+        event.preventDefault();
+        setShowAIPopup(true)
+      }
+    };
+
     window.addEventListener('toggle-ai-chat', handleToggleAIInput)
+    window.addEventListener('keydown', handleKeyPress)
 
     return () => {
       window.removeEventListener('toggle-ai-chat', handleToggleAIInput)
+      window.removeEventListener('keydown', handleKeyPress)
     }
   }, [editor])
 

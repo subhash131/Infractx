@@ -8,6 +8,7 @@ type SelectedContext = {
 }
 
 export const RESET_STREAMING_TEXT = "----reset---"
+export const TOGGLE_POPUP = "----toggle-popup---"
 
 
 interface ChatStore {
@@ -16,6 +17,8 @@ interface ChatStore {
     removeContext: (id: string) => void
     streamingText: string
     setStreamingText: (text: string) => void
+    showAIPopup: boolean
+    setShowAIPopup: (show: boolean | typeof TOGGLE_POPUP) => void
 }
 
 export const useChatStore = create<ChatStore>((set) => ({
@@ -24,6 +27,10 @@ export const useChatStore = create<ChatStore>((set) => ({
         streamingText: text === RESET_STREAMING_TEXT ? "" : state.streamingText + text
     })),
     selectedContext: [],
+    showAIPopup: false,
+    setShowAIPopup: (show: boolean | typeof TOGGLE_POPUP) => set((state) => ({
+        showAIPopup: show === TOGGLE_POPUP ? !state.showAIPopup : show
+    })),
     setSelectedContext: (selectedText: SelectedContext | "reset") => set((state) => {
         if(selectedText === "reset") return {selectedContext: []}
         const isOverlapping = state.selectedContext.some((existing) => {
