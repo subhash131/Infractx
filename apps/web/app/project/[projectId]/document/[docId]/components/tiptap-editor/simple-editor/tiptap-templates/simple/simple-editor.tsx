@@ -319,7 +319,7 @@ export function SimpleEditor({textFileId}:{textFileId:Id<"text_files">}) {
           <EditorContent
             editor={editor}
             role="presentation"
-            className="simple-editor-content pb-60"
+            className="simple-editor-content hide-scrollbar"
           />
           {editor && showAIPopup && (
             <AIInputPopup
