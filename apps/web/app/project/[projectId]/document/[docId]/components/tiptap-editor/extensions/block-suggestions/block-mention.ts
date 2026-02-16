@@ -1,4 +1,5 @@
 import { Node, mergeAttributes } from '@tiptap/core'
+import { PluginKey } from '@tiptap/pm/state'
 import { ReactRenderer } from '@tiptap/react'
 import Suggestion, { SuggestionOptions, SuggestionProps } from '@tiptap/suggestion'
 import tippy, { Instance as TippyInstance } from 'tippy.js'
@@ -14,6 +15,13 @@ export type BlockSuggestionItem = {
   command: (editor: Editor) => void
 }
 
+export interface BlockMentionOptions {
+  HTMLAttributes: Record<string, any>
+  renderLabel: (props: { node: any }) => string
+  suggestion: Omit<SuggestionOptions<BlockSuggestionItem>, 'editor'>
+  onSearch?: (query: string) => Promise<BlockSuggestionItem[]>
+}
+
 export const BlockMention = Node.create({
   name: 'blockMention',
   group: 'inline',
@@ -27,6 +35,7 @@ export const BlockMention = Node.create({
       renderLabel({ node }: { node: any }) {
         return `/${node.attrs.label ?? node.attrs.id}`
       },
+      onSearch: undefined,
       suggestion: {
         char: '/',
         items: ({ query }: { query: string }): BlockSuggestionItem[] => {
@@ -49,6 +58,7 @@ export const BlockMention = Node.create({
                 return
               }
 
+              // Create tippy instance
               popup = tippy('body', {
                 getReferenceClientRect: props.clientRect as () => DOMRect,
                 appendTo: () => document.body,
@@ -57,7 +67,36 @@ export const BlockMention = Node.create({
                 interactive: true,
                 trigger: 'manual',
                 placement: 'bottom-start',
+                popperOptions: {
+                  strategy: 'fixed',
+                  modifiers: [
+                    {
+                      name: 'flip',
+                      enabled: true,
+                    },
+                    {
+                      name: 'preventOverflow',
+                      options: {
+                        rootBoundary: 'viewport',
+                        tether: false,
+                        altAxis: true,
+                      },
+                    },
+                  ],
+                },
               })
+
+              // Add scroll listener to update position
+              const scrollContainer = document.querySelector('.simple-editor-content');
+              if (scrollContainer && popup[0]) {
+                const handleScroll = () => {
+                  popup?.[0]?.popperInstance?.update();
+                };
+                scrollContainer.addEventListener('scroll', handleScroll);
+                // Store handler on instance to remove later if needed, 
+                // but simpler to use a closure if we clean up correctly
+                (popup[0] as any)._handleScroll = handleScroll;
+              }
             },
 
             onUpdate(props: SuggestionProps<BlockSuggestionItem>) {
@@ -82,6 +121,12 @@ export const BlockMention = Node.create({
             },
 
             onExit() {
+              // Remove scroll listener
+              const scrollContainer = document.querySelector('.simple-editor-content');
+              if (scrollContainer && popup?.[0] && (popup[0] as any)._handleScroll) {
+                scrollContainer.removeEventListener('scroll', (popup[0] as any)._handleScroll);
+              }
+              
               popup?.[0]?.destroy()
               component?.destroy()
             },
@@ -144,8 +189,25 @@ export const BlockMention = Node.create({
   addProseMirrorPlugins() {
     return [
       Suggestion({
+        pluginKey: new PluginKey('block_mention_slash'),
         editor: this.editor,
         ...this.options.suggestion,
+      }),
+      Suggestion({
+        pluginKey: new PluginKey('block_mention_at'),
+        editor: this.editor,
+        char: '@',
+        items: ({ query }: { query: string }) => {
+          if (this.options.onSearch) {
+             // onSearch returns valid items, but we need to ensure type safety if needed.
+             // The original code was `async` but the return type of `items` in SuggestionOptions is `Item[] | Promise<Item[]>`.
+             // `onSearch` returns `Promise`.
+            return this.options.onSearch(query) ?? []
+          }
+          return []
+        },
+        render: this.options.suggestion.render,
+        command: this.options.suggestion.command,
       }),
     ]
   },

@@ -64,3 +64,37 @@ export const updateFile = mutation({
     await ctx.db.patch(fileId, updateData);
   },
 });
+
+export const getFilesByParentId = query({
+  args: {
+    parentId: v.union(v.id("text_files"), v.null()),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("text_files")
+      .withIndex("by_parent", (q) => q.eq("parentId", args.parentId))
+      .collect();
+  },
+});
+
+export const getAncestors = query({
+  args: {
+    fileId: v.id("text_files"),
+  },
+  handler: async (ctx, args) => {
+    const ancestors = [];
+    let currentFile = await ctx.db.get(args.fileId);
+
+    while (currentFile && currentFile.parentId) {
+      const parent = await ctx.db.get(currentFile.parentId);
+      if (parent) {
+        ancestors.unshift(parent);
+        currentFile = parent;
+      } else {
+        break;
+      }
+    }
+    
+    return ancestors;
+  },
+});
