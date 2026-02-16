@@ -1,4 +1,5 @@
-import { StateGraph, END, MemorySaver } from "@langchain/langgraph";
+import { StateGraph, END } from "@langchain/langgraph";
+import { JsonFileSaver } from "./json-file-saver";
 import { DocumentAgentState } from "./state";
 import {
   routerNode,
@@ -53,14 +54,10 @@ export function createDocumentAgentGraph() {
 }
 
 // ============================================
-// CHECKPOINTER (SQLite for dev, swap later)
+// CHECKPOINTER (JSON file – persistent across restarts)
 // ============================================
 
-// Using MemorySaver for now — in-memory checkpoint.
-// For persistent checkpoints across restarts, swap to SqliteSaver:
-//   import { SqliteSaver } from "@langchain/langgraph-checkpoint-sqlite";
-//   const checkpointer = SqliteSaver.fromConnString("./agent-checkpoints.db");
-const checkpointer = new MemorySaver();
+const checkpointer = new JsonFileSaver("./agent-checkpoints.json");
 
 /**
  * Compile and return the graph with checkpointer attached.

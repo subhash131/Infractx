@@ -65,8 +65,10 @@ CRITICAL RULES:
 - When in doubt, prefer "general_question" over "needs_clarification"`;
 
   try {
+    // Include conversation history for better intent classification on follow-ups
     const result = await structuredLlm.invoke([
       new SystemMessage(systemPrompt),
+      ...(state.messages ?? []),
       new HumanMessage(state.userQuery),
     ]);
 

@@ -66,10 +66,14 @@ Project Context:
 ${projectContext}`;
 
   try {
-    const response = await llm.invoke([
+    // Build conversation with history from previous turns
+    const conversationMessages = [
       new SystemMessage(systemPrompt),
-      new HumanMessage(state.userQuery),
-    ]);
+      ...(state.messages ?? []),       // accumulated history from checkpointer
+      new HumanMessage(state.userQuery), // current turn
+    ];
+
+    const response = await llm.invoke(conversationMessages);
 
     const responseText = response.content.toString();
     console.log(`[QA] Response generated (${responseText.length} chars)`);

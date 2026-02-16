@@ -12275,7 +12275,7 @@ snapshots:
   '@types/glob@7.2.0':
     dependencies:
       '@types/minimatch': 6.0.0
-      '@types/node': 20.19.9
+      '@types/node': 20.19.30
 
   '@types/hast@3.0.4':
     dependencies:
@@ -12388,7 +12388,7 @@ snapshots:
 
   '@types/through@0.0.33':
     dependencies:
-      '@types/node': 20.19.9
+      '@types/node': 20.19.30
 
   '@types/tinycolor2@1.4.6': {}
 
