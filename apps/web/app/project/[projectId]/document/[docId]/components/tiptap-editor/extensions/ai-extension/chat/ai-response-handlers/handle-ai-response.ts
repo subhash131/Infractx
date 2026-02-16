@@ -1,5 +1,6 @@
 import { Editor } from "@tiptap/core";
 import { handleSmartBlock } from "./smart-block-handler";
+import { v4 as uuid } from "uuid";
 
 export const handleAIResponse = async (
   response: Response,
@@ -18,6 +19,7 @@ export const handleAIResponse = async (
   
   let currentIntent = null;
   let hasStartedStreaming = false;
+  let currentBlockTitle = "";
 
   while (true) {
     const { done, value } = await reader.read();
@@ -51,15 +53,79 @@ export const handleAIResponse = async (
              if (json.type === "intent") {
                  currentIntent = json.intent;
                  console.log("🤖 Intent detected:", currentIntent);
-             } 
+             }
+             else if (json.type === "title") {
+                 currentBlockTitle += json.content;
+                 // console.log("🤖 Received Title Chunk:", json.content);
+             }
              else if (json.type === "token") {
-                 hasStartedStreaming = true;
                  if (currentIntent === "general") {
                      // Log token for chat
                      console.log("Chat Token:", json.content);
+                     hasStartedStreaming = true;
                  } else {
                      // Default to editor insertion for text/list/table generation
+                     if (currentIntent === 'code' && !hasStartedStreaming) {
+                        // First token for code: Insert Smart Block Container
+                        const id = uuid();
+                        const title = currentBlockTitle.trim() || "Smart Block";
+                        console.log("🤖 Creating Smart Block with title:", title);
+                        
+                        const smartBlock = {
+                            type: "smartBlock",
+                            attrs: { id },
+                            content: [
+                                {
+                                    type: "smartBlockContent",
+                                    content: [{ type: "text", text: title }]
+                                },
+                                {
+                                    type: "smartBlockGroup",
+                                    content: [{ type: "paragraph" }] // Empty paragraph to start
+                                }
+                            ]
+                        };
+                        
+                        // Insert the block
+                        editor.chain().insertContent(smartBlock).run();
+
+
+                        // Find the position of the newly inserted block to set selection accurately
+                        let foundPos = -1;
+                        editor.state.doc.descendants((node, pos) => {
+                            if (foundPos > -1) return false;
+                            if (node.type.name === 'smartBlock' && node.attrs.id === id) {
+                                foundPos = pos;
+                                return false;
+                            }
+                        });
+
+                        if (foundPos > -1) {
+                             // SmartBlock -> SmartBlockContent (0) -> SmartBlockGroup (1) -> Paragraph (0)
+                             // We want to be inside the paragraph.
+                             // Use resolve/nodeAt to be safe, or calculate:
+                             // pos + 1 (start of SB) 
+                             // + node.child(0).nodeSize (skip content)
+                             // + 1 (start of Group)
+                             // + 1 (start of Paragraph)
+                             // = start of paragraph content
+                             
+                             const smartBlockNode = editor.state.doc.nodeAt(foundPos);
+                             if (smartBlockNode) {
+                                 const contentSize = smartBlockNode.child(0).nodeSize;
+                                 const groupStart = foundPos + 1 + contentSize;
+                                 // The group has a paragraph inside.
+                                 // groupStart + 1 is start of paragraph.
+                                 // groupStart + 2 is inside paragraph.
+                                 const targetPos = groupStart + 2; 
+
+                                 editor.chain().setTextSelection(targetPos).run();
+                             }
+                        }
+                     }
+                     
                      editor.chain().insertContent(json.content).run();
+                     hasStartedStreaming = true;
                  }
              }
              else {
@@ -88,7 +154,7 @@ const processResponse = (
       response.response.operations.forEach((op: any) => {
           // If we streamed the content, skip the finalized "replace" or "chat_response" op
           // EXCEPT if it's "delete" or "insert_table" (which might not be streamed via tokens)
-          if (hasStartedStreaming && (op.type === "replace" || op.type === "chat_response")) {
+          if (hasStartedStreaming && (op.type === "replace" || op.type === "chat_response" || (currentIntent === 'code' && op.type === 'insert_smartblock'))) {
               console.log(`🤖 Skipping ${op.type} because content was streamed.`);
               return;
           }

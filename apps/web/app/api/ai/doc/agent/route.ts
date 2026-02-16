@@ -34,13 +34,22 @@ export const POST = async (req:NextRequest) => {
                             }) + "\n"));
                          }
                     }
-                    if (event.event === "on_chat_model_stream" && event.tags?.includes("streamable")) {
+                    if (event.event === "on_chat_model_stream") {
                         const chunk = event.data?.chunk;
-                        // console.log("Stream Chunk:", JSON.stringify(chunk, null, 2));
                         const token = chunk?.content;
-                        if (token) {
-                            console.log("Sending Token:", token);
-                            controller.enqueue(encoder.encode(JSON.stringify({ type: "token", content: token }) + "\n"));
+                        
+                        if (event.tags?.includes("generate_title")) {
+                            if (token) {
+                                // console.log("Sending Title Token:", token);
+                                controller.enqueue(encoder.encode(JSON.stringify({ type: "title", content: token }) + "\n"));
+                            }
+                        }
+                        else if (event.tags?.includes("streamable")) {
+                            // console.log("Stream Chunk:", JSON.stringify(chunk.content, null, 2));
+                            if (token) {
+                                console.log("Sending Token:", token);
+                                controller.enqueue(encoder.encode(JSON.stringify({ type: "token", content: token }) + "\n"));
+                            }
                         }
                     }
                     else if (event.event === "on_chain_end" && event.name === "LangGraph") {

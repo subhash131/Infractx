@@ -15,7 +15,7 @@ export const SmartBlockGroup = Node.create({
       "div",
       { 
         "data-node-type": "smartBlockGroup",
-        style: "padding-left: 10px; width: 100%; border-left: 1px solid gray;" 
+        style: "padding-left: 10px; width: 100%; border-left: 1px solid gray; font-size: 12px;" 
       },
       0 
     ];
