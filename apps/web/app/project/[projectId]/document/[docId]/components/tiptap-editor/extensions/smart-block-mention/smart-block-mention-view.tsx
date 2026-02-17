@@ -68,7 +68,7 @@ export const SmartBlockMentionView = ({ node }: { node: PmNode }) => {
         {label || "Untitled"}
       </span>
 
-      {showTooltip && (
+      {fileName && showTooltip && (
         <span className="smart-block-mention__tooltip" contentEditable={false}>
           <button
             className="smart-block-mention__nav-btn"
