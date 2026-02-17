@@ -20,12 +20,24 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { File02Icon, FileAddIcon, Folder01Icon, Folder02Icon, FolderAddIcon } from "@hugeicons/core-free-icons";
 import { useQueryState } from "nuqs";
 import { truncate } from "@/modules/utils";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@workspace/ui/components/context-menu";
 
 // Data structure type for the tree
 type FileDataStructure = {
   root: TreeItemData;
   [key: string]: TreeItemData;
 };
+
+type ClipboardData = {
+  itemId: string;
+  operation: "cut" | "copy";
+} | null;
 
 export const FilesList = ({ docId }: { docId: Id<"documents"> }) => {
   const files = useQuery(
@@ -35,9 +47,14 @@ export const FilesList = ({ docId }: { docId: Id<"documents"> }) => {
   const document = useQuery(api.requirements.documents.getDocumentById, docId ? { documentId: docId } : "skip");
   const createFile = useMutation(api.requirements.textFiles.create);
   const updateFile = useMutation(api.requirements.textFiles.updateFile);
+  const deleteFile = useMutation(api.requirements.textFiles.deleteFile);
+  const duplicateFile = useMutation(api.requirements.textFiles.duplicateFile);
 
   // Manage selected file ID in URL
   const [_, setSelectedFileId] = useQueryState("fileId");
+
+  // Clipboard state for cut/copy
+  const [clipboard, setClipboard] = useState<ClipboardData>(null);
 
   const [state, setState] = useState<Partial<TreeState<TreeItemData>>>(() => {
     // Load initial state from localStorage
@@ -301,130 +318,297 @@ export const FilesList = ({ docId }: { docId: Id<"documents"> }) => {
     }
   };
 
+  // Context menu action handlers
+  const handleRename = (itemId: string) => {
+    setState(prev => ({
+      ...prev,
+      renamingItem: itemId,
+      renamingValue: ""
+    }));
+  };
+
+  const handleDelete = async (itemId: string) => {
+    await deleteFile({ fileId: itemId as Id<"text_files"> });
+  };
+
+  const handleDuplicate = async (itemId: string) => {
+    await duplicateFile({ fileId: itemId as Id<"text_files"> });
+  };
+
+  const handleCut = (itemId: string) => {
+    setClipboard({ itemId, operation: "cut" });
+  };
+
+  const handleCopy = (itemId: string) => {
+    setClipboard({ itemId, operation: "copy" });
+  };
+
+  const handlePaste = async (targetItemId: string) => {
+    if (!clipboard) return;
+
+    // Determine the target parent
+    const targetData = dataStructure[targetItemId];
+    const targetParentId = targetData?.type === "FOLDER" 
+      ? targetItemId 
+      : files?.find(f => f._id === targetItemId)?.parentId || undefined;
+
+    if (clipboard.operation === "cut") {
+      // Move the item
+      await updateFile({
+        fileId: clipboard.itemId as Id<"text_files">,
+        parentId: (targetParentId as Id<"text_files">) || null,
+      });
+    } else {
+      // Copy: duplicate and move to target
+      const newId = await duplicateFile({ fileId: clipboard.itemId as Id<"text_files"> });
+      if (newId && targetParentId) {
+        await updateFile({
+          fileId: newId,
+          parentId: targetParentId as Id<"text_files">,
+        });
+      }
+    }
+
+    setClipboard(null);
+  };
+
   return (
     <div {...tree.getContainerProps()} className="tree flex flex-col items-start w-full relative">
-        {tree.getItems().map((item) => (
-          <Fragment key={item.getId()}>
-            {item.isRenaming() ? (
-              <div
-                className="flex items-center gap-2 px-2 py-1 w-full"
-                style={{ paddingLeft: `${item.getItemMeta().level * 20}px` }}
-              >
-                <span>
-                  {item.isFolder() ? (
-                    <HugeiconsIcon icon={item.isExpanded() ? Folder02Icon : Folder01Icon} size={16} />
-                  ) : (
-                    <HugeiconsIcon icon={File02Icon} size={16} />
-                  )}
-                </span>
-                <input
-                  {...(() => {
-                    const { onChange, ...rest } = item.getRenameInputProps();
-                    return {
-                      ...rest,
-                      onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
-                        const newValue = e.target.value.replace(/\s/g, "_");
-                        e.target.value = newValue; // Update input value visually
-                        onChange?.({
-                          ...e,
-                          target: {
-                            ...e.target,
-                            value: newValue,
-                          },
-                        } as React.ChangeEvent<HTMLInputElement>);
-                        setState(prev => ({
-                          ...prev,
-                          renamingValue:newValue
-                        }))
-                      }
-                    };
-                  })()}
-                  className="bg-transparent rounded px-2 text-xs focus:outline-none max-w-fit border min-w-0 "
-                  onKeyDown={(e)=>{
-                    if(e.key === "Enter"){
-                      (e.target as HTMLInputElement).blur()
-                      e.stopPropagation()
-                    }
-                  }}
-                  
-                />
-              </div>
-            ) : (
-              <button
-                {...item.getProps()}
-                style={{ paddingLeft: `${item.getItemMeta().level * 20}px` }}
-                className="w-full text-left rounded border-0 outline-none group"
-                onClick={(e) => {
-                  // Call the original onClick from getProps() to maintain tree behavior
-                  const originalOnClick = item.getProps().onClick;
-                  if (originalOnClick) {
-                    originalOnClick(e);
-                  }
-                  
-                  // Then add our custom logic for files only
-                  const itemId = item.getId();
-                  const itemData = item.getItemData();
-                  if (
-                    itemId !== "root" && 
-                    itemId !== "__virtual_root__" && 
-                    itemData.type === "FILE"
-                  ) {
-                    setSelectedFileId(itemId);
-                  }
-                }}
-                onDoubleClick={(e) => {
-                  e.stopPropagation();
-                  item.startRenaming();
-                }}
-              >
+        {tree.getItems().map((item) => {
+          const itemId = item.getId();
+          const isSpecialItem = itemId === "root" || itemId === "__virtual_root__";
+
+          return (
+            <Fragment key={itemId}>
+              {item.isRenaming() ? (
                 <div
-                  className={cn("treeitem flex items-center gap-2 px-2 py-1 rounded hover:bg-gray-700 justify-between w-full", {
-                    "bg-gray-700/50": item.isSelected(),
-                    "bg-gray-700": item.isDragTarget(),
-                  })}
+                  className="flex items-center gap-2 px-2 py-1 w-full"
+                  style={{ paddingLeft: `${item.getItemMeta().level * 20}px` }}
                 >
-                  <div className="flex items-center gap-2">
-                    <span>
-                      {item.isFolder() ? (
-                        <HugeiconsIcon icon={item.isExpanded() ? Folder02Icon : Folder01Icon} size={16} />
-                      ) : (
-                        <HugeiconsIcon icon={File02Icon} size={16} />
-                      )}
-                    </span>
-                    <span>{truncate(item.getItemName(), 12)}</span>
-                  </div>
-                  
-                  {/* Show action buttons only for root */}
-                  {item.getId() === "root" && (
-                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <div
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleCreateFile();
-                        }}
-                        className="p-1 hover:bg-gray-600 rounded text-xs cursor-pointer"
-                        title="New File"
-                      >
-                       <HugeiconsIcon icon={FileAddIcon} size={16} />
-                      </div>
-                      <div
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleCreateFolder();
-                        }}
-                        className="p-1 hover:bg-gray-600 rounded text-xs cursor-pointer"
-                        title="New Folder"
-                      >
-                        <HugeiconsIcon icon={FolderAddIcon} size={16} />
-                      </div>
-                    </div>
-                  )}
+                  <span>
+                    {item.isFolder() ? (
+                      <HugeiconsIcon icon={item.isExpanded() ? Folder02Icon : Folder01Icon} size={16} />
+                    ) : (
+                      <HugeiconsIcon icon={File02Icon} size={16} />
+                    )}
+                  </span>
+                  <input
+                    {...(() => {
+                      const { onChange, ...rest } = item.getRenameInputProps();
+                      return {
+                        ...rest,
+                        onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
+                          const newValue = e.target.value.replace(/\s/g, "_");
+                          e.target.value = newValue; // Update input value visually
+                          onChange?.({
+                            ...e,
+                            target: {
+                              ...e.target,
+                              value: newValue,
+                            },
+                          } as React.ChangeEvent<HTMLInputElement>);
+                          setState(prev => ({
+                            ...prev,
+                            renamingValue:newValue
+                          }))
+                        }
+                      };
+                    })()}
+                    className="bg-transparent rounded px-2 text-xs focus:outline-none max-w-fit border min-w-0 "
+                    onKeyDown={(e)=>{
+                      if(e.key === "Enter"){
+                        (e.target as HTMLInputElement).blur()
+                        e.stopPropagation()
+                      }
+                    }}
+                    
+                  />
                 </div>
-              </button>
-            )}
-          </Fragment>
-        ))}
+              ) : (
+                <FileItemWithContextMenu
+                  item={item}
+                  isSpecialItem={isSpecialItem}
+                  clipboard={clipboard}
+                  onRename={handleRename}
+                  onDelete={handleDelete}
+                  onDuplicate={handleDuplicate}
+                  onCut={handleCut}
+                  onCopy={handleCopy}
+                  onPaste={handlePaste}
+                  onClickFile={(id) => setSelectedFileId(id)}
+                  onCreateFile={handleCreateFile}
+                  onCreateFolder={handleCreateFolder}
+                />
+              )}
+            </Fragment>
+          );
+        })}
       </div>
       
   );
 };
+
+// Extracted component to wrap each item with a context menu
+function FileItemWithContextMenu({
+  item,
+  isSpecialItem,
+  clipboard,
+  onRename,
+  onDelete,
+  onDuplicate,
+  onCut,
+  onCopy,
+  onPaste,
+  onClickFile,
+  onCreateFile,
+  onCreateFolder,
+}: {
+  item: any;
+  isSpecialItem: boolean;
+  clipboard: ClipboardData;
+  onRename: (id: string) => void;
+  onDelete: (id: string) => Promise<void>;
+  onDuplicate: (id: string) => Promise<void>;
+  onCut: (id: string) => void;
+  onCopy: (id: string) => void;
+  onPaste: (targetId: string) => Promise<void>;
+  onClickFile: (id: string) => void;
+  onCreateFile: () => void;
+  onCreateFolder: () => void;
+}) {
+  const itemId = item.getId();
+
+  const treeItemButton = (
+    <button
+      {...item.getProps()}
+      style={{ paddingLeft: `${item.getItemMeta().level * 20}px` }}
+      className="w-full text-left rounded border-0 outline-none group"
+      onClick={(e) => {
+        const originalOnClick = item.getProps().onClick;
+        if (originalOnClick) {
+          originalOnClick(e);
+        }
+        
+        const itemData = item.getItemData();
+        if (
+          itemId !== "root" && 
+          itemId !== "__virtual_root__" && 
+          itemData.type === "FILE"
+        ) {
+          onClickFile(itemId);
+        }
+      }}
+      onDoubleClick={(e) => {
+        e.stopPropagation();
+        item.startRenaming();
+      }}
+    >
+      <div
+        className={cn("treeitem flex items-center gap-2 px-2 py-1 rounded hover:bg-gray-700 justify-between w-full", {
+          "bg-gray-700/50": item.isSelected(),
+          "bg-gray-700": item.isDragTarget(),
+          "opacity-50": clipboard?.itemId === itemId && clipboard?.operation === "cut",
+        })}
+      >
+        <div className="flex items-center gap-2">
+          <span>
+            {item.isFolder() ? (
+              <HugeiconsIcon icon={item.isExpanded() ? Folder02Icon : Folder01Icon} size={16} />
+            ) : (
+              <HugeiconsIcon icon={File02Icon} size={16} />
+            )}
+          </span>
+          <span>{truncate(item.getItemName(), 12)}</span>
+        </div>
+        
+        {/* Show action buttons only for root */}
+        {itemId === "root" && (
+          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <div
+              onClick={(e) => {
+                e.stopPropagation();
+                onCreateFile();
+              }}
+              className="p-1 hover:bg-gray-600 rounded text-xs cursor-pointer"
+              title="New File"
+            >
+             <HugeiconsIcon icon={FileAddIcon} size={16} />
+            </div>
+            <div
+              onClick={(e) => {
+                e.stopPropagation();
+                onCreateFolder();
+              }}
+              className="p-1 hover:bg-gray-600 rounded text-xs cursor-pointer"
+              title="New Folder"
+            >
+              <HugeiconsIcon icon={FolderAddIcon} size={16} />
+            </div>
+          </div>
+        )}
+      </div>
+    </button>
+  );
+
+  // Only show context menu for non-root, non-virtual-root items
+  if (isSpecialItem) {
+    return treeItemButton;
+  }
+
+  return (
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
+        {treeItemButton}
+      </ContextMenuTrigger>
+      <ContextMenuContent className="w-44">
+        <ContextMenuItem
+          onClick={() => onRename(itemId)}
+          className="gap-3"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+          Rename
+        </ContextMenuItem>
+        <ContextMenuItem
+          onClick={() => onDuplicate(itemId)}
+          className="gap-3"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+          Duplicate
+        </ContextMenuItem>
+        <ContextMenuSeparator />
+        <ContextMenuItem
+          onClick={() => onCut(itemId)}
+          className="gap-3"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="6" cy="6" r="3"/><path d="M8.12 8.12 12 12"/><path d="M20 4 8.12 15.88"/><circle cx="6" cy="18" r="3"/><path d="M14.8 14.8 20 20"/></svg>
+          Cut
+        </ContextMenuItem>
+        <ContextMenuItem
+          onClick={() => onCopy(itemId)}
+          className="gap-3"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+          Copy
+        </ContextMenuItem>
+        {clipboard && (
+          <ContextMenuItem
+            onClick={() => onPaste(itemId)}
+            className="gap-3"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>
+            Paste
+          </ContextMenuItem>
+        )}
+        <ContextMenuSeparator />
+        <ContextMenuItem
+          onClick={() => onDelete(itemId)}
+          variant="destructive"
+          className="gap-3"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
+          Delete
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
+  );
+}

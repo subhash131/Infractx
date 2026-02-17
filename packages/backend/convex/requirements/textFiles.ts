@@ -1,4 +1,5 @@
 import { mutation, query } from "../_generated/server";
+import { api } from "../_generated/api";
 import { v } from "convex/values";
 
 export const create = mutation({
@@ -98,3 +99,133 @@ export const getAncestors = query({
     return ancestors;
   },
 });
+
+export const deleteFile = mutation({
+  args: {
+    fileId: v.id("text_files"),
+  },
+  handler: async (ctx, args) => {
+    // Recursively delete children if it's a folder
+    const children = await ctx.db
+      .query("text_files")
+      .withIndex("by_parent", (q) => q.eq("parentId", args.fileId))
+      .collect();
+
+    for (const child of children) {
+      // Recursively delete each child
+      await ctx.runMutation(api.requirements.textFiles.deleteFile, {
+        fileId: child._id,
+      });
+    }
+
+    // Delete all blocks associated with this file
+    const blocks = await ctx.db
+      .query("blocks")
+      .withIndex("by_text_file", (q) => q.eq("textFileId", args.fileId))
+      .collect();
+
+    for (const block of blocks) {
+      await ctx.db.delete(block._id);
+    }
+
+    await ctx.db.delete(args.fileId);
+  },
+});
+
+export const duplicateFile = mutation({
+  args: {
+    fileId: v.id("text_files"),
+  },
+  handler: async (ctx, args) => {
+    const file = await ctx.db.get(args.fileId);
+    if (!file) throw new Error("File not found");
+
+    const newId = await ctx.db.insert("text_files", {
+      title: `${file.title}_copy`,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      type: file.type,
+      documentId: file.documentId,
+      parentId: file.parentId,
+    });
+
+    // Duplicate all blocks associated with this file
+    const blocks = await ctx.db
+      .query("blocks")
+      .withIndex("by_text_file", (q) => q.eq("textFileId", args.fileId))
+      .collect();
+
+    for (const block of blocks) {
+      await ctx.db.insert("blocks", {
+        textFileId: newId,
+        parentId: block.parentId,
+        type: block.type,
+        props: block.props,
+        content: block.content,
+        rank: block.rank,
+        externalId: crypto.randomUUID(),
+      });
+    }
+
+    // If it's a folder, recursively duplicate children
+    if (file.type === "FOLDER") {
+      const children = await ctx.db
+        .query("text_files")
+        .withIndex("by_parent", (q) => q.eq("parentId", args.fileId))
+        .collect();
+
+      for (const child of children) {
+        await duplicateFileRecursive(ctx, child._id, newId);
+      }
+    }
+
+    return newId;
+  },
+});
+
+async function duplicateFileRecursive(
+  ctx: any,
+  fileId: any,
+  newParentId: any
+) {
+  const file = await ctx.db.get(fileId);
+  if (!file) return;
+
+  const newId = await ctx.db.insert("text_files", {
+    title: file.title,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+    type: file.type,
+    documentId: file.documentId,
+    parentId: newParentId,
+  });
+
+  // Duplicate all blocks associated with this file
+  const blocks = await ctx.db
+    .query("blocks")
+    .withIndex("by_text_file", (q: any) => q.eq("textFileId", fileId))
+    .collect();
+
+  for (const block of blocks) {
+    await ctx.db.insert("blocks", {
+      textFileId: newId,
+      parentId: block.parentId,
+      type: block.type,
+      props: block.props,
+      content: block.content,
+      rank: block.rank,
+      externalId: crypto.randomUUID(),
+    });
+  }
+
+  if (file.type === "FOLDER") {
+    const children = await ctx.db
+      .query("text_files")
+      .withIndex("by_parent", (q: any) => q.eq("parentId", fileId))
+      .collect();
+
+    for (const child of children) {
+      await duplicateFileRecursive(ctx, child._id, newId);
+    }
+  }
+}
