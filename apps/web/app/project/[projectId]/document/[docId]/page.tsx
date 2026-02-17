@@ -41,7 +41,7 @@ const RequirementsDraftingPage = () => {
         <DocHeader />
         <TiptapEditor textFileId={fileId as Id<"text_files">} />
       </div>}
-      {!fileId && <NoFileSelected />}
+      {!fileId && <NoFileSelected docId={docId} />}
     </div>
   );
 };

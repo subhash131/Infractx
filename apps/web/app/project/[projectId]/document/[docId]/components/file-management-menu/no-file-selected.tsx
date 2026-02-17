@@ -1,28 +1,74 @@
-import React from 'react'
+"use client";
+import React from "react";
 import { Button } from "@workspace/ui/components/button";
 import { FolderOpen, MessageCircle, PlusIcon } from "lucide-react";
+import { useMutation } from "convex/react";
+import { api } from "@workspace/backend/_generated/api";
+import { Id } from "@workspace/backend/_generated/dataModel";
+import { useQueryState } from "nuqs";
 
-export const NoFileSelected = () => {
+export const NoFileSelected = ({
+  docId,
+}: {
+  docId: Id<"documents">;
+}) => {
+  const createFile = useMutation(api.requirements.textFiles.create);
+  const [_, setSelectedFileId] = useQueryState("fileId");
+
+  const handleCreateFile = async () => {
+    const newFileId = await createFile({
+      title: "Untitled",
+      documentId: docId,
+      type: "FILE",
+    });
+    if (newFileId) {
+      setSelectedFileId(newFileId);
+    }
+  };
+
+  const handleCreateFolder = async () => {
+    const newFolderId = await createFile({
+      title: "New_Folder",
+      documentId: docId,
+      type: "FOLDER",
+    });
+    if (newFolderId) {
+      setSelectedFileId(newFolderId);
+    }
+  };
+
+  const handleChatWithAI = () => {
+    window.dispatchEvent(
+      new CustomEvent("toggle-ai-chat", {
+        detail: { togglePopup: true },
+      })
+    );
+  };
+
   return (
     <div className="w-full h-screen overflow-hidden hide-scrollbar p-4 min-h-screen max-h-screen">
-        <div>
-          <h1 className="text-2xl font-bold">InfraBro</h1>
-          <p className="text-gray-400">Draft your technical design</p>
-        </div>
-        <div className="size-full flex pt-40 justify-center gap-4">
-          <Button className="p-2" variant={"outline"}>
-            <PlusIcon />
-            New File
-          </Button>
-          <Button className="p-2" variant={"outline"}>
-            <MessageCircle />
-            Chat with AI
-          </Button>
-          <Button className="p-2" variant={"outline"}>
-            <FolderOpen />
-            Open File
-          </Button>
-        </div>
+      <div className="size-full flex pt-40 justify-center gap-4">
+        <Button className="p-2" variant={"outline"} onClick={handleCreateFile}>
+          <PlusIcon />
+          New File
+        </Button>
+        <Button
+          className="p-2"
+          variant={"outline"}
+          onClick={handleCreateFolder}
+        >
+          <FolderOpen />
+          New Folder
+        </Button>
+        <Button
+          className="p-2"
+          variant={"outline"}
+          onClick={handleChatWithAI}
+        >
+          <MessageCircle />
+          Chat with AI
+        </Button>
       </div>
-  )
-}
+    </div>
+  );
+};
