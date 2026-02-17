@@ -9,12 +9,10 @@ interface Selection {
 }
 
 /**
- * Build Tiptap-compatible table JSON from headers + rows.
- * Produces: table > tableRow > (tableHeader | tableCell) > tableParagraph
+ * Build a single table header row for Tiptap.
  */
-function buildTableNode(headers: string[], rows: string[][]) {
-  // Header row
-  const headerRow = {
+function buildHeaderRow(headers: string[]) {
+  return {
     type: "tableRow",
     content: headers.map((h: string) => ({
       type: "tableHeader",
@@ -27,11 +25,15 @@ function buildTableNode(headers: string[], rows: string[][]) {
       ],
     })),
   };
+}
 
-  // Data rows
-  const dataRows = rows.map((row: string[]) => ({
+/**
+ * Build a single table data row for Tiptap.
+ */
+function buildDataRow(cells: string[]) {
+  return {
     type: "tableRow",
-    content: row.map((cell: string) => ({
+    content: cells.map((cell: string) => ({
       type: "tableCell",
       attrs: { colspan: 1, rowspan: 1, colwidth: null },
       content: [
@@ -41,13 +43,84 @@ function buildTableNode(headers: string[], rows: string[][]) {
         },
       ],
     })),
-  }));
-
-  return {
-    type: "table",
-    attrs: { id: uuid(), rank: "a0" },
-    content: [headerRow, ...dataRows],
   };
+}
+
+/**
+ * Insert a smartBlock with a table, animating row insertion one by one.
+ */
+function insertAnimatedTable(
+  editor: Editor,
+  selection: { from: number; to: number },
+  title: string,
+  tableData: { headers: string[]; rows: string[][] }
+) {
+  const blockId = uuid();
+  const tableId = uuid();
+
+  // Step 1: Insert smartBlock with title + headers-only table
+  const smartBlock = {
+    type: "smartBlock",
+    attrs: { id: blockId },
+    content: [
+      {
+        type: "smartBlockContent",
+        content: [{ type: "text", text: title }],
+      },
+      {
+        type: "smartBlockGroup",
+        content: [
+          {
+            type: "table",
+            attrs: { id: tableId, rank: "a0" },
+            content: [buildHeaderRow(tableData.headers)],
+          },
+          { type: "paragraph", attrs: { id: uuid(), rank: "a0V", textAlign: null } },
+          { type: "paragraph", attrs: { id: uuid(), rank: "a1", textAlign: null } },
+        ],
+      },
+    ],
+  };
+
+  const { from, to } = selection;
+  if (to !== null && to !== undefined && from !== to) {
+    editor.chain().insertContentAt(to, smartBlock).run();
+  } else {
+    const lastPos = editor.state.doc.content.size;
+    editor.chain().insertContentAt(lastPos, smartBlock).focus("end").run();
+  }
+
+  // Step 2: Animate row insertion one by one
+  const rows = tableData.rows;
+  let rowIndex = 0;
+
+  function insertNextRow() {
+    if (rowIndex >= rows.length) return;
+
+    // Find the table by its unique ID to get the insert position
+    let tableEndPos = -1;
+    editor.state.doc.descendants((node, pos) => {
+      if (tableEndPos > -1) return false;
+      if (node.type.name === "table" && node.attrs.id === tableId) {
+        // pos + node.nodeSize - 1 = just before the table's closing tag
+        tableEndPos = pos + node.nodeSize - 1;
+        return false;
+      }
+    });
+
+    if (tableEndPos > -1) {
+      const row = buildDataRow(rows[rowIndex]!);
+      editor.chain().insertContentAt(tableEndPos, row).run();
+    }
+
+    rowIndex++;
+    if (rowIndex < rows.length) {
+      setTimeout(insertNextRow, 120);
+    }
+  }
+
+  // Start adding rows after a brief initial delay
+  setTimeout(insertNextRow, 200);
 }
 
 export const handleSmartBlock = (
@@ -79,24 +152,17 @@ export const handleSmartBlock = (
         title = response.text;
     }
 
-    // Build smartBlockGroup content: either a table or plain paragraphs
-    let groupContent: any[];
-
+    // If table data present, use animated insertion
     if (tableData && tableData.headers && tableData.rows) {
-      // Schema / Table: embed a Tiptap table inside the group
-      const tableNode = buildTableNode(tableData.headers, tableData.rows);
-      groupContent = [
-        tableNode,
-        { type: "paragraph", attrs: { id: uuid(), rank: "a0V", textAlign: null } },
-        { type: "paragraph", attrs: { id: uuid(), rank: "a1", textAlign: null } },
-      ];
-    } else {
-      // Plain text content (code blocks, etc.)
-      groupContent = contentText.split('\n').map(line => ({
-        type: "paragraph",
-        content: line.trim() ? [{ type: "text", text: line }] : [],
-      }));
+      insertAnimatedTable(editor, { from, to }, title, tableData);
+      return;
     }
+
+    // Plain text content (code blocks, etc.)
+    const groupContent = contentText.split('\n').map(line => ({
+      type: "paragraph",
+      content: line.trim() ? [{ type: "text", text: line }] : [],
+    }));
 
     const smartBlock = {
       type: "smartBlock",
