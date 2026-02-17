@@ -193,6 +193,7 @@ Selected context: ${state.selectedText}
 
 Return ONLY valid JSON:
 {
+  "title": "Short descriptive title for this table",
   "headers": ["Column1", "Column2", "Column3"],
   "rows": [
     ["Row1Col1", "Row1Col2", "Row1Col3"],
@@ -217,36 +218,33 @@ async function generateOperations(state: typeof AgentStateAnnotation.State, conf
   if (state.intent === 'schema' && state.extractedData) {
     const { tableName, fields } = state.extractedData;
     
-    // Add heading
     operations.push({
       type: 'insert_smartblock',
       position: state.cursorPosition,
       content: {
-        blockType: 'heading',
-        level: 3,
-        text: `Schema: ${tableName.charAt(0).toUpperCase() + tableName.slice(1)}`
-      }
-    });
-
-    // Add table
-    operations.push({
-      type: 'insert_table',
-      position: state.cursorPosition + 1,
-      content: {
-        headers: ['Name', 'Type', 'Description'],
-        rows: fields.map((field: any) => [
-          field.name,
-          field.type,
-          field.description
-        ])
+        title: `Schema: ${tableName.charAt(0).toUpperCase() + tableName.slice(1)}`,
+        table: {
+          headers: ['Field', 'Type', 'Description (optional)'],
+          rows: fields.map((field: any) => [
+            field.name,
+            field.type,
+            field.description || ''
+          ])
+        }
       }
     });
   } 
   else if (state.intent === 'table' && state.extractedData) {
     operations.push({
-      type: 'insert_table',
+      type: 'insert_smartblock',
       position: state.cursorPosition,
-      content: state.extractedData
+      content: {
+        title: state.extractedData.title || 'Table',
+        table: {
+          headers: state.extractedData.headers,
+          rows: state.extractedData.rows
+        }
+      }
     });
   }
   else if (state.intent === 'list') {

@@ -220,6 +220,20 @@ const applyOperation = (
        const { from, to } = selection;
        console.log(`🤖 Soft deleting text at range: ${from}-${to}`);
        editor.chain().setTextSelection({ from, to }).setStrike().run();
+  } else if (op.type === "insert_table") {
+       // Wrap as a smartBlock with table content for consistent rendering
+       const wrappedOp = {
+           type: "insert_smartblock",
+           position: op.position,
+           content: {
+               title: op.content?.title || "Table",
+               table: {
+                   headers: op.content?.headers || [],
+                   rows: op.content?.rows || [],
+               }
+           }
+       };
+       handleSmartBlock(wrappedOp, editor, selection);
   } else if (op.type === "chat_response") {
        console.log("🤖 AI Chat Response:", op.content);
   } else {
