@@ -153,7 +153,7 @@ export default defineSchema({
     organizationId: v.string(),
     userId: v.string(),
     title: v.string(),
-  }),
+  }).index("by_user", ["userId"]),
 
   messages: defineTable({
     conversationId: v.id("conversations"),
@@ -210,8 +210,8 @@ export default defineSchema({
     externalId:v.string(),// uuid from the client
   })
     .index("by_text_file", ["textFileId"])
-    .index("by_parent_rank", ["textFileId", "parentId", "rank"])
     .index("by_external_id", ["externalId"])
+    .index("by_textfileId_blockType", ["textFileId","type"]),
 
 });
 

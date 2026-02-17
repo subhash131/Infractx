@@ -157,9 +157,9 @@ export const getSmartBlocks = query({
   handler: async (ctx, { textFileId }) => {
     const blocks = await ctx.db
       .query("blocks")
-      .withIndex("by_text_file", (q) => q.eq("textFileId", textFileId))
+      .withIndex("by_textfileId_blockType", (q) => q.eq("textFileId", textFileId).eq("type", "smartBlock"))
       .collect();
     
-    return blocks.filter(b => b.type === "smartBlock");
+    return blocks
   },
 });
