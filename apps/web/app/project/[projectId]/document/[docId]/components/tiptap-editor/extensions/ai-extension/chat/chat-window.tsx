@@ -10,6 +10,7 @@ import { useQuery } from "convex/react";
 import { Editor } from "@tiptap/react";
 import { useChatStore } from "../../../store/chat-store";
 import { ChatHistory } from "./chat-history";
+import { Resizable } from 're-resizable';
 
 interface ChatWindowProps {
   editor?: Editor | null;
@@ -79,26 +80,45 @@ export const ChatWindow = ({ editor, onClose }: ChatWindowProps) => {
     };
   }, [isDragging, dragStart]);
 
+  const [size, setSize] = useState({ width: 320, height: 480 });
+
   return (
     <div
       className={cn(
-        "z-99 border absolute rounded-xl w-80 h-[30rem] bg-[#1f1f1f] shadow-2xl overflow-hidden flex flex-col transition",
+        "z-50 absolute flex flex-col items-center justify-center bg-transparent",
         isDragging && "select-none"
       )}
       style={{
         left: `${position.x}px`,
         top: `${position.y}px`,
+        width: size.width,
+        height: size.height,
       }}
     >
-      <ChatHeader onMouseDown={handleMouseDown} onClose={onClose} />
-      {showHistory ? (
-        <ChatHistory />
-      ) : (
-        <>
-          <ChatBody messages={messages ?? []} />
-          <ChatFooter conversationId={conversationId ?? ""} editor={editor ?? undefined}/>
-        </>
-      )}
+        <Resizable
+            size={{ width: size.width, height: size.height }}
+            onResizeStop={(e, direction, ref, d) => {
+            setSize({
+                width: size.width + d.width,
+                height: size.height + d.height,
+            });
+            }}
+            minWidth={300}
+            minHeight={400}
+            maxWidth={800}
+            maxHeight={700}
+            className="flex flex-col border h-full w-full bg-[#1f1f1f] rounded-xl shadow-2xl"
+        >
+            <ChatHeader onMouseDown={handleMouseDown} onClose={onClose} />
+            {showHistory ? (
+                <ChatHistory />
+            ) : (
+                <>
+                <ChatBody messages={messages ?? []} />
+                <ChatFooter conversationId={conversationId ?? ""} editor={editor ?? undefined}/>
+                </>
+            )}
+      </Resizable>
     </div>
   );
 };

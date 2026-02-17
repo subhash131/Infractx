@@ -170,7 +170,7 @@ export const ChatFooter = ({ conversationId, editor }: ChatFooterProps) => {
 
   return (
     <form
-      className="w-full shrink-0 bg-[#1f1f1f] border-t p-1"
+      className="w-full shrink-0 bg-[#1f1f1f] border-t p-1 rounded-b-2xl" 
       onSubmit={handleSubmit}
       onKeyDown={handleKeyDown}
     >
