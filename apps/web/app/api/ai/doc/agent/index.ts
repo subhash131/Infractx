@@ -270,7 +270,7 @@ async function generateOperations(state: typeof AgentStateAnnotation.State, conf
     const title = await callAI(titlePrompt, { tags: ['generate_title'], config });
 
     // 2. Generate Code
-    const prompt = `Generate a pseudo-code/logic description for the following request:
+    const prompt = `Generate the pseudo-code/logic for the following request:
     "${state.userMessage}"
 
     Context:
@@ -279,7 +279,25 @@ async function generateOperations(state: typeof AgentStateAnnotation.State, conf
     
     If the request implies editing the selected text or using the document context, ensure the generated logic reflects that.
     
-    Return ONLY the detailed pseudo-logic or explanation. Do NOT wrap in JSON. Start directly with the content.`;
+    CRITICAL RULES:
+    - The title of this block already contains the function/class name (e.g. "Func: Login"). Do NOT repeat the function signature like "function login(username, password):" in the body.
+    - Instead, start with: INPUT: list the parameters, then OUTPUT: describe the return value, then the step-by-step logic.
+    - Generate ONLY what was specifically requested. If the user asks for a "login function", output ONLY the login function — do NOT add logout, helpers, utilities, or any other related functions.
+    - Do NOT include any title, heading, or bold text.
+    - Do NOT wrap output in triple backticks or any code fences (\`\`\`). The output is ALREADY inside a code block.
+    - Write plain-text pseudo-code directly, using simple indentation for nesting.
+    - Keep it concise, focused, and well-structured. Less is more.
+    
+  Example output format:
+    INPUT: username (string), password (string)
+    OUTPUT: session_token, user_id or error
+
+    validate username and password are not empty
+    query user record from database by username
+    if user not found, return error
+    verify password hash matches
+    generate session token
+    store session and return token with user id`;
     
     try {
         const text = await callAI(prompt, { tags: ['streamable'], config });

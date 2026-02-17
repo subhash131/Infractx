@@ -151,6 +151,25 @@ export const handleAIResponse = async (
     }
     buffer = lines[lines.length - 1] ?? "";
   }
+
+  // After streaming completes, move cursor out of the smart block
+  if (currentIntent === 'code' && hasStartedStreaming) {
+    // Find the smart block the cursor is currently inside and move after it
+    const { $from } = editor.state.selection;
+    // Walk up from the current position to find the smartBlock node
+    for (let d = $from.depth; d >= 0; d--) {
+      const node = $from.node(d);
+      if (node.type.name === 'smartBlock') {
+        const after = $from.after(d);
+        // Insert a new empty paragraph after the smart block and focus there
+        editor.chain()
+          .insertContentAt(after, { type: 'paragraph' })
+          .setTextSelection(after + 1)
+          .run();
+        break;
+      }
+    }
+  }
 };
 
 const processResponse = (
