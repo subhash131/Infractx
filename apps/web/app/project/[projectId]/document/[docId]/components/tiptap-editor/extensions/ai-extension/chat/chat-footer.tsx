@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { Textarea } from "@workspace/ui/components/textarea";
 import { Button } from "@workspace/ui/components/button";
 import {
@@ -133,18 +133,12 @@ export const ChatFooter = ({ conversationId, editor }: ChatFooterProps) => {
         </div>
       </div>
       <Textarea
-        ref={(textarea) => {
-            if (textarea) {
-                textarea.focus();
-            }
-        }}
+        id="ai-chat-textarea"
         className="p-1 h-10 max-h-10"
         placeholder="Describe your thoughts..."
         rows={2}
         value={prompt}
-        // value={JSON.stringify(editor.getJSON())}
         onChange={(e) => setPrompt(e.target.value)}
-        autoFocus
         onKeyDown={(e) => {
           if (e.key === "Enter" && !e.ctrlKey && !e.shiftKey) {
             e.preventDefault();

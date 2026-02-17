@@ -319,6 +319,10 @@ export function SimpleEditor({textFileId}:{textFileId:Id<"text_files">}) {
       if (event.key === 'Tab' && event.shiftKey) {
         event.preventDefault();
         setShowAIPopup(true)
+        // Focus the textarea after React renders the chat popup
+        setTimeout(() => {
+          document.getElementById('ai-chat-textarea')?.focus();
+        }, 0);
       }
     };
 
