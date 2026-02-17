@@ -29,6 +29,22 @@ export const blockSuggestions: BlockSuggestionItem[] = [
     },
   },
   {
+    id: 'smart-block-mention',
+    label: 'Smart Block Mention',
+    icon: '⚡',
+    description: 'Mention a smart block from any file',
+    command: (editor: Editor) => {
+      editor
+        .chain()
+        .focus()
+        .insertContent({
+          type: 'paragraph',
+          content: [{ type: 'text', text: '@' }],
+        })
+        .run()
+    },
+  },
+  {
     id: 'heading-1',
     label: 'Heading 1',
     icon: 'H1',
