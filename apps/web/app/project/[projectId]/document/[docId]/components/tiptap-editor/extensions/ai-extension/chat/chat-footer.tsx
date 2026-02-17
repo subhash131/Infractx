@@ -12,7 +12,9 @@ import {
   TooltipTrigger,
 } from "@workspace/ui/components/tooltip";
 import { Editor } from "@tiptap/core";
+import { useParams } from "next/navigation";
 import { RESET_STREAMING_TEXT, useChatStore } from "../../../store/chat-store";
+import { useAuth } from "@clerk/nextjs";
 import { v4 as uuid } from "uuid";
 import { handleAIResponse } from "./ai-response-handlers/handle-ai-response";
 
@@ -23,6 +25,9 @@ interface ChatFooterProps {
 
 export const ChatFooter = ({ conversationId, editor }: ChatFooterProps) => {
   const {selectedContext, setSelectedContext, removeContext, setStreamingText} = useChatStore()
+  const params = useParams();
+  const projectId = params?.projectId as string;
+  const { getToken } = useAuth();
 
   const [prompt, setPrompt] = useState("");
   const handleSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
@@ -53,6 +58,8 @@ export const ChatFooter = ({ conversationId, editor }: ChatFooterProps) => {
 
     if(!prompt.trim() && !selectedText) return
 
+    const token = await getToken({ template: "convex" }) ?? undefined;
+
     const response = await fetch("http://localhost:3000/api/ai/doc/agent", {
       method: "POST",
       headers: {
@@ -62,7 +69,10 @@ export const ChatFooter = ({ conversationId, editor }: ChatFooterProps) => {
         userMessage: prompt,
         selectedText,
         docContext,
-        cursorPosition
+        cursorPosition,
+        projectId,
+        source: 'ui',
+        token
       }),
     });
 

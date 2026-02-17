@@ -1,21 +1,30 @@
+
 import { ChatGroq } from "@langchain/groq";
 import { StateGraph, START, END } from "@langchain/langgraph";
 import { Annotation } from "@langchain/langgraph";
 import { RunnableConfig } from "@langchain/core/runnables";
+import { identifyProject } from "./nodes/identify-project";
+import { identifyFiles } from "./nodes/identify-files";
+import { fetchFileData } from "./nodes/fetch-file-data";
+import { explainContext } from "./nodes/explain-context";
 
 // ============= STATE ANNOTATION =============
-const AgentStateAnnotation = Annotation.Root({
+export const AgentStateAnnotation = Annotation.Root({
   // Input
   selectedText: Annotation<string>,
   userMessage: Annotation<string>,
   docContext: Annotation<string>,
   cursorPosition: Annotation<number>,
+  projectId: Annotation<string>,
+  source: Annotation<'ui' | 'mcp'>, // 'ui' vs 'mcp'
   
   // Processing
-  intent: Annotation<'schema' | 'table' | 'list' | 'code' | 'text' | 'general' | 'delete' | null>,
+  intent: Annotation<'context' | 'schema' | 'table' | 'list' | 'code' | 'text' | 'general' | 'delete' | null>,
   extractedData: Annotation<any>,
   confidence: Annotation<number>,
-  
+  targetFileIds: Annotation<string[]>,
+  fetchedContext: Annotation<string>,
+
   // Output
   operations: Annotation<EditOperation[]>,
   error: Annotation<string | undefined>,
@@ -85,37 +94,31 @@ Selected Text: "${state.selectedText}"
 
 Classify the intent into ONE of these categories:
 
-1. **schema**: Request to generate a database schema.
-2. **table**: Request to create a comparison or data table.
-3. **list**: Request to create a list (bullet points, checklist).
-4. **text**: Request to GENERATE, WRITE, REPHRASE, REWRITE, or SUMMARIZE text that should appear IN THE DOCUMENT. Examples: "Write a paragraph about...", "Expand this", "Rewrite this".
-5. **delete**: Request to remove, delete, or omit the selected text.
-6. **code**: Request to generate pseudo-code, algorithms, functions, classes, or system logic. Examples: "Create a multiply function", "design a generic interface", "pseudo code for auth flow".
-7. **general**: A conversational query (e.g., "Hi", "Explain this") that should be answered in CHAT, NOT inserted into the document. Use this ONLY if the user is asking a question about the AI or a general topic WITHOUT implying it should be written into the doc.
+1. **context**: Request to EXPLAIN, SEARCH, or QUERY project data (schema, files, structure, definitions).
+   - "Explain user schema"
+   - "What documents exist?"
+   - "How does the auth flow work?"
+   - "Show me the blocks in file X"
+2. **schema**: Request to GENERATE/DESIGN a NEW database schema (not explain an existing one).
+   - "Design a schema for a notification system"
+3. **table**: Request to create a comparison or data table.
+4. **list**: Request to create a list (bullet points, checklist).
+5. **text**: Request to GENERATE, WRITE, REPHRASE, REWRITE, or SUMMARIZE text that should appear IN THE DOCUMENT.
+6. **delete**: Request to remove, delete, or omit the selected text.
+7. **code**: Request to generate pseudo-code, algorithms, functions, classes, or system logic.
+8. **general**: A conversational query (e.g., "Hi", "Thanks") that doesn't need project context.
 
 Return ONLY valid JSON:
 {
-  "intent": "schema" | "table" | "list" | "text" | "delete" | "code" | "general",
+  "intent": "context" | "schema" | "table" | "list" | "text" | "delete" | "code" | "general",
   "confidence": 0.0-1.0,
   "reasoning": "brief explanation"
 }
-
-Examples:
-- "Add fields for usage tracking" -> schema
-- "Make a table comparing X and Y" -> table
-- "Rewrite this to be funnier" -> text
-- "Write a paragraph about elephants" -> text
-- "Remove this paragraph" -> delete
-- "Create a function to calculate factorial" -> code
-- "Design a User class interface" -> code
-- "What is the capital of France?" -> general (chat response)
-- "Hi there" -> general
 `;
 
   try {
     const result = await callAI(prompt, { returnJson: true });
     console.log("Intent classification result:", result);
-    
     return {
       intent: result.intent,
       confidence: result.confidence
@@ -212,6 +215,18 @@ Return ONLY valid JSON:
 // ============= NODE 4: GENERATE OPERATIONS =============
 async function generateOperations(state: typeof AgentStateAnnotation.State, config: RunnableConfig) {
   console.log("⚙️ Generating edit operations...");
+
+  // EDIT BLOCKING FOR EXTERNAL SOURCES
+  if (state.source === 'mcp') {
+      console.log("🚫 Blocking edit op from MCP source");
+      return {
+          operations: [{
+              type: 'chat_response',
+              position: state.cursorPosition,
+              content: "I cannot edit documents directly from this interface. I am in read-only mode."
+          }]
+      };
+  }
   
   const operations: EditOperation[] = [];
 
@@ -365,6 +380,8 @@ function routeByIntent(state: typeof AgentStateAnnotation.State): string {
   if (state.error) return END;
   
   switch (state.intent) {
+    case 'context':
+      return 'identifyProject';
     case 'schema':
       return 'extractSchema';
     case 'table':
@@ -383,11 +400,28 @@ function routeByIntent(state: typeof AgentStateAnnotation.State): string {
 // ============= BUILD THE GRAPH =============
 const workflow = new StateGraph(AgentStateAnnotation)
   .addNode('classifyIntent', classifyIntent)
+  .addNode('identifyProject', identifyProject)
+  .addNode('identifyFiles', identifyFiles)
+  .addNode('fetchFileData', fetchFileData)
+  .addNode('explainContext', explainContext)
   .addNode('extractSchema', extractSchemaData)
   .addNode('extractTable', extractTableData)
   .addNode('generateOps', generateOperations)
+
   .addEdge(START, 'classifyIntent')
   .addConditionalEdges('classifyIntent', routeByIntent)
+  
+  // Context Branch
+  .addEdge('identifyProject', 'identifyFiles') 
+  // identifyProject calls interrupt if needed, so it handles the control flow implicitly
+  
+  .addEdge('identifyFiles', 'fetchFileData') 
+  // identifyFiles calls interrupt if needed
+  
+  .addEdge('fetchFileData', 'explainContext')
+  .addEdge('explainContext', END)
+
+  // Edit Branch
   .addEdge('extractSchema', 'generateOps')
   .addEdge('extractTable', 'generateOps')
   .addEdge('generateOps', END);
@@ -400,6 +434,8 @@ export async function executeDocAgent(input: {
   userMessage: string;
   docContext: string;
   cursorPosition: number;
+  projectId?: string;
+  source?: 'ui' | 'mcp';
 }) {
   console.log("🚀 Starting doc edit agent...");
   
@@ -408,8 +444,12 @@ export async function executeDocAgent(input: {
     userMessage: input.userMessage,
     docContext: input.docContext,
     cursorPosition: input.cursorPosition,
+    projectId: input.projectId || "",
+    source: input.source || 'ui',
     intent: null,
     extractedData: null,
+    targetFileIds: [],
+    fetchedContext: "",
     confidence: 0,
     operations: [],
     error: undefined
