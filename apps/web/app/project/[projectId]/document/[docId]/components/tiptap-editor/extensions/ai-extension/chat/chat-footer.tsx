@@ -15,8 +15,11 @@ import { Editor } from "@tiptap/core";
 import { useParams } from "next/navigation";
 import { RESET_STREAMING_TEXT, useChatStore } from "../../../store/chat-store";
 import { useAuth } from "@clerk/nextjs";
-import { v4 as uuid } from "uuid";
 import { handleAIResponse } from "./ai-response-handlers/handle-ai-response";
+import { useMutation } from "convex/react";
+import { api } from "@workspace/backend/_generated/api";
+import { Id } from "@workspace/backend/_generated/dataModel";
+import { toast } from "sonner";
 
 interface ChatFooterProps {
   conversationId: string;
@@ -24,10 +27,14 @@ interface ChatFooterProps {
 }
 
 export const ChatFooter = ({ conversationId, editor }: ChatFooterProps) => {
-  const {selectedContext, setSelectedContext, removeContext, setStreamingText} = useChatStore()
+  const {selectedContext, setSelectedContext, removeContext, setStreamingText, setConversationId} = useChatStore()
   const params = useParams();
   const projectId = params?.projectId as string;
   const { getToken } = useAuth();
+  
+  const createConversation = useMutation(api.ai.conversations.startConversation);
+
+  const insertMessage = useMutation(api.ai.messages.insertMessage);
 
   const [prompt, setPrompt] = useState("");
   const handleSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
@@ -58,36 +65,99 @@ export const ChatFooter = ({ conversationId, editor }: ChatFooterProps) => {
 
     if(!prompt.trim() && !selectedText) return
 
-    const token = await getToken({ template: "convex" }) ?? undefined;
-
-    const response = await fetch("http://localhost:3000/api/ai/doc/agent", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        userMessage: prompt,
-        selectedText,
-        docContext,
-        cursorPosition,
-        projectId,
-        source: 'ui',
-        token
-      }),
-    });
-
-    if (!response.ok) {
-        console.error("Failed to fetch AI response");
-        return;
-    }
-
-    if (editor) {
-      handleAIResponse(response, editor, handlerSelection);
-    }
-
     setPrompt("");
     setSelectedContext("reset");
     
+    try {
+        let currentConversationId = conversationId;
+        
+        // 1. Create conversation if valid ID not present
+        if (!currentConversationId) {
+            // Generate title from first message
+            const title = prompt.slice(0, 30) + (prompt.length > 30 ? "..." : "");
+            currentConversationId = await createConversation({ organizationId: "personal", title }) as Id<"conversations">;
+            setConversationId(currentConversationId);
+        }
+
+        // 2. Save User Message
+        await insertMessage({
+            conversationId: currentConversationId as Id<"conversations">,
+            content: prompt,
+            role: "USER",
+            context: selectedContext
+        });
+
+        const token = await getToken({ template: "convex" }) ?? undefined;
+
+        const response = await fetch("http://localhost:3000/api/ai/doc/agent", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            userMessage: prompt,
+            selectedText,
+            docContext,
+            cursorPosition,
+            projectId,
+            source: 'ui',
+            token
+          }),
+        });
+    
+        if (!response.ok) {
+            console.error("Failed to fetch AI response");
+            return;
+        }
+
+        // 3. Handle Streaming Response
+        if(response.body){
+             const reader = response.body.getReader();
+             const decoder = new TextDecoder();
+             let aiResponseText = "";
+
+             while(true) {
+                 const { done, value } = await reader.read();
+                 if (done) break;
+
+                 const chunk = decoder.decode(value);
+                 const lines = chunk.split("\n").filter((line) => line.trim() !== "");
+
+                 for (const line of lines) {
+                     try {
+                         const data = JSON.parse(line);
+                         if (data.type === "token") {
+                             setStreamingText(data.content);
+                             aiResponseText += data.content;
+                         } 
+                         else if (data.type === "response" && editor) {
+                              // Execute operations (if any operation based logic remains)
+                              handleAIResponse({
+                                  ok:true,
+                                  json: async () => data.response
+                              } as any, editor, handlerSelection);
+                         }
+                     } catch(e) {
+                         console.error("Error parsing chunk", e);
+                     }
+                 }
+             }
+
+             // 4. Save AI Response
+             if(aiResponseText) {
+                 await insertMessage({
+                     conversationId: currentConversationId as Id<"conversations">,
+                     content: aiResponseText,
+                     role: "AI"
+                 });
+                 // Reset streaming text store after saving
+                 setStreamingText(RESET_STREAMING_TEXT);
+             }
+        }
+    } catch (error) {
+        console.error("Error in chat flow:", error);
+        toast.error("Failed to send message");
+    }
   };
   const handleKeyDown = (e: React.KeyboardEvent<HTMLFormElement>) => {
     if (e.key === " " || e.code === "Space") {

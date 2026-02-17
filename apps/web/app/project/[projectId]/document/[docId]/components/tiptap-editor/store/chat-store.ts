@@ -22,6 +22,10 @@ interface ChatStore {
     setShowAIPopup: (show: boolean | typeof TOGGLE_POPUP) => void
     editor: Editor | null
     setEditor: (editor: Editor | null) => void
+    conversationId: string | null
+    setConversationId: (id: string | null) => void
+    showHistory: boolean
+    setShowHistory: (show: boolean) => void
 }
 
 export const useChatStore = create<ChatStore>((set) => ({
@@ -51,4 +55,8 @@ export const useChatStore = create<ChatStore>((set) => ({
     })),
     editor: null,
     setEditor: (editor: Editor | null) => set({ editor }),
+    conversationId: null,
+    setConversationId: (id: string | null) => set({ conversationId: id }),
+    showHistory: false,
+    setShowHistory: (show: boolean) => set({ showHistory: show }),
 }))

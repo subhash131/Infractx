@@ -8,6 +8,8 @@ import { api } from "@workspace/backend/_generated/api";
 import { Id } from "@workspace/backend/_generated/dataModel";
 import { useQuery } from "convex/react";
 import { Editor } from "@tiptap/react";
+import { useChatStore } from "../../../store/chat-store";
+import { ChatHistory } from "./chat-history";
 
 interface ChatWindowProps {
   editor?: Editor | null;
@@ -21,12 +23,11 @@ export const ChatWindow = ({ editor, onClose }: ChatWindowProps) => {
   });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-  const [conversationId, setConversationId] = useState(
-    "mh78e9t21y3bven4937p7s0eyn7yeac8"
-  );
-  const messages = useQuery(api.ai.messages.listMessages, {
-    conversationId: conversationId as Id<"conversations">,
-  });
+  const { conversationId, showHistory } = useChatStore();
+
+  const messages = useQuery(api.ai.messages.listMessages, conversationId?{
+    conversationId: (conversationId as Id<"conversations">),
+  }:"skip");
 
   const handleMouseDown = (e: React.MouseEvent) => {
     setIsDragging(true);
@@ -90,8 +91,14 @@ export const ChatWindow = ({ editor, onClose }: ChatWindowProps) => {
       }}
     >
       <ChatHeader onMouseDown={handleMouseDown} onClose={onClose} />
-      <ChatBody messages={messages ?? []} />
-      <ChatFooter conversationId={conversationId} editor={editor ?? undefined}/>
+      {showHistory ? (
+        <ChatHistory />
+      ) : (
+        <>
+          <ChatBody messages={messages ?? []} />
+          <ChatFooter conversationId={conversationId ?? ""} editor={editor ?? undefined}/>
+        </>
+      )}
     </div>
   );
 };
