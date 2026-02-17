@@ -10,7 +10,7 @@ import { useQuery } from "convex/react";
 import { Editor } from "@tiptap/react";
 
 interface ChatWindowProps {
-  editor: Editor;
+  editor?: Editor | null;
   onClose?: () => void;
 }
 
@@ -91,7 +91,7 @@ export const ChatWindow = ({ editor, onClose }: ChatWindowProps) => {
     >
       <ChatHeader onMouseDown={handleMouseDown} onClose={onClose} />
       <ChatBody messages={messages ?? []} />
-      <ChatFooter conversationId={conversationId} editor={editor}/>
+      <ChatFooter conversationId={conversationId} editor={editor ?? undefined}/>
     </div>
   );
 };

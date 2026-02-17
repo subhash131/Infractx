@@ -18,7 +18,7 @@ import { handleAIResponse } from "./ai-response-handlers/handle-ai-response";
 
 interface ChatFooterProps {
   conversationId: string;
-  editor: Editor;
+  editor?: Editor | null;
 }
 
 export const ChatFooter = ({ conversationId, editor }: ChatFooterProps) => {
@@ -29,7 +29,7 @@ export const ChatFooter = ({ conversationId, editor }: ChatFooterProps) => {
     e.preventDefault();
 
     let selectedText = selectedContext.map((context) => context.text).join("\n");
-    let cursorPosition = editor.state.selection.from;
+    let cursorPosition = editor?.state.selection.from ?? 0;
     
     // Selection coordinates to pass to handler (for UI update)
     let handlerSelection = { from: 0, to: 0 };
@@ -39,7 +39,7 @@ export const ChatFooter = ({ conversationId, editor }: ChatFooterProps) => {
             from: selectedContext[0]?.from || 0,
             to: selectedContext[0]?.to || 0 
         };
-    } else {
+    } else if (editor) {
         // Use current editor selection if context is empty
         const { from, to, empty } = editor.state.selection;
         if (!empty) {
@@ -49,7 +49,7 @@ export const ChatFooter = ({ conversationId, editor }: ChatFooterProps) => {
         }
     }
 
-    const docContext = editor.getText(); // Sending full text for context
+    const docContext = editor?.getText() ?? ""; // Sending full text for context
 
     if(!prompt.trim() && !selectedText) return
 
@@ -71,7 +71,9 @@ export const ChatFooter = ({ conversationId, editor }: ChatFooterProps) => {
         return;
     }
 
-    handleAIResponse(response, editor, handlerSelection);
+    if (editor) {
+      handleAIResponse(response, editor, handlerSelection);
+    }
 
     setPrompt("");
     setSelectedContext("reset");

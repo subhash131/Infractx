@@ -42,7 +42,6 @@ import { api } from "@workspace/backend/_generated/api"
 import { MobileToolbarContent } from "./mobile-toolbar-content"
 import { MainToolbarContent } from "./main-toolbar-content"
 import { debounce } from "lodash"
-import { v4 as uuid } from "uuid"
 import { useConvex } from "convex/react"
 
 import dynamic from "next/dynamic";
@@ -61,9 +60,8 @@ import { TableBlockExtensions } from "../../../extensions/table/block"
 import { parseBlocksToTiptapDocument } from "../../../utils/parse-blocks-to-tiptap-doc"
 import { BlockData } from "../../../extensions/types"
 import { syncEditorToDatabase } from "../../../utils/sync-editor-to-database"
-import { AIInputPopup } from "../../../extensions/ai-extension/ai-input-popup"
 import { TableToolbar } from "../../tiptap-ui/table-toolbar/table-toolbar"
-import { TOGGLE_POPUP, useChatStore } from "../../../store/chat-store"
+import { useChatStore } from "../../../store/chat-store"
 
 const Toolbar = dynamic(
   () =>
@@ -84,7 +82,7 @@ export function SimpleEditor({textFileId}:{textFileId:Id<"text_files">}) {
   const [mobileView, setMobileView] = useState<"main" | "highlighter" | "link">(
     "main"
   )
-  const {setSelectedContext, showAIPopup, setShowAIPopup} = useChatStore()
+  const {setEditor} = useChatStore()
   const toolbarRef = useRef<HTMLDivElement>(null)
   
   const convex = useConvex();
@@ -288,56 +286,15 @@ export function SimpleEditor({textFileId}:{textFileId:Id<"text_files">}) {
     }
   }, [isMobile, mobileView])
 
+  // Register editor in the global store so the page-level chat can use it
   useEffect(() => {
-    const handleToggleAIInput = (event: Event) => {
-      const customEvent = event as CustomEvent
-      const { from, to, togglePopup } = customEvent.detail
-      
-      console.log('Received toggle-ai-chat event:', { from, to, togglePopup })
-      if(togglePopup){
-        setShowAIPopup(TOGGLE_POPUP)
-      }else{
-        setShowAIPopup(true)
-      }
-
-      console.log({editor})
-      const selectedText = editor?.state?.doc?.textBetween(from, to);
-      console.log({selectedText})
-      if(selectedText?.trim()){
-        setSelectedContext({
-          text: selectedText,
-          from: from,
-          to: to,
-          id: uuid()
-        });
-      }      
-
-      editor?.commands.setTextSelection({from:0,to:0})
+    if (editor) {
+      setEditor(editor)
     }
-
-    const handleKeyPress = (event: KeyboardEvent) => {
-      if (event.key === 'Tab' && event.shiftKey) {
-        event.preventDefault();
-        setShowAIPopup(true)
-        // Focus the textarea after React renders the chat popup
-        setTimeout(() => {
-          document.getElementById('ai-chat-textarea')?.focus();
-        }, 0);
-      }
-    };
-
-    window.addEventListener('toggle-ai-chat', handleToggleAIInput)
-    window.addEventListener('keydown', handleKeyPress)
-
     return () => {
-      window.removeEventListener('toggle-ai-chat', handleToggleAIInput)
-      window.removeEventListener('keydown', handleKeyPress)
+      setEditor(null)
     }
-  }, [editor])
-
-  const handleClosePopup = () => {
-    setShowAIPopup(false)
-  }
+  }, [editor, setEditor])
   
   return (
     <Suspense fallback={<div className="text-white">Loading...</div>}>
@@ -375,12 +332,6 @@ export function SimpleEditor({textFileId}:{textFileId:Id<"text_files">}) {
             role="presentation"
             className="simple-editor-content hide-scrollbar"
           />
-          {editor && showAIPopup && (
-            <AIInputPopup
-              editor={editor}
-              onClose={handleClosePopup}
-            />
-          )}
           {editor && <TableToolbar editor={editor} />}
         </EditorContext.Provider>
       </div>

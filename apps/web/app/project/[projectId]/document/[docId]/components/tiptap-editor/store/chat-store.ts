@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import type { Editor } from '@tiptap/react'
 
 type SelectedContext = {
     text: string;
@@ -19,6 +20,8 @@ interface ChatStore {
     setStreamingText: (text: string) => void
     showAIPopup: boolean
     setShowAIPopup: (show: boolean | typeof TOGGLE_POPUP) => void
+    editor: Editor | null
+    setEditor: (editor: Editor | null) => void
 }
 
 export const useChatStore = create<ChatStore>((set) => ({
@@ -45,5 +48,7 @@ export const useChatStore = create<ChatStore>((set) => ({
     }),
     removeContext: (id: string) => set((state) => ({
         selectedContext: state.selectedContext.filter((context) => context.id !== id)
-    }))
+    })),
+    editor: null,
+    setEditor: (editor: Editor | null) => set({ editor }),
 }))
