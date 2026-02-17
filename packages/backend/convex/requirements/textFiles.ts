@@ -150,22 +150,7 @@ export const duplicateFile = mutation({
     });
 
     // Duplicate all blocks associated with this file
-    const blocks = await ctx.db
-      .query("blocks")
-      .withIndex("by_text_file", (q) => q.eq("textFileId", args.fileId))
-      .collect();
-
-    for (const block of blocks) {
-      await ctx.db.insert("blocks", {
-        textFileId: newId,
-        parentId: block.parentId,
-        type: block.type,
-        props: block.props,
-        content: block.content,
-        rank: block.rank,
-        externalId: crypto.randomUUID(),
-      });
-    }
+    await duplicateBlocks(ctx, args.fileId, newId);
 
     // If it's a folder, recursively duplicate children
     if (file.type === "FOLDER") {
@@ -201,22 +186,7 @@ async function duplicateFileRecursive(
   });
 
   // Duplicate all blocks associated with this file
-  const blocks = await ctx.db
-    .query("blocks")
-    .withIndex("by_text_file", (q: any) => q.eq("textFileId", fileId))
-    .collect();
-
-  for (const block of blocks) {
-    await ctx.db.insert("blocks", {
-      textFileId: newId,
-      parentId: block.parentId,
-      type: block.type,
-      props: block.props,
-      content: block.content,
-      rank: block.rank,
-      externalId: crypto.randomUUID(),
-    });
-  }
+  await duplicateBlocks(ctx, fileId, newId);
 
   if (file.type === "FOLDER") {
     const children = await ctx.db
@@ -227,5 +197,37 @@ async function duplicateFileRecursive(
     for (const child of children) {
       await duplicateFileRecursive(ctx, child._id, newId);
     }
+  }
+}
+
+async function duplicateBlocks(
+  ctx: any,
+  sourceFileId: any,
+  newFileId: any
+) {
+  const blocks = await ctx.db
+    .query("blocks")
+    .withIndex("by_text_file", (q: any) => q.eq("textFileId", sourceFileId))
+    .collect();
+
+  // Build mapping: oldExternalId → newExternalId
+  const idMap: Record<string, string> = {};
+  for (const block of blocks) {
+    idMap[block.externalId] = crypto.randomUUID();
+  }
+
+  // Insert blocks with remapped parentId and externalId
+  for (const block of blocks) {
+    await ctx.db.insert("blocks", {
+      textFileId: newFileId,
+      parentId: block.parentId && idMap[block.parentId]
+        ? idMap[block.parentId]
+        : block.parentId,
+      type: block.type,
+      props: block.props,
+      content: block.content,
+      rank: block.rank,
+      externalId: idMap[block.externalId],
+    });
   }
 }

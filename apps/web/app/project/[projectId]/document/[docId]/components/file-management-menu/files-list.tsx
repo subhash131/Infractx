@@ -329,10 +329,20 @@ export const FilesList = ({ docId }: { docId: Id<"documents"> }) => {
 
   const handleDelete = async (itemId: string) => {
     await deleteFile({ fileId: itemId as Id<"text_files"> });
+    setSelectedFileId(null);
+    // Clean up tree state to remove references to deleted item
+    setState(prev => ({
+      ...prev,
+      selectedItems: (prev.selectedItems || []).filter(id => id !== itemId),
+      expandedItems: (prev.expandedItems || []).filter(id => id !== itemId),
+    }));
   };
 
   const handleDuplicate = async (itemId: string) => {
-    await duplicateFile({ fileId: itemId as Id<"text_files"> });
+    const newFileId = await duplicateFile({ fileId: itemId as Id<"text_files"> });
+    if (newFileId) {
+      setSelectedFileId(newFileId);
+    }
   };
 
   const handleCut = (itemId: string) => {
@@ -368,7 +378,6 @@ export const FilesList = ({ docId }: { docId: Id<"documents"> }) => {
         });
       }
     }
-
     setClipboard(null);
   };
 
