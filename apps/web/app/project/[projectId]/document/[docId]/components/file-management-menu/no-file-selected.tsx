@@ -66,7 +66,7 @@ export const NoFileSelected = ({
           onClick={handleChatWithAI}
         >
           <MessageCircle />
-          Chat with AI
+          Chat with AI <span className="text-[10px] text-gray-400 ml-1">shift + tab</span>
         </Button>
       </div>
     </div>
