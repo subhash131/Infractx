@@ -10,6 +10,7 @@
 
 import type * as ai_conversations from "../ai/conversations.js";
 import type * as ai_messages from "../ai/messages.js";
+import type * as api_keys from "../api_keys.js";
 import type * as auth_auth from "../auth/auth.js";
 import type * as design_constants from "../design/constants.js";
 import type * as design_files from "../design/files.js";
@@ -32,6 +33,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   "ai/conversations": typeof ai_conversations;
   "ai/messages": typeof ai_messages;
+  api_keys: typeof api_keys;
   "auth/auth": typeof auth_auth;
   "design/constants": typeof design_constants;
   "design/files": typeof design_files;

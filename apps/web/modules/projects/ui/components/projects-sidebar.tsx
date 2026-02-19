@@ -20,6 +20,9 @@ import { useTheme } from "next-themes";
 import { SignOutButton } from "@clerk/nextjs";
 import { Logout01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { ApiKeyDialog } from "./api-key-dialog";
+import { useState } from "react";
+import { KeyIcon } from "lucide-react";
 
 type SidebarItem = {
   title: string;
@@ -44,6 +47,7 @@ const configurationItems: SidebarItem[] = [];
 const ProjectsSidebar = () => {
   const pathname = usePathname();
   const { theme, setTheme } = useTheme();
+  const [showApiKeys, setShowApiKeys] = useState(false);
   const isActive = (url: string) => {
     if (url === "/") return pathname === "/";
     return pathname.startsWith(url);
@@ -82,6 +86,13 @@ const ProjectsSidebar = () => {
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
+            <SidebarMenuButton onClick={() => setShowApiKeys(true)}>
+               <div className="flex items-center justify-center gap-2">
+                 <KeyIcon className="size-4" /> API Keys
+               </div>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
             <SignOutButton redirectUrl="/sign-in">
               <div className="flex items-center justify-center gap-2">
                 <HugeiconsIcon icon={Logout01Icon} /> Sign Out
@@ -91,6 +102,7 @@ const ProjectsSidebar = () => {
         </SidebarMenu>
       </SidebarFooter>
       <SidebarRail className="!cursor-col-resize" />
+      <ApiKeyDialog open={showApiKeys} onOpenChange={setShowApiKeys} />
     </Sidebar>
   );
 };
