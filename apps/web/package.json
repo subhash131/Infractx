@@ -9,7 +9,8 @@
     "start": "next start",
     "lint": "next lint",
     "lint:fix": "next lint --fix",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "token": "npx tsx scripts/generate-token.ts"
   },
   "dependencies": {
     "@ai-sdk/google": "^2.0.52",
@@ -36,6 +37,7 @@
     "@mantine/core": "^8.3.13",
     "@mantine/hooks": "^8.3.13",
     "@mantine/utils": "^6.0.22",
+    "@modelcontextprotocol/sdk": "^1.26.0",
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-alert-dialog": "^1.1.15",
     "@radix-ui/react-aspect-ratio": "^1.1.8",
@@ -133,14 +135,17 @@
     "zustand": "^5.0.10"
   },
   "devDependencies": {
+    "@clerk/backend": "^2.29.5",
     "@tailwindcss/postcss": "^4.1.18",
     "@types/lodash.throttle": "^4.1.9",
     "@types/node": "^20.19.30",
     "@types/react": "^19.2.10",
     "@types/react-dom": "^19.2.3",
+    "@types/uuid": "^11.0.0",
     "@workspace/eslint-config": "workspace:^",
     "@workspace/typescript-config": "workspace:*",
     "baseline-browser-mapping": "^2.9.19",
+    "dotenv": "^17.3.1",
     "eslint": "^9.39.2",
     "sass": "^1.97.3",
     "typescript": "^5.9.3"

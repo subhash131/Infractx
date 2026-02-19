@@ -200,6 +200,16 @@ export default defineSchema({
     updatedAt: v.number(),
   }).index("by_doc", ["docId"]).index("by_project", ["projectId"]),
 
+  api_keys: defineTable({
+    key: v.string(),
+    userId: v.string(),
+    name: v.optional(v.string()),
+    lastUsedAt: v.optional(v.number()),
+    createdAt: v.number(),
+  })
+    .index("by_key", ["key"])
+    .index("by_user", ["userId"]),
+
   blocks: defineTable({
     textFileId: v.id("text_files"),
     parentId: v.optional(v.union(v.string(),v.null())),
