@@ -24,16 +24,7 @@ export const createProject = mutation({
       createdAt: Date.now(),
       updatedAt: Date.now(),
     });
-
-    await ctx.db.insert("documents", {
-      title: "New Canvas",
-      description: "canvas for visual design",
-      type: "CANVAS",
-      projectId: projectId,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    });
-
+    
     await ctx.db.insert("documents", {
       title: "New Text Document",
       description: "Default text document",
