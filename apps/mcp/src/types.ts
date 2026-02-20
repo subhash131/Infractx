@@ -7,10 +7,19 @@ export interface ClerkPayload {
   [key: string]: any;
 }
 
+export interface AuthContext {
+  userId: string;
+  token: string;
+  orgId?: string;
+  keyId?: string;
+}
+
 export type Session = {
   server: McpServer;
   transport: StreamableHTTPServerTransport;
   createdAt: number;
   userId?: string;
-  clerkToken?: string;
+  orgId?: string;
+  keyId?: string;
+  clerkToken?: string; // Kept for backward compatibility if needed
 };

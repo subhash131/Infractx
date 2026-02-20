@@ -8,7 +8,7 @@ import {
   SESSION_MAX_AGE,
 } from "./config.js";
 import { Session } from "./types.js";
-import { extractAuthToken, authenticateSession } from "./utils/auth.js";
+import { extractAuthToken, resolveAuth } from "./utils/auth.js";
 import { createSession, cleanupOldSessions } from "./utils/session.js";
 
 const app = express();
@@ -48,46 +48,55 @@ const sessions = new Map<string, Session>();
    MCP Endpoint
 ========================= */
 
+app.options("/mcp", (_, res) => {
+  res.sendStatus(204);
+});
+
 app.all("/mcp", async (req: Request, res: Response) => {
   try {
-    const existingSessionId = req.headers["mcp-session-id"] as
-      | string
-      | undefined;
+    const existingSessionId = req.headers["mcp-session-id"] as string | undefined;
+    
+    console.log(`\n[DEBUG] ${req.method} ${req.url}`);
+    console.log(`[DEBUG] Headers:`, JSON.stringify(req.headers, null, 2));
+    
+    const authToken = extractAuthToken(req);
 
     // Detect if this is an initialize request
-    const isInitialize =
-      req.method === "POST" && req.body?.method === "initialize";
+    const isInitialize = req.method === "POST" && req.body?.method === "initialize";
 
     let sessionId: string;
 
     if (isInitialize || !existingSessionId) {
-      // Extract auth token from request
-      const authToken = extractAuthToken(req);
+      // Resolve auth context
+      const authContext = authToken ? await resolveAuth(authToken) : null;
+
+      if (!authContext) {
+        console.warn(`[AUTH] Refusing session initialization: No valid auth token provided`);
+        res.status(401).json({ error: "Authentication required" });
+        return;
+      }
 
       // Create a fresh session for initialize requests
       sessionId = crypto.randomUUID();
       console.log(
-        `\n[REQUEST] POST /mcp | New session=${sessionId}${authToken ? " | Auth provided" : ""}`,
+        `\n[REQUEST] ${req.method} /mcp | New session=${sessionId} | Auth: user=${authContext.userId}`,
       );
 
-      const session = await createSession(sessionId);
+      const session = await createSession(sessionId, authContext);
       sessions.set(sessionId, session);
 
-      // Authenticate the session if token provided
-      if (authToken) {
-        const authSuccess = await authenticateSession(
-          sessionId,
-          authToken,
-          session,
-        );
-        if (!authSuccess) {
-          console.warn(`[AUTH] Authentication failed for session ${sessionId}`);
-        }
-      }
-
       res.setHeader("mcp-session-id", sessionId);
-      await session.transport.handleRequest(req, res, req.body);
+
+      if (req.method === "GET") {
+        res.setHeader("Content-Type", "text/event-stream");
+        res.setHeader("Cache-Control", "no-cache");
+        res.setHeader("Connection", "keep-alive");
+        await session.transport.handleRequest(req, res);
+      } else {
+        await session.transport.handleRequest(req, res, req.body);
+      }
     } else {
+
       sessionId = existingSessionId;
       const session = sessions.get(sessionId);
 
@@ -97,20 +106,20 @@ app.all("/mcp", async (req: Request, res: Response) => {
         return;
       }
 
+      // Log session details
       console.log(
-        `\n[REQUEST] ${req.method} /mcp | session=${sessionId}${session.userId ? ` | user=${session.userId}` : ""}`,
+        `\n[REQUEST] ${req.method} /mcp | session=${sessionId}${session.userId ? ` | user=${session.userId}` : ""}${session.orgId ? ` | org=${session.orgId}` : ""}`,
       );
 
-      // Check if auth token provided for existing session
-      const authToken = extractAuthToken(req);
-      if (authToken && !session.userId) {
-        const authSuccess = await authenticateSession(
-          sessionId,
-          authToken,
-          session,
-        );
-        if (!authSuccess) {
-          console.warn(`[AUTH] Authentication failed for session ${sessionId}`);
+      // Check for token updates
+      if (authToken) {
+        const auth = await resolveAuth(authToken);
+        if (auth && (!session.userId || session.userId !== auth.userId)) {
+           console.log(`[AUTH] Updating session ${sessionId} context for user ${auth.userId}`);
+           session.userId = auth.userId;
+           session.orgId = auth.orgId;
+           session.keyId = auth.keyId;
+           session.clerkToken = auth.token;
         }
       }
 
@@ -130,10 +139,6 @@ app.all("/mcp", async (req: Request, res: Response) => {
     console.error("[ERROR]", err);
     res.status(500).json({ error: "Internal MCP server error" });
   }
-});
-
-app.options("/mcp", (_, res) => {
-  res.sendStatus(200);
 });
 
 /* =========================

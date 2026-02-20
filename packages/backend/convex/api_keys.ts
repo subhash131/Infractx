@@ -2,6 +2,7 @@
 import { v } from "convex/values";
 import { mutation, query, internalQuery } from "./_generated/server";
 import { ConvexError } from "convex/values";
+import { api } from "./_generated/api";
 
 // Helper to generate a random key
 function generateKey() {
@@ -21,12 +22,15 @@ export const generate = mutation({
       throw new ConvexError("Unauthorized");
     }
 
+
+
     const key = generateKey();
     
     await ctx.db.insert("api_keys", {
       key,
       userId: identity.subject,
       name: args.name,
+      orgId: identity.org_id?.toString() || undefined,
       createdAt: Date.now(),
     });
 
@@ -86,7 +90,9 @@ export const validate = query({
 
     return {
       userId: keyRecord.userId,
-      keyId: keyRecord._id
+      keyId: keyRecord._id,
+      orgId: keyRecord.orgId,
     };
   },
 });
+

@@ -203,12 +203,14 @@ export default defineSchema({
   api_keys: defineTable({
     key: v.string(),
     userId: v.string(),
+    orgId: v.optional(v.string()),
     name: v.optional(v.string()),
     lastUsedAt: v.optional(v.number()),
     createdAt: v.number(),
   })
     .index("by_key", ["key"])
-    .index("by_user", ["userId"]),
+    .index("by_user", ["userId"])
+    .index("by_user_org", ["userId","orgId"]),
 
   blocks: defineTable({
     textFileId: v.id("text_files"),
