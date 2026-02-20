@@ -97,7 +97,7 @@ export const ChatFooter = ({ conversationId, editor }: ChatFooterProps) => {
           body: JSON.stringify({
             userMessage: prompt,
             selectedText,
-            docContext,
+            // docContext, // TODO
             cursorPosition,
             projectId,
             source: 'ui',
@@ -112,7 +112,16 @@ export const ChatFooter = ({ conversationId, editor }: ChatFooterProps) => {
 
         // 3. Handle Streaming Response
         if(response.body){
-             const reader = response.body.getReader();
+             let streamReader;
+             if (editor) {
+                 const [stream1, stream2] = response.body.tee();
+                 handleAIResponse(new Response(stream1), editor, handlerSelection).catch(console.error);
+                 streamReader = stream2.getReader();
+             } else {
+                 streamReader = response.body.getReader();
+             }
+
+             const reader = streamReader;
              const decoder = new TextDecoder();
              let aiResponseText = "";
 
@@ -126,17 +135,10 @@ export const ChatFooter = ({ conversationId, editor }: ChatFooterProps) => {
                  for (const line of lines) {
                      try {
                          const data = JSON.parse(line);
-                         if (data.type === "token") {
+                         if (data.type === "chat_token") {
                              setStreamingText(data.content);
                              aiResponseText += data.content;
                          } 
-                         else if (data.type === "response" && editor) {
-                              // Execute operations (if any operation based logic remains)
-                              handleAIResponse({
-                                  ok:true,
-                                  json: async () => data.response
-                              } as any, editor, handlerSelection);
-                         }
                      } catch(e) {
                          console.error("Error parsing chunk", e);
                      }

@@ -31,7 +31,7 @@ export async function explainContext(state: typeof AgentStateAnnotation.State, c
 
     const stream = await groq.stream([
         { role: "user", content: prompt }
-    ], { ...config, tags: ['streamable'] });
+    ], { ...config, tags: ['chat_stream'] });
 
     let finalResponse = "";
     
