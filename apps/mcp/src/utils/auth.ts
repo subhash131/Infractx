@@ -1,6 +1,6 @@
 import { Request } from "express";
-import { CLERK_JWT_ISSUER } from "../config.js";
-import { ClerkPayload, Session } from "../types.js";
+import { ClerkPayload, Session, AuthContext } from "../types.js";
+import { CONVEX_URL, CLERK_JWT_ISSUER } from "../config.js";
 
 export function verifyClerkJWT(token: string): ClerkPayload | null {
   try {
@@ -31,9 +31,76 @@ export function verifyClerkJWT(token: string): ClerkPayload | null {
 
 export function extractAuthToken(req: Request): string | null {
   const authHeader = req.headers.authorization;
+  console.log(`[AUTH] Authorization header present: ${!!authHeader}`);
+  
   if (authHeader?.startsWith("Bearer ")) {
-    return authHeader.substring(7);
+    const token = authHeader.substring(7);
+    console.log(`[AUTH] Token starts with: ${token.substring(0, 10)}...`);
+    return token;
   }
+  
+  if (authHeader) {
+    console.warn(`[AUTH] Authorization header found but does not start with "Bearer "`);
+  }
+  
+  return null;
+}
+
+export async function validateConvexApiKey(key: string): Promise<{ userId: string; orgId?: string; keyId: string } | null> {
+  try {
+    const response = await fetch(`${CONVEX_URL}/api/query`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        path: "api_keys:validate",
+        args: { key },
+        format: "json",
+      }),
+    });
+
+    if (!response.ok) {
+      console.error("[AUTH] Convex validation request failed:", response.statusText);
+      return null;
+    }
+
+    const data = await response.json();
+    if (data.status === "success" && data.value) {
+      console.log("[AUTH] Convex validation success:", data.value.userId);
+      return data.value;
+    }
+    
+    console.warn("[AUTH] Convex validation failed or returned no data:", data);
+    return null;
+  } catch (err) {
+    console.error("[AUTH] Error validating API key:", err);
+    return null;
+  }
+}
+
+export async function resolveAuth(token: string): Promise<AuthContext | null> {
+  if (token.startsWith("sk_live_")) {
+    const validationResult = await validateConvexApiKey(token);
+    if (validationResult) {
+      return {
+        userId: validationResult.userId,
+        token: token,
+        orgId: validationResult.orgId,
+        keyId: validationResult.keyId,
+      };
+    }
+    return null;
+  }
+
+  const payload = verifyClerkJWT(token);
+  if (payload && payload.sub) {
+    return {
+      userId: payload.sub,
+      token: token,
+    };
+  }
+
   return null;
 }
 
@@ -42,17 +109,19 @@ export async function authenticateSession(
   token: string,
   session: Session,
 ): Promise<boolean> {
-  const payload = verifyClerkJWT(token);
-
-  if (!payload || !payload.sub) {
-    console.error("[AUTH] Failed to verify JWT for session:", sessionId);
+  const auth = await resolveAuth(token);
+  if (!auth) {
+    console.error("[AUTH] Failed to resolve auth for session:", sessionId);
     return false;
   }
 
-  session.userId = payload.sub;
-  session.clerkToken = token;
+  session.userId = auth.userId;
+  session.orgId = auth.orgId;
+  session.keyId = auth.keyId;
+  session.clerkToken = auth.token;
+
   console.log(
-    `[AUTH] Session ${sessionId} authenticated as user ${payload.sub}`,
+    `[AUTH] Session ${sessionId} authenticated for user ${auth.userId}`,
   );
 
   return true;

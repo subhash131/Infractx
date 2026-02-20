@@ -1,15 +1,14 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import { Session } from "../types.js";
+import { Session, AuthContext } from "../types.js";
 import { registerTools } from "./tools-registry.js";
 
 export async function createSession(
   sessionId: string,
-  userId?: string,
-  token?: string,
+  auth?: AuthContext | null,
 ): Promise<Session> {
   console.log(
-    `[SESSION] Creating new session: ${sessionId}${userId ? ` for user ${userId}` : ""}`,
+    `[SESSION] Creating new session: ${sessionId}${auth ? ` for user ${auth.userId}` : ""}`,
   );
 
   const server = new McpServer({
@@ -18,7 +17,7 @@ export async function createSession(
   });
 
   // Register all tools for this server instance
-  await registerTools(server, userId, token);
+  await registerTools(server, auth?.userId, auth?.token);
 
   const transport = new StreamableHTTPServerTransport({
     sessionIdGenerator: () => sessionId,
@@ -30,8 +29,10 @@ export async function createSession(
     server,
     transport,
     createdAt: Date.now(),
-    userId,
-    clerkToken: token,
+    userId: auth?.userId,
+    orgId: auth?.orgId,
+    keyId: auth?.keyId,
+    clerkToken: auth?.token,
   };
 }
 
