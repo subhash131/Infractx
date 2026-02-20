@@ -54,10 +54,14 @@ export const POST = async (req:NextRequest) => {
                                 controller.enqueue(encoder.encode(JSON.stringify({ type: "title", content: token }) + "\n"));
                             }
                         }
-                        else if (event.tags?.includes("streamable")) {
+                        else if (event.tags?.includes("chat_stream")) {
                             if (token) {
-                                console.log(token);
-                                controller.enqueue(encoder.encode(JSON.stringify({ type: "token", content: token }) + "\n"));
+                                controller.enqueue(encoder.encode(JSON.stringify({ type: "chat_token", content: token }) + "\n"));
+                            }
+                        }
+                        else if (event.tags?.includes("doc_stream") || event.tags?.includes("streamable")) {
+                            if (token) {
+                                controller.enqueue(encoder.encode(JSON.stringify({ type: "doc_token", content: token }) + "\n"));
                             }
                         }
                     }

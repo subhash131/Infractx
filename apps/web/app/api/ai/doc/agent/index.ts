@@ -362,12 +362,32 @@ Context:
 
 Provide a helpful, concise response to the user.
 If the user asks about the document, use the provided Context.`;
-      const response = await callAI(prompt, { tags: ['streamable'], config });
+      const response = await callAI(prompt, { tags: ['chat_stream'], config });
       operations.push({
           type: 'chat_response',
           position: state.cursorPosition,
           content: response
       });
+  }
+
+  if (state.source === 'ui' && state.intent !== 'general' && operations.length > 0) {
+    const chatPrompt = `You are a helpful AI assistant. You just updated the document based on the user's request: "${state.userMessage}".\n\nProvide a very brief (1-2 sentences), friendly confirmation that you've made the requested changes. Do not include the content of the changes, just the confirmation.`;
+    
+    try {
+        const chatResponse = await callAI(chatPrompt, { tags: ['chat_stream'], config });
+        operations.push({
+            type: 'chat_response',
+            position: state.cursorPosition,
+            content: chatResponse
+        });
+    } catch (e) {
+        console.error("Failed to generate chat response:", e);
+        operations.push({
+            type: 'chat_response',
+            position: state.cursorPosition,
+            content: "I have updated the document based on your request."
+        });
+    }
   }
 
   return { operations };

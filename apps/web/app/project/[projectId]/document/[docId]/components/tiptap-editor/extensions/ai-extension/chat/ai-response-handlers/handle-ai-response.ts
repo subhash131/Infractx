@@ -58,7 +58,7 @@ export const handleAIResponse = async (
                  currentBlockTitle += json.content;
                  // console.log("🤖 Received Title Chunk:", json.content);
              }
-             else if (json.type === "token") {
+             else if (json.type === "doc_token" || json.type === "token") {
                  if (currentIntent === "general") {
                      // Log token for chat
                      console.log("Chat Token:", json.content);
@@ -196,7 +196,7 @@ const processResponse = (
   }
 
   // Handle direct single operation (fallback)
-  if (response.type && response.type !== "token" && response.type !== "intent") {
+  if (response.type && !["token", "intent", "chat_token", "doc_token", "title"].includes(response.type)) {
       applyOperation(response, editor, selection);
   }
 }
