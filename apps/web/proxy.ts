@@ -3,14 +3,19 @@ import { NextResponse } from "next/server";
 
 const isPublicRoute = createRouteMatcher([
   "/",
+  "/pricing(.*)",
+  "/api/public(.*)",
+]);
+
+const isAuthRoute = createRouteMatcher([
   "/sign-in(.*)",
   "/sign-up(.*)",
-  "/api/public(.*)",
 ]);
 
 const isIgnoredRoute = createRouteMatcher([
   "/api/inngest(.*)",
   "/api/ai(.*)",
+  "/api/checkout(.*)",
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
@@ -22,12 +27,12 @@ export default clerkMiddleware(async (auth, req) => {
   const session = await auth();
 
   // 1. If user is signed in and tries to access auth pages, send them home
-  if (session.userId && isPublicRoute(req)) {
+  if (session.userId && isAuthRoute(req)) {
     return NextResponse.redirect(new URL("/projects", req.url));
   }
 
   // 2. Protect non-public routes
-  if (!isPublicRoute(req) && !session.userId) {
+  if (!isPublicRoute(req) && !isAuthRoute(req) && !session.userId) {
     return session.redirectToSignIn();
   }
 });
