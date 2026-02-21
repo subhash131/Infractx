@@ -1,8 +1,7 @@
-import { AgentStateAnnotation, callAI } from "../index";
+import { AgentStateAnnotation, callAI, ChatMessage } from "../index";
 
 export async function extractTableData(state: typeof AgentStateAnnotation.State) {
   console.log("📋 Extracting table data...");
-  
   const prompt = `Create a comparison table from this request:
 
 ${state.userMessage}
@@ -19,7 +18,16 @@ Return ONLY valid JSON:
 }`;
 
   try {
-    const result = await callAI(prompt, { returnJson: true });
+    const messages: ChatMessage[] = state.chatHistory?.length > 0 
+      ? state.chatHistory.slice(-5).map((m: any) => ({
+          role: m.role?.toLowerCase() === 'user' ? 'user' : 'assistant',
+          content: m.content || ""
+      }))
+      : [];
+
+    messages.push({ role: "user" as const, content: prompt });
+
+    const result = await callAI(messages, { returnJson: true });
     return { extractedData: result };
   } catch (error) {
     return { error: "Failed to extract table data" };

@@ -1,11 +1,8 @@
 
 import { Annotation, interrupt } from "@langchain/langgraph";
 import { RunnableConfig } from "@langchain/core/runnables";
-import { AgentStateAnnotation } from "../index";
+import { AgentStateAnnotation, callAI, ChatMessage } from "../index";
 import { getProjectInfo, listFiles } from "../context-tools";
-import { ChatGroq } from "@langchain/groq";
-
-const groq = new ChatGroq({model:"openai/gpt-oss-120b"});
 
 export async function identifyFiles(state: typeof AgentStateAnnotation.State, config: RunnableConfig) {
     console.log("📂 Identifying files...");
@@ -55,11 +52,8 @@ export async function identifyFiles(state: typeof AgentStateAnnotation.State, co
     `;
 
     try {
-        const response: any = await groq.invoke(prompt).then(res => {
-             const content = res.content as string;
-             const cleaned = content.replace(/```json/g,"").replace(/```/g,"").trim();
-             return JSON.parse(cleaned);
-        });
+        const messages: ChatMessage[] = [{ role: "user", content: prompt }];
+        const response = await callAI(messages, { returnJson: true, config });
 
         if (response.matches === "ALL") {
              return { targetFileIds: allFiles.map(f => f.id) };

@@ -27,11 +27,11 @@ interface ChatFooterProps {
 }
 
 export const ChatFooter = ({ conversationId, editor }: ChatFooterProps) => {
-  const {selectedContext, setSelectedContext, removeContext, setStreamingText, setConversationId} = useChatStore()
+  const {selectedContext, setSelectedContext, removeContext, setStreamingText, setConversationId, sendingMessage, setSendingMessage} = useChatStore()
   const params = useParams();
   const projectId = params?.projectId as string;
   const { getToken } = useAuth();
-  
+    
   const createConversation = useMutation(api.ai.conversations.startConversation);
 
   const insertMessage = useMutation(api.ai.messages.insertMessage);
@@ -39,6 +39,7 @@ export const ChatFooter = ({ conversationId, editor }: ChatFooterProps) => {
   const [prompt, setPrompt] = useState("");
   const handleSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if(sendingMessage) return;
 
     let selectedText = selectedContext.map((context) => context.text).join("\n");
     let cursorPosition = editor?.state.selection.from ?? 0;
@@ -79,6 +80,8 @@ export const ChatFooter = ({ conversationId, editor }: ChatFooterProps) => {
             setConversationId(currentConversationId);
         }
 
+
+        setSendingMessage(true)
         // 2. Save User Message
         await insertMessage({
             conversationId: currentConversationId as Id<"conversations">,
@@ -100,10 +103,13 @@ export const ChatFooter = ({ conversationId, editor }: ChatFooterProps) => {
             // docContext, // TODO
             cursorPosition,
             projectId,
+            conversationId: currentConversationId,
             source: 'ui',
             token
           }),
         });
+
+      
     
         if (!response.ok) {
             console.error("Failed to fetch AI response");
@@ -127,7 +133,20 @@ export const ChatFooter = ({ conversationId, editor }: ChatFooterProps) => {
 
              while(true) {
                  const { done, value } = await reader.read();
-                 if (done) break;
+                 
+                 // When the stream officially finishes, save the final aggregated text and break
+                 if (done) {
+                     if(aiResponseText.trim()) {
+                         await insertMessage({
+                             conversationId: currentConversationId as Id<"conversations">,
+                             content: aiResponseText,
+                             role: "AI"
+                         });
+                         // Reset streaming text store after saving
+                         setStreamingText(RESET_STREAMING_TEXT);
+                     }
+                     break;
+                 }
 
                  const chunk = decoder.decode(value);
                  const lines = chunk.split("\n").filter((line) => line.trim() !== "");
@@ -136,29 +155,21 @@ export const ChatFooter = ({ conversationId, editor }: ChatFooterProps) => {
                      try {
                          const data = JSON.parse(line);
                          if (data.type === "chat_token") {
-                             setStreamingText(data.content);
-                             aiResponseText += data.content;
+                             setStreamingText(data.content); // updates UI delta
+                             aiResponseText += data.content; // aggregates full text
                          } 
                      } catch(e) {
                          console.error("Error parsing chunk", e);
                      }
                  }
              }
-
-             // 4. Save AI Response
-             if(aiResponseText) {
-                 await insertMessage({
-                     conversationId: currentConversationId as Id<"conversations">,
-                     content: aiResponseText,
-                     role: "AI"
-                 });
-                 // Reset streaming text store after saving
-                 setStreamingText(RESET_STREAMING_TEXT);
-             }
         }
+
     } catch (error) {
         console.error("Error in chat flow:", error);
         toast.error("Failed to send message");
+    }finally{
+        setSendingMessage(false)
     }
   };
   const handleKeyDown = (e: React.KeyboardEvent<HTMLFormElement>) => {
@@ -208,7 +219,7 @@ export const ChatFooter = ({ conversationId, editor }: ChatFooterProps) => {
         <div className="h-full w-fit flex items-end justify-end">
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant={"ghost"} type="submit">
+              <Button variant={"ghost"} type="submit" disabled={sendingMessage}>
                 <HugeiconsIcon icon={SentIcon} strokeWidth={2} />
               </Button>
             </TooltipTrigger>

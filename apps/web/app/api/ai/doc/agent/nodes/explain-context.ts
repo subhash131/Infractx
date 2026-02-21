@@ -1,5 +1,5 @@
 
-import { AgentStateAnnotation } from "../index";
+import { AgentStateAnnotation, callAI } from "../index";
 import { ChatGroq } from "@langchain/groq";
 import { RunnableConfig } from "@langchain/core/runnables";
 
@@ -7,7 +7,7 @@ const groq = new ChatGroq({model:"openai/gpt-oss-120b"});
 
 export async function explainContext(state: typeof AgentStateAnnotation.State, config: RunnableConfig) {
     console.log("💡 Explaining context...");
-    const { fetchedContext, userMessage } = state;
+    const { fetchedContext, userMessage, chatHistory } = state;
 
     const prompt = `
     You are an expert AI assistant helping a developer or user understand their project.
@@ -25,21 +25,20 @@ export async function explainContext(state: typeof AgentStateAnnotation.State, c
     - If the context doesn't contain the answer, say so.
     - Be concise and technical if the data looks like code/schema.
     - Format usage of field names or code in \`backticks\`.
-    
-    Response:
     `;
 
-    const stream = await groq.stream([
-        { role: "user", content: prompt }
-    ], { ...config, tags: ['chat_stream'] });
+    // Map existing history into LangChain compatible message objects
+    const messages: any[] = chatHistory?.length > 0 
+        ? chatHistory.slice(-5).map((m: any) => ({
+            role: m.role?.toLowerCase() === 'user' ? 'user' : 'assistant',
+            content: m.content || ""
+        }))
+        : [];
 
-    let finalResponse = "";
-    
-    for await (const chunk of stream) {
-        if (typeof chunk.content === "string") {
-            finalResponse += chunk.content;
-        }
-    }
+    // Add the current prompt instructions and user query as the final message
+    messages.push({ role: "user", content: prompt });
+
+    const finalResponse = await callAI(messages, { config, tags: ['chat_stream'] });
 
     return {
         operations: [{

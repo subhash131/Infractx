@@ -6,7 +6,7 @@ import { ChatFooter } from "./chat-footer";
 import { cn } from "@workspace/ui/lib/utils";
 import { api } from "@workspace/backend/_generated/api";
 import { Id } from "@workspace/backend/_generated/dataModel";
-import { useQuery } from "convex/react";
+import { usePaginatedQuery } from "convex/react";
 import { Editor } from "@tiptap/react";
 import { useChatStore } from "../../../store/chat-store";
 import { ChatHistory } from "./chat-history";
@@ -26,9 +26,13 @@ export const ChatWindow = ({ editor, onClose }: ChatWindowProps) => {
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const { conversationId, showHistory } = useChatStore();
 
-  const messages = useQuery(api.ai.messages.listMessages, conversationId?{
-    conversationId: (conversationId as Id<"conversations">),
-  }:"skip");
+  const { results, status, loadMore } = usePaginatedQuery(
+    api.ai.messages.listMessages,
+    conversationId ? { conversationId: conversationId as Id<"conversations"> } : "skip",
+    { initialNumItems: 10 }
+  );
+
+  const messages = [...results].reverse();
 
   const handleMouseDown = (e: React.MouseEvent) => {
     setIsDragging(true);
@@ -114,7 +118,7 @@ export const ChatWindow = ({ editor, onClose }: ChatWindowProps) => {
                 <ChatHistory />
             ) : (
                 <>
-                <ChatBody messages={messages ?? []} />
+                <ChatBody messages={messages ?? []} loadMore={loadMore} status={status} />
                 <ChatFooter conversationId={conversationId ?? ""} editor={editor ?? undefined}/>
                 </>
             )}

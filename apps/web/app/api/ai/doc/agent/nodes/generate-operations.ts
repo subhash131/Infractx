@@ -1,8 +1,17 @@
+
 import { RunnableConfig } from "@langchain/core/runnables";
-import { AgentStateAnnotation, EditOperation, callAI } from "../index";
+import { AgentStateAnnotation, EditOperation, callAI, ChatMessage } from "../index";
 
 export async function generateOperations(state: typeof AgentStateAnnotation.State, config: RunnableConfig) {
   console.log("⚙️ Generating edit operations...");
+
+  // Helper to get chat history messages
+  const historyMessages: ChatMessage[] = state.chatHistory?.length > 0 
+    ? state.chatHistory.slice(-5).map((m: any) => ({
+        role: m.role?.toLowerCase() === 'user' ? 'user' : 'assistant',
+        content: m.content || ""
+    }))
+    : [];
 
   // EDIT BLOCKING FOR EXTERNAL SOURCES
   if (state.source === 'mcp') {
@@ -52,8 +61,9 @@ export async function generateOperations(state: typeof AgentStateAnnotation.Stat
   }
   else if (state.intent === 'list') {
     // Handle list generation
-    const prompt = `Generate a markdown list for the following request: "${state.userMessage}". Return ONLY the markdown list content.`;
-    const text = await callAI(prompt, { tags: ['streamable'], config });
+    const prompt = `Generate a markdown list for the following request: "${state.userMessage}".\nReturn ONLY the markdown list content.`;
+    const messages: ChatMessage[] = [...historyMessages, { role: "user" as const, content: prompt }];
+    const text = await callAI(messages, { tags: ['streamable'], config });
     
     operations.push({
       type: 'replace',
@@ -68,7 +78,8 @@ export async function generateOperations(state: typeof AgentStateAnnotation.Stat
     Format: "Type: Name" (e.g., "Func: Multiply", "Class: Router", "Script: Setup").
     Return ONLY the title text.`;
 
-    const title = await callAI(titlePrompt, { tags: ['generate_title'], config });
+    const titleMessages: ChatMessage[] = [...historyMessages, { role: "user" as const, content: titlePrompt }];
+    const title = await callAI(titleMessages, { tags: ['generate_title'], config });
 
     // 2. Generate Code
     const prompt = `Generate the pseudo-code/logic for the following request:
@@ -101,7 +112,8 @@ export async function generateOperations(state: typeof AgentStateAnnotation.Stat
     store session and return token with user id`;
     
     try {
-        const text = await callAI(prompt, { tags: ['streamable'], config });
+        const codeMessages: ChatMessage[] = [...historyMessages, { role: "user" as const, content: prompt }];
+        const text = await callAI(codeMessages, { tags: ['streamable'], config });
          operations.push({
             type: 'insert_smartblock',
             position: state.cursorPosition,
@@ -126,7 +138,8 @@ Return ONLY the replacement text for the 'Selected Text'.
 - Do NOT repeat the Document Context unless it is part of the replacement.
 - If the request is a simple fix (typo, grammar), return only the corrected text.`;
 
-    const text = await callAI(prompt, { tags: ['streamable'], config });
+    const txtMessages: ChatMessage[] = [...historyMessages, { role: "user" as const, content: prompt }];
+    const text = await callAI(txtMessages, { tags: ['streamable'], config });
     operations.push({
       type: 'replace',
       position: state.cursorPosition,
@@ -150,7 +163,8 @@ Context:
 
 Provide a helpful, concise response to the user.
 If the user asks about the document, use the provided Context.`;
-      const response = await callAI(prompt, { tags: ['chat_stream'], config });
+      const genMessages: ChatMessage[] = [...historyMessages, { role: "user" as const, content: prompt }];
+      const response = await callAI(genMessages, { tags: ['chat_stream'], config });
       operations.push({
           type: 'chat_response',
           position: state.cursorPosition,
@@ -162,7 +176,7 @@ If the user asks about the document, use the provided Context.`;
     const chatPrompt = `You are a helpful AI assistant. You just updated the document based on the user's request: "${state.userMessage}".\n\nProvide a very brief (1-2 sentences), friendly confirmation that you've made the requested changes. Do not include the content of the changes, just the confirmation.`;
     
     try {
-        const chatResponse = await callAI(chatPrompt, { tags: ['chat_stream'], config });
+        const chatResponse = await callAI([{ role: 'user' as const, content: chatPrompt }], { tags: ['chat_stream'], config });
         operations.push({
             type: 'chat_response',
             position: state.cursorPosition,
