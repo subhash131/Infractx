@@ -1,5 +1,5 @@
 
-import { Annotation, interrupt } from "@langchain/langgraph";
+import { interrupt } from "@langchain/langgraph";
 import { RunnableConfig } from "@langchain/core/runnables";
 import { AgentStateAnnotation, callAI, ChatMessage } from "../index";
 import { getProjectInfo, listFiles } from "../context-tools";
