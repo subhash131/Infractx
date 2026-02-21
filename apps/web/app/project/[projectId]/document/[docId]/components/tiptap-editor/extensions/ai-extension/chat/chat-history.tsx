@@ -1,6 +1,6 @@
 
-import { useQuery } from "convex/react";
-import React from "react";
+import { useQuery, useMutation } from "convex/react";
+import React, { useState } from "react";
 import { api } from "@workspace/backend/_generated/api";
 import { Button } from "@workspace/ui/components/button";
 import { MessageProgrammingIcon } from "@hugeicons/core-free-icons";
@@ -10,7 +10,23 @@ import { formatDistanceToNow } from "date-fns";
 
 export const ChatHistory = () => {
   const conversations = useQuery(api.ai.conversations.listConversations,{orgId:"personal"});
-  const { setConversationId, setShowHistory } = useChatStore();
+  const deleteConversation = useMutation(api.ai.conversations.deleteConversation);
+  const { conversationId, setConversationId, setShowHistory } = useChatStore();
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
+
+  const handleDelete = async (id: string) => {
+    setIsDeleting(id);
+    try {
+      await deleteConversation({ conversationId: id as any });
+      if (conversationId === id) {
+        setConversationId(null);
+      }
+    } catch (error) {
+      console.error("Failed to delete conversation:", error);
+    } finally {
+      setIsDeleting(null);
+    }
+  };
 
   if (!conversations) {
     return (
@@ -32,24 +48,41 @@ export const ChatHistory = () => {
   return (
     <div className="flex flex-col gap-2 p-2 overflow-y-auto h-full">
       {conversations.map((conversation) => (
-        <Button
+        <div
           key={conversation._id}
-          variant="ghost"
-          className="w-full justify-start h-auto flex flex-col items-start gap-1 p-3 border border-border/50 hover:bg-accent/50"
+          className="w-full relative group flex items-start gap-1 p-3 border border-border/50 hover:bg-accent/50 rounded-md cursor-pointer transition-colors"
           onClick={() => {
             setConversationId(conversation._id);
             setShowHistory(false);
           }}
         >
-          <span className="font-medium truncate w-full text-left">
-            {conversation.title || "Untitled Conversation"}
-          </span>
-          <span className="text-xs text-muted-foreground">
-            {formatDistanceToNow(conversation._creationTime, {
-              addSuffix: true,
-            })}
-          </span>
-        </Button>
+          <div className="flex flex-col flex-1 min-w-0 pr-8">
+            <span className="font-medium truncate w-full text-left">
+              {conversation.title || "Untitled Conversation"}
+            </span>
+            <span className="text-xs text-muted-foreground text-left">
+              {formatDistanceToNow(conversation._creationTime, {
+                addSuffix: true,
+              })}
+            </span>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:bg-destructive hover:text-destructive-foreground"
+            disabled={isDeleting === conversation._id}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleDelete(conversation._id);
+            }}
+          >
+            {isDeleting === conversation._id ? (
+              <svg className="animate-spin" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+            ) : (
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
+            )}
+          </Button>
+        </div>
       ))}
     </div>
   );
