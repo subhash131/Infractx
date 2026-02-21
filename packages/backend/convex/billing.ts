@@ -1,0 +1,92 @@
+import { v } from "convex/values";
+import { mutation } from "./_generated/server";
+
+export const handleCheckoutCompleted = mutation({
+  args: { 
+    data: v.any(), 
+    secret: v.string() 
+  },
+  handler: async (ctx, { data, secret }) => {
+
+    const customerEmail = data.customer?.email;
+    let userId;
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_email", (q) => q.eq("email", customerEmail))
+      .first();
+    if (user) userId = user._id;
+
+    if (!userId) {
+      console.error(`User not found for checkout: ${customerEmail}`);
+      return { success: false, error: "User not found" };
+    }
+
+    await ctx.db.patch(userId, { creemCustomerId: data.customer?.id });
+
+    if (data.subscription) {
+      const productId = typeof data.subscription.product === 'string' ? data.subscription.product : data.subscription.product?.id;
+      const plans = await ctx.db
+         .query("plans")
+         .filter(q => q.eq(q.field("creemProductId"), productId))
+         .collect();
+      const planId = plans.length > 0 ? plans[0]._id : undefined;
+
+      await ctx.db.insert("subscriptions", {
+        userId,
+        planId: planId as any,
+        status: data.subscription.status,
+        currentPeriodStart: Date.now(),
+        currentPeriodEnd: Date.now() + 30 * 24 * 60 * 60 * 1000, 
+        creemSubscriptionId: data.subscription.id,
+      });
+    }
+    return { success: true };
+  },
+});
+
+export const handleSubscriptionEvent = mutation({
+  args: { 
+    type: v.string(),
+    data: v.any(), 
+    secret: v.string() 
+  },
+  handler: async (ctx, { type, data, secret }) => {
+    if (secret !== process.env.CREEM_WEBHOOK_SECRET) throw new Error("Unauthorized webhook call");
+
+    const customerId = data.customer?.id;
+    const users = await ctx.db
+      .query("users")
+      .filter((q) => q.eq(q.field("creemCustomerId"), customerId))
+      .collect();
+
+    if (users.length === 0) {
+      console.error(`User not found for creemCustomerId: ${customerId}`);
+      return { success: false, error: "User not found" };
+    }
+    const user = users[0];
+
+    const existingSubs = await ctx.db
+      .query("subscriptions")
+      .withIndex("by_creem_sub_id", (q) => q.eq("creemSubscriptionId", data.id))
+      .collect();
+    
+    let newStatus = data.status;
+    if (type === "subscription.canceled") newStatus = "canceled";
+
+    if (existingSubs.length > 0) {
+      await ctx.db.patch(existingSubs[0]._id, {
+        status: newStatus,
+      });
+    } else {
+      await ctx.db.insert("subscriptions", {
+        userId: user._id,
+        planId: null as any,
+        status: newStatus,
+        currentPeriodStart: Date.now(),
+        currentPeriodEnd: Date.now() + 30 * 24 * 60 * 60 * 1000,
+        creemSubscriptionId: data.id,
+      });
+    }
+    return { success: true };
+  },
+});

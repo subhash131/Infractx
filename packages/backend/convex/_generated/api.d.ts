@@ -12,6 +12,7 @@ import type * as ai_conversations from "../ai/conversations.js";
 import type * as ai_messages from "../ai/messages.js";
 import type * as api_keys from "../api_keys.js";
 import type * as auth_auth from "../auth/auth.js";
+import type * as billing from "../billing.js";
 import type * as design_constants from "../design/constants.js";
 import type * as design_files from "../design/files.js";
 import type * as design_layers from "../design/layers.js";
@@ -19,10 +20,12 @@ import type * as design_pages from "../design/pages.js";
 import type * as design_shapes from "../design/shapes.js";
 import type * as design_templates from "../design/templates.js";
 import type * as design_utils from "../design/utils.js";
+import type * as http from "../http.js";
 import type * as projects from "../projects.js";
 import type * as requirements_documents from "../requirements/documents.js";
 import type * as requirements_textFileBlocks from "../requirements/textFileBlocks.js";
 import type * as requirements_textFiles from "../requirements/textFiles.js";
+import type * as users from "../users.js";
 
 import type {
   ApiFromModules,
@@ -35,6 +38,7 @@ declare const fullApi: ApiFromModules<{
   "ai/messages": typeof ai_messages;
   api_keys: typeof api_keys;
   "auth/auth": typeof auth_auth;
+  billing: typeof billing;
   "design/constants": typeof design_constants;
   "design/files": typeof design_files;
   "design/layers": typeof design_layers;
@@ -42,10 +46,12 @@ declare const fullApi: ApiFromModules<{
   "design/shapes": typeof design_shapes;
   "design/templates": typeof design_templates;
   "design/utils": typeof design_utils;
+  http: typeof http;
   projects: typeof projects;
   "requirements/documents": typeof requirements_documents;
   "requirements/textFileBlocks": typeof requirements_textFileBlocks;
   "requirements/textFiles": typeof requirements_textFiles;
+  users: typeof users;
 }>;
 
 /**

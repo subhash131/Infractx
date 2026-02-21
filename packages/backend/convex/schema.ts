@@ -11,6 +11,7 @@ export default defineSchema({
     email: v.string(),
     passwordHash: v.string(),
     name: v.string(),
+    creemCustomerId: v.optional(v.string()), // Stripe/Creem Customer ID
     createdAt: v.number(),
   }).index("by_email", ["email"]),
 
@@ -45,6 +46,40 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_design", ["designId"]),
+
+  // Billing & Subscription Models
+  plans: defineTable({
+    key: v.string(), // e.g., 'basic', 'pro'
+    name: v.string(),
+    description: v.string(),
+    creemProductId: v.string(),
+    priceId: v.string(),
+    priceAmount: v.number(),
+    interval: v.string(), // e.g., 'month', 'year'
+  }).index("by_key", ["key"]),
+
+  subscriptions: defineTable({
+    userId: v.id("users"),
+    planId: v.id("plans"),
+    status: v.string(), // 'active', 'canceled', 'past_due', etc.
+    currentPeriodStart: v.number(),
+    currentPeriodEnd: v.number(),
+    creemSubscriptionId: v.string(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_creem_sub_id", ["creemSubscriptionId"]),
+
+  payments: defineTable({
+    userId: v.id("users"),
+    amount: v.number(),
+    currency: v.string(),
+    status: v.string(),
+    stripePaymentIntentId: v.optional(v.string()),
+    creemInvoiceId: v.string(),
+    createdAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_invoice", ["creemInvoiceId"]),
 
   // Canvas objects store individual elements (rectangles, circles, text, images, etc.)
   //Old - for fabric-js
