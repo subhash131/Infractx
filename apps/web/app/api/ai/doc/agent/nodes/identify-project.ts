@@ -9,13 +9,33 @@ export async function identifyProject(state: typeof AgentStateAnnotation.State, 
 
     const { projectId, userMessage, source } = state;
 
-    // 1. If projectId matches "switch to project X" intent, clear current ID to force lookup
-    const switchMatch = userMessage.match(/switch to project\s+(.+)/i);
     let effectiveProjectId = projectId;
-    
-    if (switchMatch) {
-        console.log("🔄 Project switch requested:", switchMatch[1]);
-        effectiveProjectId = ""; // Force lookup
+
+    // 1. If we already have a project, use AI to detect if user wants to switch projects
+    if (projectId) {
+        const switchPrompt = `
+        User Request: "${userMessage}"
+        
+        TASK: Determine if the user is asking to switch, change, or select a different project.
+        Respond true if the user implies they want to work on a different project context.
+        
+        Return ONLY valid JSON:
+        {
+            "intentToSwitch": true/false
+        }
+        `;
+
+        try {
+            const messages: ChatMessage[] = [{ role: "user" as const, content: switchPrompt }];
+            const response = await callAI(messages, { returnJson: true, config });
+            
+            if (response.intentToSwitch) {
+                console.log("🔄 Project switch detected by AI");
+                effectiveProjectId = ""; // Force lookup
+            }
+        } catch (e) {
+            console.error("Failed to detect project switch intent:", e);
+        }
     }
 
     // 2. If valid projectId exists, verify it and pass through

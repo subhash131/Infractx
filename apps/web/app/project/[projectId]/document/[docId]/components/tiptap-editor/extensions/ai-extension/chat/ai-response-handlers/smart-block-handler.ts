@@ -116,6 +116,24 @@ function insertAnimatedTable(
     rowIndex++;
     if (rowIndex < rows.length) {
       setTimeout(insertNextRow, 120);
+    } else {
+      // Find the smart block end position to place the cursor outside
+      let blockEndPos = -1;
+      editor.state.doc.descendants((node, pos) => {
+        if (blockEndPos > -1) return false;
+        if (node.type.name === "smartBlock" && node.attrs.id === blockId) {
+          blockEndPos = pos + node.nodeSize;
+          return false;
+        }
+      });
+
+      if (blockEndPos > -1) {
+        editor.chain()
+          .insertContentAt(blockEndPos, { type: "paragraph" })
+          .setTextSelection(blockEndPos + 1)
+          .focus()
+          .run();
+      }
     }
   }
 
