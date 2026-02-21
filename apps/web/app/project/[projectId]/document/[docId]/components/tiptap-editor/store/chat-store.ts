@@ -24,11 +24,15 @@ interface ChatStore {
     setEditor: (editor: Editor | null) => void
     conversationId: string | null
     setConversationId: (id: string | null) => void
+    sendingMessage: boolean
+    setSendingMessage: (show: boolean) => void
     showHistory: boolean
     setShowHistory: (show: boolean) => void
 }
 
 export const useChatStore = create<ChatStore>((set) => ({
+    sendingMessage: false,
+    setSendingMessage: (show: boolean) => set({ sendingMessage: show }),
     streamingText: "",
     setStreamingText: (text: string) => set((state) => ({
         streamingText: text === RESET_STREAMING_TEXT ? "" : state.streamingText + text

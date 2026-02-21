@@ -1,10 +1,9 @@
-import { AgentStateAnnotation, callAI } from "../index";
+import { AgentStateAnnotation, callAI, ChatMessage } from "../index";
 
 export async function classifyIntent(state: typeof AgentStateAnnotation.State) {
   console.log("🔍 Classifying intent...");
   
   const prompt = `You are analyzing a user's request to edit a document or chat.
-
 User Message: "${state.userMessage}"
 Selected Text: "${state.selectedText}"
 
@@ -33,7 +32,16 @@ Return ONLY valid JSON:
 `;
 
   try {
-    const result = await callAI(prompt, { returnJson: true });
+    const messages: ChatMessage[] = state.chatHistory?.length > 0 
+      ? state.chatHistory.slice(-5).map((m: any) => ({
+          role: m.role?.toLowerCase() === 'user' ? 'user' : 'assistant',
+          content: m.content || ""
+      }))
+      : [];
+
+    messages.push({ role: "user" as const, content: prompt });
+
+    const result = await callAI(messages, { returnJson: true });
     console.log("Intent classification result:", result);
     return {
       intent: result.intent,

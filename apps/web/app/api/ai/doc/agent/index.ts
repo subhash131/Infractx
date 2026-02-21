@@ -10,6 +10,18 @@ import { classifyIntent } from "./nodes/classify-intent";
 import { extractSchemaData } from "./nodes/extract-schema-data";
 import { extractTableData } from "./nodes/extract-table-data";
 import { generateOperations } from "./nodes/generate-operations";
+import { fetchChatHistory } from "./nodes/fetch-chat-history";
+
+export interface ChatHistoryItem {
+  role: "USER" | "AI" | "SYSTEM";
+  content: string;
+  [key: string]: any;
+}
+
+export interface ChatMessage {
+  role: "user" | "assistant" | "system";
+  content: string;
+}
 
 // ============= STATE ANNOTATION =============
 export const AgentStateAnnotation = Annotation.Root({
@@ -19,6 +31,7 @@ export const AgentStateAnnotation = Annotation.Root({
   docContext: Annotation<string>,
   cursorPosition: Annotation<number>,
   projectId: Annotation<string>,
+  conversationId: Annotation<string | undefined>,
   source: Annotation<'ui' | 'mcp'>, // 'ui' vs 'mcp'
   
   // Processing
@@ -27,6 +40,7 @@ export const AgentStateAnnotation = Annotation.Root({
   confidence: Annotation<number>,
   targetFileIds: Annotation<string[]>,
   fetchedContext: Annotation<string>,
+  chatHistory: Annotation<ChatHistoryItem[]>,
 
   // Output
   operations: Annotation<EditOperation[]>,
@@ -43,7 +57,7 @@ export interface EditOperation {
 const groq = new ChatGroq({model:"openai/gpt-oss-120b"});
 
 // ============= HELPER: CALL LLM =============
-export async function callAI(prompt: string, options: {
+export async function callAI(messages: ChatMessage[], options: {
   returnJson?: boolean;
   temperature?: number;
   tags?: string[];
@@ -53,12 +67,9 @@ export async function callAI(prompt: string, options: {
   const tags = [...(options.tags || []), ...(options.config?.tags || [])];
   const runConfig = { ...options.config, tags };
 
-  const stream = await groq.stream([
-    {
-      role: "user",
-      content: prompt,
-    },
-  ], runConfig);
+  // Langchain types expect BaseMessageLike, which is slightly more complex than our simple interface.
+  // We cast to any internally to avoid type errors since Groq accepts {role, content} format perfectly.
+  const stream = await groq.stream(messages as any, runConfig);
 
   let text = "";
   for await (const chunk of stream) {
@@ -112,6 +123,7 @@ function routeByIntent(state: typeof AgentStateAnnotation.State): string {
 
 // ============= BUILD THE GRAPH =============
 const workflow = new StateGraph(AgentStateAnnotation)
+  .addNode('fetchChatHistory', fetchChatHistory)
   .addNode('classifyIntent', classifyIntent)
   .addNode('identifyProject', identifyProject)
   .addNode('identifyFiles', identifyFiles)
@@ -121,7 +133,8 @@ const workflow = new StateGraph(AgentStateAnnotation)
   .addNode('extractTable', extractTableData)
   .addNode('generateOps', generateOperations)
 
-  .addEdge(START, 'classifyIntent')
+  .addEdge(START, 'fetchChatHistory')
+  .addEdge('fetchChatHistory', 'classifyIntent')
   .addConditionalEdges('classifyIntent', routeByIntent)
   
   // Context Branch
@@ -148,21 +161,23 @@ export async function executeDocAgent(input: {
   docContext: string;
   cursorPosition: number;
   projectId?: string;
+  conversationId?: string;
   source?: 'ui' | 'mcp';
 }) {
   console.log("🚀 Starting doc edit agent...");
-  
   const initialState = {
     selectedText: input.selectedText,
     userMessage: input.userMessage,
     docContext: input.docContext,
     cursorPosition: input.cursorPosition,
     projectId: input.projectId || "",
+    conversationId: input.conversationId,
     source: input.source || 'ui',
     intent: null,
     extractedData: null,
     targetFileIds: [],
     fetchedContext: "",
+    chatHistory: [],
     confidence: 0,
     operations: [],
     error: undefined

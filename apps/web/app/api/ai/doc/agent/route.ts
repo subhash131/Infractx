@@ -3,8 +3,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { docEditAgent } from "./index";
 
 export const POST = async (req:NextRequest) => {
-    const {selectedText, userMessage, docContext, cursorPosition, projectId, source, token} = await req.json();
-    console.log({docContext,cursorPosition, projectId, source})
+    const {selectedText, userMessage, docContext, cursorPosition, projectId, conversationId, source, token} = await req.json();
+    console.log({docContext,cursorPosition, projectId, conversationId, source})
     const encoder = new TextEncoder();
     
     const stream = new ReadableStream({
@@ -22,6 +22,7 @@ export const POST = async (req:NextRequest) => {
                     userMessage,
                     docContext,
                     projectId: projectId || "",
+                    conversationId: conversationId || undefined,
                     source: source || 'ui',
                     intent: null,
                     extractedData: null,
