@@ -1,4 +1,6 @@
-import { query } from "./_generated/server";
+import { mutation, query } from "./_generated/server";
+import { v } from "convex/values";
+
 
 export const getSubscriptionStatus = query({
   args: {},
@@ -44,5 +46,38 @@ export const getSubscriptionStatus = query({
       status: "inactive",
       hasPriorSubscription: true,
     };
+  },
+});
+
+export const syncClerkUser = mutation({
+  args: {
+    email: v.string(),
+    name: v.string(),
+    clerkId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const existingUser = await ctx.db
+      .query("users")
+      .withIndex("by_email", (q) => q.eq("email", args.email))
+      .first();
+
+    if (existingUser) {
+      if (!existingUser.clerkId) {
+        await ctx.db.patch(existingUser._id, {
+          clerkId: args.clerkId,
+        });
+      }
+      return existingUser._id;
+    }
+
+    const newUserId = await ctx.db.insert("users", {
+      email: args.email,
+      name: args.name,
+      clerkId: args.clerkId,
+      passwordHash: "", // Not used with Clerk authentication
+      createdAt: Date.now(),
+    });
+
+    return newUserId;
   },
 });
