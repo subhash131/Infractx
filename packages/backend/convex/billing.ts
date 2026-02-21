@@ -25,15 +25,10 @@ export const handleCheckoutCompleted = mutation({
 
     if (data.subscription) {
       const productId = typeof data.subscription.product === 'string' ? data.subscription.product : data.subscription.product?.id;
-      const plans = await ctx.db
-         .query("plans")
-         .filter(q => q.eq(q.field("creemProductId"), productId))
-         .collect();
-      const planId = plans.length > 0 ? plans[0]._id : undefined;
 
       await ctx.db.insert("subscriptions", {
         userId,
-        planId: planId as any,
+        planId: productId,
         status: data.subscription.status,
         currentPeriodStart: Date.now(),
         currentPeriodEnd: Date.now() + 30 * 24 * 60 * 60 * 1000, 
@@ -80,7 +75,7 @@ export const handleSubscriptionEvent = mutation({
     } else {
       await ctx.db.insert("subscriptions", {
         userId: user._id,
-        planId: null as any,
+        planId: undefined,
         status: newStatus,
         currentPeriodStart: Date.now(),
         currentPeriodEnd: Date.now() + 30 * 24 * 60 * 60 * 1000,

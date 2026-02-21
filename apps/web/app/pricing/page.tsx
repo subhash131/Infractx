@@ -5,6 +5,8 @@ import { useQuery } from 'convex/react';
 import { api } from '@workspace/backend/_generated/api';    
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { CreemCheckout } from '@creem_io/nextjs';
+import { SubscribeButton } from './components/subscribe-button';
 
 const PricingPage = () => {
   const router = useRouter();
@@ -55,12 +57,10 @@ const PricingPage = () => {
                      </li>
                  </ul>
 
-                <Link
-                    href={`/api/checkout?productId=${process.env.NEXT_PUBLIC_CREEM_BASIC_PRODUCT_ID || ''}`}
-                    className="block w-full py-3 px-4 bg-gradient-to-r transition-all rounded-lg font-semibold text-white"
-                >
+                {/* <CreemCheckout productId={process.env.NEXT_PUBLIC_CREEM_BASIC_PRODUCT_ID || ''}               >
                     Subscribe Now
-                </Link>
+                </CreemCheckout> */}
+                <SubscribeButton />
             </div>
             <p className="text-sm text-gray-500 mt-4">Secure payment powered by Creem & Stripe</p>
         </div>
