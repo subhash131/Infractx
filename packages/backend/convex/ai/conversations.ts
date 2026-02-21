@@ -97,4 +97,35 @@ export const getConversation = query({
 
     return conversation;
   }
-})
+});
+
+export const deleteConversation = mutation({
+  args: {
+    conversationId: v.id("conversations"),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError({
+        code: "UNAUTHORIZED",
+        message: "User not authenticated",
+      });
+    }
+    const conversation = await ctx.db.get(args.conversationId);
+    if (!conversation) {
+      throw new ConvexError({
+        code: "NOT_FOUND",
+        message: "Conversation not found",
+      });
+    }
+
+    if (conversation.userId !== identity.subject) {
+      throw new ConvexError({
+        code: "UNAUTHORIZED",
+        message: "User not authorized to access this conversation",
+      });
+    }
+
+    await ctx.db.delete(args.conversationId);
+  },
+});
