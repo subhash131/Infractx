@@ -1,4 +1,3 @@
-import { groqModel } from "@/app/api/ai/tiptap/route";
 import { inngest } from "./client";
 
 export const helloWorld = inngest.createFunction(
@@ -39,32 +38,32 @@ export const invokeAiDemo = inngest.createFunction(
     
     return await step.run("stream-ai", async () => {
       console.log("streaming ai")
-      const {stream} = await groqModel("openai/gpt-oss-120b").doStream({
-        prompt: [{
-          content: [{ text: "write a poem on ai", type: "text" }],
-          role: "user",
-        }]
-      });
+      // const {stream} = await groqModel("openai/gpt-oss-120b").doStream({
+      //   prompt: [{
+      //     content: [{ text: "write a poem on ai", type: "text" }],
+      //     role: "user",
+      //   }]
+      // });
 
-      const reader = stream.getReader();
-      try {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          // Emit to event bus
-          streamBus.emit(`stream:${sessionId}`, {
-            type: 'chunk',
-            data: value,
-          });
-        }
-      } finally {
-        reader.releaseLock();
-      }
+      // const reader = stream.getReader();
+      // try {
+      //   while (true) {
+      //     const { done, value } = await reader.read();
+      //     if (done) break;
+      //     // Emit to event bus
+      //     streamBus.emit(`stream:${sessionId}`, {
+      //       type: 'chunk',
+      //       data: value,
+      //     });
+      //   }
+      // } finally {
+      //   reader.releaseLock();
+      // }
 
-      // Done
-      streamBus.emit(`stream:${sessionId}`, {
-        type: 'done',
-      });
+      // // Done
+      // streamBus.emit(`stream:${sessionId}`, {
+      //   type: 'done',
+      // });
     });
   },
 );

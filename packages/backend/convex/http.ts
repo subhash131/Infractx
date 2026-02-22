@@ -10,14 +10,14 @@ http.route({
   method: "POST",
   handler: httpAction(async (ctx, request) => {
     console.log("----- Incoming Webhook Request -----");
-    console.log("URL:", request.url);
+    // console.log("URL:", request.url);
     const headerObj: Record<string, string> = {};
     request.headers.forEach((value, key) => {
       headerObj[key] = value;
     });
 
     const payloadString = await request.text();
-    console.log("Raw Body:", JSON.parse(payloadString));
+    // console.log("Raw Body:", JSON.parse(payloadString));
     const signature = request.headers.get("creem-signature");
 
     if (!signature) {

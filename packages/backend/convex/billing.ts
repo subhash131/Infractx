@@ -49,27 +49,26 @@ export const handleSubscriptionEvent = mutation({
     if (secret !== process.env.CREEM_WEBHOOK_SECRET) throw new Error("Unauthorized webhook call");
 
     const customerId = data.customer?.id;
-    const users = await ctx.db
+    const user = await ctx.db
       .query("users")
       .filter((q) => q.eq(q.field("creemCustomerId"), customerId))
-      .collect();
+      .unique();
 
-    if (users.length === 0) {
+    if (!user) {
       console.error(`User not found for creemCustomerId: ${customerId}`);
       return { success: false, error: "User not found" };
     }
-    const user = users[0];
 
-    const existingSubs = await ctx.db
+    const existingSub = await ctx.db
       .query("subscriptions")
       .withIndex("by_creem_sub_id", (q) => q.eq("creemSubscriptionId", data.id))
-      .collect();
+      .unique();
     
     let newStatus = data.status;
     if (type === "subscription.canceled") newStatus = "canceled";
 
-    if (existingSubs.length > 0) {
-      await ctx.db.patch(existingSubs[0]._id, {
+    if (existingSub) {
+      await ctx.db.patch(existingSub._id, {
         status: newStatus,
       });
     } else {
