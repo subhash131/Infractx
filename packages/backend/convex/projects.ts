@@ -19,7 +19,7 @@ export const createProject = mutation({
     const projectId = await ctx.db.insert("projects", {
       name: args.name,
       description: args.description,
-      organizationId: args.organizationId || "org_123",
+      organizationId: identity.org_id?.toString(),
       createdBy: identity.subject,
       createdAt: Date.now(),
       updatedAt: Date.now(),
@@ -40,7 +40,7 @@ export const createProject = mutation({
 });
 
 export const getProjectsByOrganization = query({
-  args: { organization: v.string() },
+  args: { },
   async handler(ctx, args) {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
@@ -53,7 +53,7 @@ export const getProjectsByOrganization = query({
     const projects = await ctx.db
       .query("projects")
       .withIndex("by_organization", (q) =>
-        q.eq("organizationId", args.organization),
+        q.eq("organizationId", identity.org_id?.toString()),
       )
       .order("desc")
       .collect();
