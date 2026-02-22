@@ -10,9 +10,7 @@ import { parseBlocks } from "./parse-blocks";
 export const listProjectsByUser = async (organizationId: string, token?: string) => {
     try {
         const client = getConvexClient(token);
-        const projects = await client.query(api.projects.getProjectsByOrganization, {
-             organization: organizationId 
-        });
+        const projects = await client.query(api.projects.getProjectsByOrganization);
         
         return projects.map((p: any) => ({
             id: p._id,
