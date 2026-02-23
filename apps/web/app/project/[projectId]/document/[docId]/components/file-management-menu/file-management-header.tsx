@@ -5,13 +5,19 @@ import React from "react";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { FileAddIcon, FolderAddIcon } from "@hugeicons/core-free-icons";
 import { truncate } from "@/modules/utils";
+import { useQueryState } from "nuqs";
 
 export const FileManagementHeader = ({docId,projectId}: {docId: Id<"documents">,projectId:Id<"projects">}) => {
   const project = useQuery(api.projects.getProjectById, projectId?{projectId:projectId}:"skip")
   const createFile = useMutation(api.requirements.textFiles.create)
 
-  const handleCreateFile = ({title,type}: {title:string,type:"FILE"|"FOLDER"}) => {
-    createFile({title,type,documentId:docId})
+  const [_, setFileId] = useQueryState("fileId");
+
+  const handleCreateFile = async ({title,type}: {title:string,type:"FILE"|"FOLDER"}) => {
+    const id = await createFile({title,type,documentId:docId})
+    if (id) {
+      setFileId(id);
+    }
   }
 
   return (

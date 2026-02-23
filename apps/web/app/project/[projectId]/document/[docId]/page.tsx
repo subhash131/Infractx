@@ -30,7 +30,10 @@ const RequirementsDraftingPage = () => {
         try {
           const parsedState = JSON.parse(savedState);
           if (parsedState.selectedItems && parsedState.selectedItems.length > 0) {
-            setFileId(parsedState.selectedItems[0]);
+            const firstItem = parsedState.selectedItems[0];
+            if (firstItem && firstItem !== "root") {
+              setFileId(firstItem);
+            }
           }
         } catch (e) {
           console.error("Failed to parse saved tree state:", e);
@@ -88,14 +91,16 @@ const RequirementsDraftingPage = () => {
     setShowAIPopup(false);
   };
 
+  const effectiveFileId = fileId && fileId !== "root" ? fileId : null;
+
   return (
     <div className="w-full h-full overflow-hidden hide-scrollbar flex bg-[#1F1F1F]">
       <FileManagementMenu docId={docId} />
-      {fileId && <div id="editor-scroll-container" className="w-full h-full overflow-hidden overflow-y-auto hide-scrollbar">
+      {effectiveFileId && <div id="editor-scroll-container" className="w-full h-full overflow-hidden overflow-y-auto hide-scrollbar">
         <DocHeader />
-        <TiptapEditor textFileId={fileId as Id<"text_files">} />
+        <TiptapEditor textFileId={effectiveFileId as Id<"text_files">} />
       </div>}
-      {!fileId && <NoFileSelected docId={docId} />}
+      {!effectiveFileId && <NoFileSelected docId={docId} />}
       {showAIPopup && (
         <ChatWindow
           editor={editor}

@@ -14,30 +14,17 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@workspace/backend/_generated/api";
 import {  Id } from "@workspace/backend/_generated/dataModel";
 import { useMemo, useEffect, useState, Fragment } from "react";
-import { cn } from "@workspace/ui/lib/utils";
 import { TreeItemData } from "../utils/parse-tree";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { File02Icon, FileAddIcon, Folder01Icon, Folder02Icon, FolderAddIcon } from "@hugeicons/core-free-icons";
+import { File02Icon,  Folder01Icon, Folder02Icon } from "@hugeicons/core-free-icons";
 import { useQueryState } from "nuqs";
-import { truncate } from "@/modules/utils";
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuSeparator,
-  ContextMenuTrigger,
-} from "@workspace/ui/components/context-menu";
+import { FileItemWithContextMenu, ClipboardData } from "./file-item-with-context-menu";
 
 // Data structure type for the tree
 type FileDataStructure = {
   root: TreeItemData;
   [key: string]: TreeItemData;
 };
-
-type ClipboardData = {
-  itemId: string;
-  operation: "cut" | "copy";
-} | null;
 
 export const FilesList = ({ docId }: { docId: Id<"documents"> }) => {
   const files = useQuery(
@@ -62,13 +49,19 @@ export const FilesList = ({ docId }: { docId: Id<"documents"> }) => {
       const savedState = localStorage.getItem(`tree-state-${docId}`);
       if (savedState) {
         try {
-          return JSON.parse(savedState);
+          const parsed = JSON.parse(savedState);
+          if (!parsed.expandedItems) parsed.expandedItems = ["root", "__virtual_root__"];
+          else {
+            if (!parsed.expandedItems.includes("root")) parsed.expandedItems.push("root");
+            if (!parsed.expandedItems.includes("__virtual_root__")) parsed.expandedItems.push("__virtual_root__");
+          }
+          return parsed;
         } catch (e) {
           console.error("Failed to parse saved tree state:", e);
         }
       }
     }
-    return {};
+    return { expandedItems: ["root", "__virtual_root__"] };
   });
 
   const dataStructure = useMemo<FileDataStructure>(() => {
@@ -266,14 +259,14 @@ export const FilesList = ({ docId }: { docId: Id<"documents"> }) => {
       parentId,
     });
     
+    const effectiveParentId = parentId || "root";
+    
     // Expand the parent folder if it's closed
-    if (parentId) {
-      setState(prev => ({
-        ...prev,
-        expandedItems: [...(prev.expandedItems || []), parentId],
-        renamingValue:""
-      }));
-    }
+    setState(prev => ({
+      ...prev,
+      expandedItems: Array.from(new Set([...(prev.expandedItems || []), effectiveParentId])),
+      renamingValue:""
+    }));
     
     // Auto-rename the new file
     if (newFileId) {
@@ -281,8 +274,10 @@ export const FilesList = ({ docId }: { docId: Id<"documents"> }) => {
         setState(prev => ({
           ...prev,
           renamingItem: newFileId,
+          selectedItems: [newFileId],
           renamingValue:""
         }));
+        setSelectedFileId(newFileId);
       }, 100); // Small delay to ensure the item is rendered
     }
   };
@@ -297,23 +292,26 @@ export const FilesList = ({ docId }: { docId: Id<"documents"> }) => {
       parentId,
     });
     
+    const effectiveParentId = parentId || "root";
+    
     // Expand the parent folder if it's closed
-    if (parentId) {
-      setState(prev => ({
-        ...prev,
-        expandedItems: [...(prev.expandedItems || []), parentId],
-        renamingValue:""
-      }));
-    }
+    setState(prev => ({
+      ...prev,
+      expandedItems: Array.from(new Set([...(prev.expandedItems || []), effectiveParentId])),
+      renamingValue:""
+    }));
     
     // Auto-rename the new folder
     if (newFolderId) {
       setTimeout(() => {
         setState(prev => ({
           ...prev,
+          expandedItems: [...(prev.expandedItems || []), newFolderId],
           renamingItem: newFolderId,
+          selectedItems: [newFolderId],
           renamingValue:""
         }));
+        setSelectedFileId(newFolderId);
       }, 100); // Small delay to ensure the item is rendered
     }
   };
@@ -369,7 +367,6 @@ export const FilesList = ({ docId }: { docId: Id<"documents"> }) => {
         parentId: (targetParentId as Id<"text_files">) || null,
       });
     } else {
-      // Copy: duplicate and move to target
       const newId = await duplicateFile({ fileId: clipboard.itemId as Id<"text_files"> });
       if (newId && targetParentId) {
         await updateFile({
@@ -453,171 +450,5 @@ export const FilesList = ({ docId }: { docId: Id<"documents"> }) => {
           );
         })}
       </div>
-      
   );
 };
-
-// Extracted component to wrap each item with a context menu
-function FileItemWithContextMenu({
-  item,
-  isSpecialItem,
-  clipboard,
-  onRename,
-  onDelete,
-  onDuplicate,
-  onCut,
-  onCopy,
-  onPaste,
-  onClickFile,
-  onCreateFile,
-  onCreateFolder,
-}: {
-  item: any;
-  isSpecialItem: boolean;
-  clipboard: ClipboardData;
-  onRename: (id: string) => void;
-  onDelete: (id: string) => Promise<void>;
-  onDuplicate: (id: string) => Promise<void>;
-  onCut: (id: string) => void;
-  onCopy: (id: string) => void;
-  onPaste: (targetId: string) => Promise<void>;
-  onClickFile: (id: string) => void;
-  onCreateFile: () => void;
-  onCreateFolder: () => void;
-}) {
-  const itemId = item.getId();
-
-  const treeItemButton = (
-    <button
-      {...item.getProps()}
-      style={{ paddingLeft: `${item.getItemMeta().level * 20}px` }}
-      className="w-full text-left rounded border-0 outline-none group"
-      onClick={(e) => {
-        const originalOnClick = item.getProps().onClick;
-        if (originalOnClick) {
-          originalOnClick(e);
-        }
-        
-        const itemData = item.getItemData();
-        if (
-          itemId !== "root" && 
-          itemId !== "__virtual_root__" && 
-          itemData.type === "FILE"
-        ) {
-          onClickFile(itemId);
-        }
-      }}
-      onDoubleClick={(e) => {
-        e.stopPropagation();
-        item.startRenaming();
-      }}
-    >
-      <div
-        className={cn("treeitem flex items-center gap-2 px-2 py-1 rounded hover:bg-gray-700 justify-between w-full", {
-          "bg-gray-700/50": item.isSelected(),
-          "bg-gray-700": item.isDragTarget(),
-          "opacity-50": clipboard?.itemId === itemId && clipboard?.operation === "cut",
-        })}
-      >
-        <div className="flex items-center gap-2">
-          <span>
-            {item.isFolder() ? (
-              <HugeiconsIcon icon={item.isExpanded() ? Folder02Icon : Folder01Icon} size={16} />
-            ) : (
-              <HugeiconsIcon icon={File02Icon} size={16} />
-            )}
-          </span>
-          <span>{truncate(item.getItemName(), 12)}</span>
-        </div>
-        
-        {/* Show action buttons only for root */}
-        {itemId === "root" && (
-          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-            <div
-              onClick={(e) => {
-                e.stopPropagation();
-                onCreateFile();
-              }}
-              className="p-1 hover:bg-gray-600 rounded text-xs cursor-pointer"
-              title="New File"
-            >
-             <HugeiconsIcon icon={FileAddIcon} size={16} />
-            </div>
-            <div
-              onClick={(e) => {
-                e.stopPropagation();
-                onCreateFolder();
-              }}
-              className="p-1 hover:bg-gray-600 rounded text-xs cursor-pointer"
-              title="New Folder"
-            >
-              <HugeiconsIcon icon={FolderAddIcon} size={16} />
-            </div>
-          </div>
-        )}
-      </div>
-    </button>
-  );
-
-  // Only show context menu for non-root, non-virtual-root items
-  if (isSpecialItem) {
-    return treeItemButton;
-  }
-
-  return (
-    <ContextMenu>
-      <ContextMenuTrigger asChild>
-        {treeItemButton}
-      </ContextMenuTrigger>
-      <ContextMenuContent className="w-44">
-        <ContextMenuItem
-          onClick={() => onRename(itemId)}
-          className="gap-3"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
-          Rename
-        </ContextMenuItem>
-        <ContextMenuItem
-          onClick={() => onDuplicate(itemId)}
-          className="gap-3"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
-          Duplicate
-        </ContextMenuItem>
-        <ContextMenuSeparator />
-        <ContextMenuItem
-          onClick={() => onCut(itemId)}
-          className="gap-3"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="6" cy="6" r="3"/><path d="M8.12 8.12 12 12"/><path d="M20 4 8.12 15.88"/><circle cx="6" cy="18" r="3"/><path d="M14.8 14.8 20 20"/></svg>
-          Cut
-        </ContextMenuItem>
-        <ContextMenuItem
-          onClick={() => onCopy(itemId)}
-          className="gap-3"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
-          Copy
-        </ContextMenuItem>
-        {clipboard && (
-          <ContextMenuItem
-            onClick={() => onPaste(itemId)}
-            className="gap-3"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>
-            Paste
-          </ContextMenuItem>
-        )}
-        <ContextMenuSeparator />
-        <ContextMenuItem
-          onClick={() => onDelete(itemId)}
-          variant="destructive"
-          className="gap-3"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
-          Delete
-        </ContextMenuItem>
-      </ContextMenuContent>
-    </ContextMenu>
-  );
-}

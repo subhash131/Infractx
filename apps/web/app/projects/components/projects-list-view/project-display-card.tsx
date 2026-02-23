@@ -19,7 +19,7 @@ export function ProjectDisplayCard({
   updatedAt?: string;
 }) {
   return (
-    <Card className="relative w-full pt-0 hover:shadow-lg transition-shadow">
+    <Card className="relative w-full pt-0 hover:shadow-lg hover:bg-accent transition">
       <div className="absolute inset-0 z-30 aspect-video bg-black/35 rounded-t-lg" />
       <img
         src={imageUrl || "https://avatar.vercel.sh/shadcn1"}
