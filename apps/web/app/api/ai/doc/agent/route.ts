@@ -2,6 +2,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { docEditAgent } from "./index";
 
+export const maxDuration = 300; // Allow up to 5 minutes for agent execution
+
 export const POST = async (req:NextRequest) => {
     const {selectedText, userMessage, docContext, cursorPosition, projectId, conversationId, source, docId, sessionToken} = await req.json();
     console.log({docContext,cursorPosition, projectId, conversationId, source, docId, sessionToken})
@@ -9,6 +11,15 @@ export const POST = async (req:NextRequest) => {
     
     const stream = new ReadableStream({
         async start(controller) {
+            // Keep the connection alive while background Agent is processing
+            const keepAliveInterval = setInterval(() => {
+                try {
+                    controller.enqueue(encoder.encode(JSON.stringify({ type: "heartbeat" }) + "\n"));
+                } catch (e) {
+                    clearInterval(keepAliveInterval);
+                }
+            }, 5000);
+
             try {
                 // If this is a resume from interrupt (e.g. valid input for project selection), 
                 // we might need a different entry point or state update.
@@ -97,8 +108,10 @@ export const POST = async (req:NextRequest) => {
                         }
                     }
                 }
+                clearInterval(keepAliveInterval);
                 controller.close();
             } catch (e: any) {
+                clearInterval(keepAliveInterval);
                 // If using actual LangGraph interrupt, it might throw a GraphInterrupt error
                 if (e.name === "GraphInterrupt") {
                      // Checkpointer needed for true interrupt.

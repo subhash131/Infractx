@@ -21,11 +21,17 @@ Classify the intent into ONE of these categories:
 5. **text**: Request to GENERATE, WRITE, REPHRASE, REWRITE, or SUMMARIZE text that should appear IN THE DOCUMENT.
 6. **delete**: Request to remove, delete, or omit the selected text.
 7. **code**: Request to generate pseudo-code, algorithms, functions, classes, or system logic.
-8. **general**: A conversational query (e.g., "Hi", "Thanks") that doesn't need project context.
+8. **file_management**: Request to CREATE, RENAME, DELETE, or MOVE files and folders, OR high-level generative requests like "design a system architecture" that require creating structured file hierarchies and adding initial content or smartblocks.
+   - "Create a new folder for components"
+   - "Rename the utils file"
+9. **architecture**: Request to DESIGN a system architecture, generating a structural file hierarchy of detailed backend/frontend component files.
+   - "Design a system design for a spotify clone"
+   - "Create a microservice architecture for e-commerce"
+10. **general**: A conversational query (e.g., "Hi", "Thanks") that doesn't need project context.
 
 Return ONLY valid JSON:
 {
-  "intent": "context" | "schema" | "table" | "list" | "text" | "delete" | "code" | "general",
+  "intent": "context" | "schema" | "table" | "list" | "text" | "delete" | "code" | "file_management" | "architecture" | "general",
   "confidence": 0.0-1.0,
   "reasoning": "brief explanation"
 }
