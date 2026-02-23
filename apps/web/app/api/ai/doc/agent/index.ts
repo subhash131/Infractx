@@ -33,6 +33,9 @@ export const AgentStateAnnotation = Annotation.Root({
   projectId: Annotation<string>,
   conversationId: Annotation<string | undefined>,
   source: Annotation<'ui' | 'mcp'>, // 'ui' vs 'mcp'
+  docId: Annotation<string>,
+  fileId: Annotation<string>,
+  sessionToken:Annotation<string>, // session token
   
   // Processing
   intent: Annotation<'context' | 'schema' | 'table' | 'list' | 'code' | 'text' | 'general' | 'delete' | null>,
@@ -41,7 +44,6 @@ export const AgentStateAnnotation = Annotation.Root({
   targetFileIds: Annotation<string[]>,
   fetchedContext: Annotation<string>,
   chatHistory: Annotation<ChatHistoryItem[]>,
-
   // Output
   operations: Annotation<EditOperation[]>,
   error: Annotation<string | undefined>,
@@ -163,6 +165,9 @@ export async function executeDocAgent(input: {
   projectId?: string;
   conversationId?: string;
   source?: 'ui' | 'mcp';
+  docId: string;
+  fileId: string;
+  sessionToken: string;
 }) {
   console.log("🚀 Starting doc edit agent...");
   const initialState = {
@@ -173,6 +178,9 @@ export async function executeDocAgent(input: {
     projectId: input.projectId || "",
     conversationId: input.conversationId,
     source: input.source || 'ui',
+    docId: input.docId,
+    fileId: input.fileId,
+    sessionToken: input.sessionToken,
     intent: null,
     extractedData: null,
     targetFileIds: [],
