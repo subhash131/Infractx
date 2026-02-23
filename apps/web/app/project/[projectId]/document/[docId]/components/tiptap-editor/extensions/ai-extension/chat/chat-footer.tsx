@@ -20,6 +20,7 @@ import { useMutation } from "convex/react";
 import { api } from "@workspace/backend/_generated/api";
 import { Id } from "@workspace/backend/_generated/dataModel";
 import { toast } from "sonner";
+import { useQueryState } from "nuqs";
 
 interface ChatFooterProps {
   conversationId: string;
@@ -31,6 +32,7 @@ export const ChatFooter = ({ conversationId, editor }: ChatFooterProps) => {
   const params = useParams();
   const projectId = params?.projectId as string;
   const { getToken } = useAuth();
+  const [fileId] = useQueryState("fileId")
     
   const createConversation = useMutation(api.ai.conversations.startConversation);
 
@@ -61,8 +63,6 @@ export const ChatFooter = ({ conversationId, editor }: ChatFooterProps) => {
              cursorPosition = from;
         }
     }
-
-    const docContext = editor?.getText() ?? ""; // Sending full text for context
 
     if(!prompt.trim() && !selectedText) return
 
@@ -105,7 +105,9 @@ export const ChatFooter = ({ conversationId, editor }: ChatFooterProps) => {
             projectId,
             conversationId: currentConversationId,
             source: 'ui',
-            token
+            docId: params?.docId as string,
+            sessionToken: token,
+            fileId,
           }),
         });
 

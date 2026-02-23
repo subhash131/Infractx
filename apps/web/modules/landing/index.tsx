@@ -4,7 +4,7 @@ import { Intro } from "./intro";
 
 export const Landing = () => {
   return (
-    <div className="max-w-screen overflow-x-hidden min-h-screen size-full">
+    <div className="max-w-screen overflow-x-hidden min-h-screen size-full bg-black">
       <Header />
       <Intro />
     </div>
