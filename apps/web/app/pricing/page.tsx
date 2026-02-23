@@ -23,7 +23,7 @@ export default function PricingPage() {
             id: item.id,
             name: item.name,
             desc: item.description || "Simple description for this plan.",
-            price: item.price / 100, // Assuming price is in cents
+            price: item.price / 100, // price is in cents
             billingPeriod: item.billing_period || "every-month",
             featured: item.metadata?.featured === "true" || false,
             features: item.metadata?.features ? item.metadata.features.split(",") : ["Standard Feature 1", "Standard Feature 2"],
@@ -55,30 +55,8 @@ export default function PricingPage() {
               "radial-gradient(ellipse, rgba(90,90,90,0.22) 0%, transparent 70%)",
           }}
         />
-
-       
-
         {/* ── Hero ── */}
         <section className="relative z-10 flex flex-col items-center text-center pt-20 pb-14 px-6">
-          {/* Badge */}
-          <span className="inline-block border border-white/20 rounded-full px-4 py-[5px] text-[12px] text-white/50 mb-7 backdrop-blur-sm">
-            Software architecture for AI and Humans
-          </span>
-
-          {/* Heading */}
-          <h1
-            className="text-[clamp(44px,6vw,70px)] font-extrabold leading-[1.04] tracking-[-2.5px] mb-6"
-            style={{ fontFamily: "'Syne', sans-serif" }}
-          >
-           Get your architecture companion
-          </h1>
-
-          {/* Subtitle */}
-          <p className="text-[15px] text-white/45 max-w-[420px] leading-relaxed mb-10">
-            Select from best plan, ensuring a perfect match. Need more or less?
-            Customize your subscription for a seamless fit!
-          </p>
-
           {/* Billing toggle */}
           <div className="flex items-center bg-white/[0.05] border border-white/[0.09] rounded-full p-[4px] gap-[3px]">
             {(["monthly", "annually"] as BillingCycle[]).map((cycle) => (
@@ -96,8 +74,8 @@ export default function PricingPage() {
               </button>
             ))}
           </div>
-          <p className="mt-3 text-[12px] text-white/30">
-            Save 20% with annual billing
+          <p className="mt-1 text-[12px] text-white/30">
+            Get 2 months free with annual billing
           </p>
         </section>
 
