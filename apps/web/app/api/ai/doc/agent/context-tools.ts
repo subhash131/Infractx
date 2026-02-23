@@ -1,5 +1,5 @@
 
-import { convexClient, getConvexClient } from "./convex-client";
+import {  getConvexClient } from "./convex-client";
 import { api } from "@workspace/backend/_generated/api";
 import { parseBlocks } from "./parse-blocks";
 

@@ -326,7 +326,6 @@ export function SimpleEditor({textFileId}:{textFileId:Id<"text_files">}) {
               )}
             </Toolbar>
           </div>
-
           <EditorContent
             editor={editor}
             role="presentation"

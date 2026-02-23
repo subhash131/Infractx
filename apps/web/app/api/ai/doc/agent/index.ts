@@ -11,6 +11,8 @@ import { extractSchemaData } from "./nodes/extract-schema-data";
 import { extractTableData } from "./nodes/extract-table-data";
 import { generateOperations } from "./nodes/generate-operations";
 import { fetchChatHistory } from "./nodes/fetch-chat-history";
+import { manageFiles } from "./nodes/manage-files";
+import { architectureAgent } from "./nodes/architecture-agent";
 
 export interface ChatHistoryItem {
   role: "USER" | "AI" | "SYSTEM";
@@ -38,7 +40,7 @@ export const AgentStateAnnotation = Annotation.Root({
   sessionToken:Annotation<string>, // session token
   
   // Processing
-  intent: Annotation<'context' | 'schema' | 'table' | 'list' | 'code' | 'text' | 'general' | 'delete' | null>,
+  intent: Annotation<'context' | 'schema' | 'table' | 'list' | 'code' | 'text' | 'general' | 'delete' | 'file_management' | 'architecture' | null>,
   extractedData: Annotation<any>,
   confidence: Annotation<number>,
   targetFileIds: Annotation<string[]>,
@@ -50,13 +52,13 @@ export const AgentStateAnnotation = Annotation.Root({
 });
 
 export interface EditOperation {
-  type: 'insert_smartblock' | 'insert_table' | 'replace' | 'delete' | 'chat_response';
+  type: 'insert_smartblock' | 'insert_table' | 'replace' | 'delete' | 'chat_response' | 'insert_smartblock_mention';
   position: number;
   content: any;
 }
 
 // ============= AI CLIENT =============
-const groq = new ChatGroq({model:"openai/gpt-oss-120b"});
+const groq = new ChatGroq({model:"openai/gpt-oss-120b", maxTokens: 8192, maxRetries: 2});
 
 // ============= HELPER: CALL LLM =============
 export async function callAI(messages: ChatMessage[], options: {
@@ -89,6 +91,19 @@ export async function callAI(messages: ChatMessage[], options: {
         try{
             return JSON.parse(cleaned);
         }catch(e){
+            // Try simple repair if truncated array
+            if (cleaned.startsWith("[") && !cleaned.endsWith("]")) {
+              let repaired = "";
+              const lastBrace = cleaned.lastIndexOf("}");
+              if (lastBrace !== -1) {
+                  try {
+                      repaired = cleaned.substring(0, lastBrace + 1) + "]";
+                      return JSON.parse(repaired);
+                  } catch (e2) {
+                      console.error("Failed to parse repaired JSON:", repaired);
+                  }
+              }
+            }
             console.error("Failed to parse JSON:", cleaned);
             throw e;
         }
@@ -118,6 +133,10 @@ function routeByIntent(state: typeof AgentStateAnnotation.State): string {
     case 'delete':
     case 'general':
       return 'generateOps';
+    case 'architecture':
+      return 'architectureAgent';
+    case 'file_management':
+      return 'manageFiles';
     default:
       return 'generateOps'; // Fallback to general handling
   }
@@ -134,6 +153,8 @@ const workflow = new StateGraph(AgentStateAnnotation)
   .addNode('extractSchema', extractSchemaData)
   .addNode('extractTable', extractTableData)
   .addNode('generateOps', generateOperations)
+  .addNode('manageFiles', manageFiles)
+  .addNode('architectureAgent', architectureAgent)
 
   .addEdge(START, 'fetchChatHistory')
   .addEdge('fetchChatHistory', 'classifyIntent')
@@ -152,7 +173,13 @@ const workflow = new StateGraph(AgentStateAnnotation)
   // Edit Branch
   .addEdge('extractSchema', 'generateOps')
   .addEdge('extractTable', 'generateOps')
-  .addEdge('generateOps', END);
+  .addEdge('generateOps', END)
+  
+  // File Management Branch
+  .addEdge('manageFiles', END)
+
+  // Architecture Agent Branch
+  .addEdge('architectureAgent', END);
 
 export const docEditAgent = workflow.compile();
 
