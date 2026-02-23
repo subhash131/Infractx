@@ -1,71 +1,121 @@
 "use client";
 
-import React, { useEffect } from 'react';
-import { useQuery } from 'convex/react';
-import { api } from '@workspace/backend/_generated/api';    
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { CreemCheckout } from '@creem_io/nextjs';
-import { SubscribeButton } from './components/subscribe-button';
+import { useEffect, useState } from "react";
+import { PlanCard, type BillingCycle, type Plan } from "./components/plan-card";
 
-const PricingPage = () => {
-  const router = useRouter();
-  const subscriptionStatus = useQuery(api.users.getSubscriptionStatus);
+// ─── Data ─────────────────────────────────────────────────────────────────────
+
+export default function PricingPage() {
+  const [billing, setBilling] = useState<BillingCycle>("monthly");
+  const [plans, setPlans] = useState<Plan[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (subscriptionStatus?.status === 'active' || subscriptionStatus?.hasPriorSubscription === true) {
-        // If active, or they have a prior subscription (existing user fallback), go to dashboard
-        router.push('/dashboard'); 
+    async function fetchPlans() {
+      try {
+        const res = await fetch('/api/products');
+        if (!res.ok) throw new Error("Failed to load products");
+        const data = await res.json();
+        const items = data.items || [];
+        
+        const mappedPlans: Plan[] = items.map((item: any) => {
+          return {
+            id: item.id,
+            name: item.name,
+            desc: item.description || "Simple description for this plan.",
+            price: item.price / 100, // Assuming price is in cents
+            billingPeriod: item.billing_period || "every-month",
+            featured: item.metadata?.featured === "true" || false,
+            features: item.metadata?.features ? item.metadata.features.split(",") : ["Standard Feature 1", "Standard Feature 2"],
+          };
+        });
+        
+        // Sort mapped plans by price ascending
+        setPlans(mappedPlans.sort((a, b) => (a.price || 0) - (b.price || 0)));
+      } catch (error) {
+        console.error("Failed to fetch plans from Creem:", error);
+      } finally {
+        setLoading(false);
+      }
     }
-  }, [subscriptionStatus, router]);
 
-  if (subscriptionStatus === undefined) {
-      return (
-          <div className='flex flex-col items-center justify-center h-screen bg-[#1f1f1f]'>
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
-          </div>
-      );
-  }
+    fetchPlans();
+  }, []);
 
   return (
-    <div className='flex flex-col items-center justify-center min-h-screen bg-[#1f1f1f] text-white p-4'>
-        <div className="max-w-2xl text-center space-y-8">
-            <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r text-white">
-                Unlock Professional Architecture Design
-            </h1>
-            <p className="text-gray-400 text-lg md:text-xl">
-                Become the ultimate source of truth for your coding agents. Get full access to AI tools, architecture diagrams, and unlimited projects.
-            </p>
+    <>
+      <div
+        className="min-h-screen bg-[#0a0a0a] text-white relative overflow-hidden"
+        style={{ fontFamily: "'DM Sans', sans-serif" }}
+      >
+        <div
+          className="pointer-events-none fixed top-[8%] left-1/2 -translate-x-1/2 w-[700px] h-[400px] z-0"
+          style={{
+            background:
+              "radial-gradient(ellipse, rgba(90,90,90,0.22) 0%, transparent 70%)",
+          }}
+        />
 
-            <div className="w-full max-w-md mx-auto bg-[#2a2a2a] rounded-2xl p-8 border border-gray-700 shadow-xl mt-12">
-                 <h2 className="text-2xl font-semibold mb-4 text-white">Pro Plan</h2>
-                 <p className="text-gray-400 mb-6">Start designing better software today.</p>
-                 <div className="text-4xl font-bold mb-6">$30<span className="text-lg text-gray-500 font-normal">/month</span></div>
-                 
-                 <ul className="text-left space-y-4 mb-8 text-gray-300">
-                     <li className="flex items-center">
-                         <svg className="w-5 h-5 mr-3 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-                         Unlimited AI Generations
-                     </li>
-                     <li className="flex items-center">
-                         <svg className="w-5 h-5 mr-3 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-                         Export to Cursor & Agents
-                     </li>
-                     <li className="flex items-center">
-                         <svg className="w-5 h-5 mr-3 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-                         Unlimited Workspaces
-                     </li>
-                 </ul>
+       
 
-                {/* <CreemCheckout productId={process.env.NEXT_PUBLIC_CREEM_BASIC_PRODUCT_ID || ''}               >
-                    Subscribe Now
-                </CreemCheckout> */}
-                <SubscribeButton />
+        {/* ── Hero ── */}
+        <section className="relative z-10 flex flex-col items-center text-center pt-20 pb-14 px-6">
+          {/* Badge */}
+          <span className="inline-block border border-white/20 rounded-full px-4 py-[5px] text-[12px] text-white/50 mb-7 backdrop-blur-sm">
+            Software architecture for AI and Humans
+          </span>
+
+          {/* Heading */}
+          <h1
+            className="text-[clamp(44px,6vw,70px)] font-extrabold leading-[1.04] tracking-[-2.5px] mb-6"
+            style={{ fontFamily: "'Syne', sans-serif" }}
+          >
+           Get your architecture companion
+          </h1>
+
+          {/* Subtitle */}
+          <p className="text-[15px] text-white/45 max-w-[420px] leading-relaxed mb-10">
+            Select from best plan, ensuring a perfect match. Need more or less?
+            Customize your subscription for a seamless fit!
+          </p>
+
+          {/* Billing toggle */}
+          <div className="flex items-center bg-white/[0.05] border border-white/[0.09] rounded-full p-[4px] gap-[3px]">
+            {(["monthly", "annually"] as BillingCycle[]).map((cycle) => (
+              <button
+                key={cycle} 
+                onClick={() => setBilling(cycle)}
+                className={`px-5 py-2 rounded-full text-sm font-medium transition-all duration-200 capitalize ${
+                  billing === cycle
+                    ? "bg-white/[0.12] text-white"
+                    : "text-white/40 hover:text-white/70"
+                }`}
+                style={{ fontFamily: "'DM Sans', sans-serif" }}
+              >
+                {cycle === "annually" ? "Annually" : "Monthly"}
+              </button>
+            ))}
+          </div>
+          <p className="mt-3 text-[12px] text-white/30">
+            Save 20% with annual billing
+          </p>
+        </section>
+
+        {/* ── Cards ── */}
+        <section className="relative z-10 flex flex-wrap justify-center gap-4 px-10 pb-24 min-h-[500px]">
+          {loading ? (
+            <div className="flex items-center justify-center w-full mt-20">
+              <p className="text-white/50 text-lg">Loading plans...</p>
             </div>
-            <p className="text-sm text-gray-500 mt-4">Secure payment powered by Creem & Stripe</p>
-        </div>
-    </div>
-  )
+          ) : (
+            plans
+              .filter((plan) => plan.billingPeriod === (billing === "monthly" ? "every-month" : "every-year"))
+              .map((plan) => (
+                <PlanCard key={plan.id} plan={plan} billing={billing} />
+              ))
+          )}
+        </section>
+      </div>
+    </>
+  );
 }
-
-export default PricingPage
