@@ -2,7 +2,12 @@
 
 import { useState } from 'react';
 
-export const SubscribeButton = () => {
+interface SubscribeButtonProps {
+  productId: string;
+  featured?: boolean;
+}
+
+export const SubscribeButton = ({ productId, featured = false }: SubscribeButtonProps) => {
   const [loading, setLoading] = useState(false);
   
   const handleCheckout = async () => {
@@ -13,7 +18,7 @@ export const SubscribeButton = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          productId: process.env.NEXT_PUBLIC_CREEM_BASIC_PRODUCT_ID || '', // Replace with your product ID
+          productId,
         }),
       });
       
@@ -33,9 +38,17 @@ export const SubscribeButton = () => {
       <button
         onClick={handleCheckout}
         disabled={loading}
-        className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg disabled:opacity-50"
+        className={`
+          w-full mt-5 py-[13px] rounded-xl text-sm font-semibold transition-all duration-200
+          ${
+            featured
+              ? "bg-white text-[#0a0a0a] hover:bg-white/90"
+              : "bg-transparent text-white border border-white/[0.15] hover:bg-white/[0.06]"
+          } disabled:opacity-50
+        `}
+        style={{ fontFamily: "'DM Sans', sans-serif" }}
       >
-        {loading ? 'Loading...' : 'Buy Now - $30'}
+        {loading ? 'Processing...' : 'Get Started'}
       </button>
   );
 }

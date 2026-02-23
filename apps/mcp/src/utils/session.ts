@@ -12,7 +12,7 @@ export async function createSession(
   );
 
   const server = new McpServer({
-    name: "Infrabro MCP",
+    name: "Infractx MCP",
     version: "1.0.0",
   });
 

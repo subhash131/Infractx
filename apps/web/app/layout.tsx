@@ -18,7 +18,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Infra Bro",
+  title: "Infractx",
   description: "Project by subhash",
 };
 

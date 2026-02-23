@@ -1,6 +1,6 @@
 "use client";
 import React from "react";
-import { type LucideIcon, BookOpenText, ClipboardList, Info, LayoutTemplate, LogOut } from "lucide-react";
+import { type LucideIcon, BookOpenText, ClipboardList, Coins, Info, LayoutTemplate, LogOut } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -42,6 +42,11 @@ const projectsNavItems: SidebarItem[] = [
     title: "Templates",
     url: "/templates",
     icon: LayoutTemplate,
+  },
+  {
+    title: "Billing",
+    url: "/pricing",
+    icon: Coins,
   },
 ];
 const helpNavItems: SidebarItem[] = [
