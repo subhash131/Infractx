@@ -55,17 +55,63 @@ export const listFiles = async (documentId: string, token?: string) => {
     }
 };
 
+/**
+ * Scan all blocks for smartBlockMention inline nodes and fetch each referenced
+ * smartblock by its externalId (attrs.blockId) from Convex.
+ *
+ * Returns a Map<blockId, blockDoc> ready to pass into parseBlocks().
+ */
+async function resolveSmartBlockMentions(
+    blocks: any[],
+    client: ReturnType<typeof getConvexClient>
+): Promise<Map<string, any>> {
+    // Collect unique blockIds referenced anywhere in the block content arrays
+    const mentionIds = new Set<string>();
+
+    for (const block of blocks) {
+        if (!Array.isArray(block.content)) continue;
+        for (const node of block.content) {
+            if (node.type === "smartBlockMention" && node.attrs?.blockId) {
+                mentionIds.add(node.attrs.blockId as string);
+            }
+        }
+    }
+
+    const resolved = new Map<string, any>();
+    if (mentionIds.size === 0) return resolved;
+
+    // Fetch all referenced smartblocks in parallel
+    await Promise.all(
+        Array.from(mentionIds).map(async (blockId) => {
+            try {
+                const sb = await client.query(
+                    api.requirements.textFileBlocks.getBlockByExternalId,
+                    { externalId: blockId }
+                );
+                if (sb) resolved.set(blockId, sb);
+            } catch (err) {
+                console.warn(`Could not resolve SmartBlockMention blockId="${blockId}":`, err);
+            }
+        })
+    );
+
+    console.log(`🔗 Resolved ${resolved.size}/${mentionIds.size} SmartBlockMentions`);
+    return resolved;
+}
+
 export const getFileContent = async (fileId: string, token?: string) => {
     try {
         const client = getConvexClient(token);
         const blocks = await client.query(api.requirements.textFileBlocks.getBlocksByFileId, {
             textFileId: fileId as any
         });
-        
-        // Return both raw count and parsed text
+
+        // Pre-fetch any smartblocks referenced via smartBlockMention nodes
+        const resolvedSBMs = await resolveSmartBlockMentions(blocks, client);
+
         return {
             blockCount: blocks.length,
-            parsedContent: parseBlocks(blocks)
+            parsedContent: parseBlocks(blocks, resolvedSBMs)
         };
     } catch (error) {
         console.error(`Error fetching content for file ${fileId}:`, error);

@@ -1,6 +1,7 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { docEditAgent } from "./index";
+import { inngest } from "@/inngest/client";
 
 export const maxDuration = 300; // Allow up to 5 minutes for agent execution
 
@@ -52,11 +53,35 @@ export const POST = async (req:NextRequest) => {
                 for await (const event of events) {
                     if (event.event === "on_chain_end") {
                          if (event.name === "classifyIntent" && event.data?.output?.intent) {
-                            console.log("Sending Intent:", event.data.output.intent);
+                            const intent = event.data.output.intent;
+                            console.log("Sending Intent:", intent);
                             controller.enqueue(encoder.encode(JSON.stringify({ 
                                 type: "intent", 
-                                intent: event.data.output.intent 
+                                intent 
                             }) + "\n"));
+
+                            // ── Architecture intent: offload to Inngest, close stream immediately ──
+                            // The architectureAgent tools write directly to Convex — the frontend
+                            // auto-syncs without any polling or extra subscriptions.
+                            if (intent === "architecture") {
+                                await inngest.send({
+                                    name: "doc/architecture.requested",
+                                    data: { docId, userMessage, sessionToken, cursorPosition: cursorPosition ?? 0 },
+                                });
+                                controller.enqueue(encoder.encode(JSON.stringify({
+                                    type: "response",
+                                    response: {
+                                        operations: [{
+                                            type: "chat_response",
+                                            position: cursorPosition ?? 0,
+                                            content: "🏛️ Scaffolding your architecture in the background. Files and content will appear automatically as they're created!"
+                                        }]
+                                    }
+                                }) + "\n"));
+                                clearInterval(keepAliveInterval);
+                                controller.close();
+                                return;
+                            }
                          }
                     }
                     if (event.event === "on_chat_model_stream") {

@@ -3,6 +3,7 @@ import z from "zod";
 import { getConvexClient } from "../convex-client";
 import { api } from "@workspace/backend/_generated/api";
 import { generateKeyBetween } from "fractional-indexing";
+import { Id } from "@workspace/backend/_generated/dataModel";
 
 // ─── Types matching the DB block schema ────────────────────────────────────
 
@@ -12,7 +13,6 @@ type ContentBlock =
     | { kind: "paragraph"; text: string }
     | { kind: "heading"; level: 1 | 2 | 3; text: string }
     | { kind: "bulletList"; items: string[] }
-    | { kind: "codeBlock"; language?: string; code: string }
     | { kind: "table"; headers: string[]; rows: string[][] };
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -85,18 +85,6 @@ function buildChildBlocks(
             }
             // Skip the normal rank bump below since we did it inside the loop
             continue;
-        } else if (item.kind === "codeBlock") {
-            result.push({
-                externalId: id,
-                type: "codeBlock",
-                props: { language: item.language ?? "typescript" },
-                content: item.code
-                    ? [{ type: "text", text: item.code } as TextNode]
-                    : [],
-                rank: currentRank,
-                parentId: smartBlockId,
-                approvedByHuman:false,
-            });
         } else if (item.kind === "table") {
             // Build the TipTap table structure that matches what the DB stores
             const makeCell = (text: string, isHeader: boolean) => ({
@@ -200,7 +188,7 @@ export const addDatabaseSmartBlockTool = tool(
             const allBlocks = [smartBlockRecord, ...childBlocks, trailingParagraph];
 
             await client.mutation(api.requirements.textFileBlocks.bulkCreate, {
-                textFileId: input.fileId as any,
+                textFileId: input.fileId as Id<"text_files">,
                 blocks: allBlocks,
 
             });
@@ -221,7 +209,7 @@ export const addDatabaseSmartBlockTool = tool(
     {
         name: "add_database_smart_block",
         description:
-            "Populate a file with a TipTap-compatible smart block hierarchy. Creates a root smartBlock with a title and N child blocks (paragraphs, headings, bullet lists, code blocks, or tables) directly in the database.",
+            "Populate a file with a TipTap-compatible smart block hierarchy. Creates a root smartBlock with a title and N child blocks (paragraphs, headings, bullet lists, or tables) directly in the database.",
         schema: z.object({
             fileId: z.string().describe(
                 "The Convex ID of the file to populate. Must be an existing file (not folder)."
@@ -231,27 +219,22 @@ export const addDatabaseSmartBlockTool = tool(
             ),
             content: z
                 .array(
-                    z.discriminatedUnion("kind", [
+                    z.union([
                         z.object({
-                            kind: z.literal("paragraph"),
+                            kind: z.literal("paragraph").describe("Must be the string 'paragraph'."),
                             text: z.string().describe("Paragraph text content."),
                         }),
                         z.object({
-                            kind: z.literal("heading"),
-                            level: z.union([z.literal(1), z.literal(2), z.literal(3)]),
-                            text: z.string(),
+                            kind: z.literal("heading").describe("Must be the string 'heading'."),
+                            level: z.union([z.literal(1), z.literal(2), z.literal(3)]).describe("Heading level: 1, 2, or 3."),
+                            text: z.string().describe("Heading text."),
                         }),
                         z.object({
-                            kind: z.literal("bulletList"),
-                            items: z.array(z.string()).describe("Array of bullet point strings."),
+                            kind: z.literal("bulletList").describe("Must be the string 'bulletList'. ALWAYS include kind='bulletList'."),
+                            items: z.array(z.string()).describe("Array of bullet point strings. Each string is one bullet item."),
                         }),
                         z.object({
-                            kind: z.literal("codeBlock"),
-                            language: z.string().optional().describe("e.g. 'typescript', 'python', 'sql'"),
-                            code: z.string().describe("The raw code or pseudo-code."),
-                        }),
-                        z.object({
-                            kind: z.literal("table"),
+                            kind: z.literal("table").describe("Must be the string 'table'."),
                             headers: z.array(z.string()).describe("Column header labels."),
                             rows: z
                                 .array(z.array(z.string()))
@@ -260,8 +243,8 @@ export const addDatabaseSmartBlockTool = tool(
                     ])
                 )
                 .describe(
-                    "Ordered list of content blocks to insert as children of the smartBlock. " +
-                    "Use paragraphs for text, codeBlocks for pseudo-code, and tables for schemas."
+                    "Ordered list of content blocks. Each block MUST have a 'kind' field set to one of: 'paragraph', 'heading', 'bulletList', 'table'. " +
+                    "NEVER omit the 'kind' field. NEVER add extra fields not defined in the schema."
                 ),
         }),
     }
