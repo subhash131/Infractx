@@ -60,6 +60,20 @@ export interface EditOperation {
 // ============= AI CLIENT =============
 const groq = new ChatGroq({model:"openai/gpt-oss-120b", maxTokens: 8192, maxRetries: 2});
 
+// ============= TOKEN RATE LIMITER =============
+const TOKEN_LIMIT = 600_000;
+const WAIT_MS = 60_000; // 1 minute
+let totalTokensUsed = 0;
+
+async function checkAndWaitForRateLimit() {
+  if (totalTokensUsed >= TOKEN_LIMIT) {
+    console.warn(`⚠️ Token limit reached (${totalTokensUsed.toLocaleString()} tokens). Waiting 1 minute before next LLM call...`);
+    await new Promise(resolve => setTimeout(resolve, WAIT_MS));
+    totalTokensUsed = 0;
+    console.log("✅ Wait complete. Resuming LLM calls.");
+  }
+}
+
 // ============= HELPER: CALL LLM =============
 export async function callAI(messages: ChatMessage[], options: {
   returnJson?: boolean;
@@ -73,13 +87,30 @@ export async function callAI(messages: ChatMessage[], options: {
 
   // Langchain types expect BaseMessageLike, which is slightly more complex than our simple interface.
   // We cast to any internally to avoid type errors since Groq accepts {role, content} format perfectly.
+  // Check token usage before making the call
+  await checkAndWaitForRateLimit();
+
   const stream = await groq.stream(messages as any, runConfig);
 
   let text = "";
+  let inputTokens = 0;
+  let outputTokens = 0;
   for await (const chunk of stream) {
       if (typeof chunk.content === 'string') {
           text += chunk.content;
       }
+      // Groq streams usage stats on the last chunk
+      const usage = (chunk as any).usage_metadata ?? (chunk as any).response_metadata?.usage;
+      if (usage) {
+          inputTokens = usage.input_tokens ?? usage.prompt_tokens ?? inputTokens;
+          outputTokens = usage.output_tokens ?? usage.completion_tokens ?? outputTokens;
+      }
+  }
+
+  const chunkTokens = inputTokens + outputTokens;
+  if (chunkTokens > 0) {
+      totalTokensUsed += chunkTokens;
+      console.log(`📊 Tokens this call: ${chunkTokens.toLocaleString()} (input: ${inputTokens.toLocaleString()}, output: ${outputTokens.toLocaleString()}) | Total: ${totalTokensUsed.toLocaleString()}`);
   }
 
   const content = text;
