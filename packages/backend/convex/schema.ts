@@ -247,6 +247,7 @@ export default defineSchema({
     content: v.any(),
     rank: v.string(),
     externalId:v.string(),// uuid from the client
+    approvedByHuman:v.boolean()
   })
     .index("by_text_file", ["textFileId"])
     .index("by_external_id", ["externalId"])
