@@ -70,7 +70,7 @@ function processNodeList(
         content: headerContent, // Store the header content here
         rank: newRank,
         props: node.attrs,
-        
+        approvedByHuman:false
       });
 
       // C. Process Children (inside smartBlockGroup)
@@ -92,7 +92,7 @@ function processNodeList(
         content: node.content, // Store inner content (e.g. text nodes)
         rank: newRank,
         props: node.attrs,
-        
+        approvedByHuman:false
       });
     }
   });

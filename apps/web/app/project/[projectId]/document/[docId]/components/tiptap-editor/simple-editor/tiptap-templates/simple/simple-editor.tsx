@@ -220,6 +220,7 @@ export function SimpleEditor({textFileId}:{textFileId:Id<"text_files">}) {
           type: block.type,
           rank: block.rank,
           parentId: block.parentId,
+          approvedByHuman:block.approvedByHuman
         };
       });
 

@@ -12,6 +12,7 @@ export function parseTiptapDocumentToBlock(
     if (node.type === "smartBlock") {
       const blockId = node.attrs?.id;
       const rank = node.attrs?.rank;
+      const approvedByHuman = node.attrs?.approvedByHuman;
 
       if (!blockId || !rank) {
         console.warn("smartBlock missing id or rank", node);
@@ -34,6 +35,7 @@ export function parseTiptapDocumentToBlock(
         rank,
         props: {}, // Add any custom props from node.attrs if needed
         textFileId,
+        approvedByHuman,
       });
 
       // Process children in smartBlockGroup
@@ -50,6 +52,7 @@ export function parseTiptapDocumentToBlock(
     else if (node.type === "table") {
       const blockId = node.attrs?.id;
       const rank = node.attrs?.rank;
+      const approvedByHuman = node.attrs?.approvedByHuman;
 
       if (!blockId || !rank) {
         console.warn("table missing id or rank", node);
@@ -64,12 +67,14 @@ export function parseTiptapDocumentToBlock(
         rank,
         props: {},
         textFileId,
+        approvedByHuman,
       });
     }
     // Generic handler for all other block types (paragraph, heading, list, etc.)
     else {
       const blockId = node.attrs?.id;
       const rank = node.attrs?.rank;
+      const approvedByHuman = node.attrs?.approvedByHuman;
 
       // If the node has an ID and rank, treat it as a block
       if (blockId && rank) {
@@ -87,6 +92,7 @@ export function parseTiptapDocumentToBlock(
           rank,
           props: otherAttrs,
           textFileId,
+          approvedByHuman,
         });
 
         // Traverse children for this block
