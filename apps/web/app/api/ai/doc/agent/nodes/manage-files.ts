@@ -98,7 +98,8 @@ Return ONLY the JSON array (NO MARKDOWN WRAPPERS):
             type: "paragraph",
             props: {},
             content: [{ type: "text", text: op.content }],
-            rank: "a0"
+            rank: "a0",
+            approvedByHuman:false
           });
         }
         actionCount++;
