@@ -26,12 +26,14 @@ export function syncEditorToDatabase(
     ...block,
     externalId:block.id,
     textFileId,
+    approvedByHuman:block.approvedByHuman || true,
   }));
 
   const toUpdate = diff.toUpdate.map((block) => ({
     ...block,
     externalId:block.id,
     textFileId,
+    approvedByHuman:block.approvedByHuman || true,
   }));
 
 

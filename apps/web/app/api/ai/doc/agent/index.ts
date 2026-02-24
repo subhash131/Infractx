@@ -12,7 +12,6 @@ import { extractTableData } from "./nodes/extract-table-data";
 import { generateOperations } from "./nodes/generate-operations";
 import { fetchChatHistory } from "./nodes/fetch-chat-history";
 import { manageFiles } from "./nodes/manage-files";
-import { architectureAgent } from "./nodes/architecture-agent";
 
 export interface ChatHistoryItem {
   role: "USER" | "AI" | "SYSTEM";
@@ -185,7 +184,6 @@ const workflow = new StateGraph(AgentStateAnnotation)
   .addNode('extractTable', extractTableData)
   .addNode('generateOps', generateOperations)
   .addNode('manageFiles', manageFiles)
-  .addNode('architectureAgent', architectureAgent)
 
   .addEdge(START, 'fetchChatHistory')
   .addEdge('fetchChatHistory', 'classifyIntent')
@@ -210,7 +208,6 @@ const workflow = new StateGraph(AgentStateAnnotation)
   .addEdge('manageFiles', END)
 
   // Architecture Agent Branch
-  .addEdge('architectureAgent', END);
 
 export const docEditAgent = workflow.compile();
 
