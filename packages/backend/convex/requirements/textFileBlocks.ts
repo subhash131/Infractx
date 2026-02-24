@@ -11,6 +11,7 @@ export const createBlock = mutation({
     content: v.any(),
     rank: v.string(),
     parentId: v.optional(v.union(v.string(), v.null())),
+    approvedByHuman: v.boolean(),
   },
   handler: async (ctx, args) => {
     return await ctx.db.insert("blocks", {...args});
@@ -26,6 +27,7 @@ export const updateBlock = mutation({
     content: v.optional(v.any()),
     rank: v.optional(v.string()),
     parentId: v.optional(v.union(v.string(), v.null())),
+    approvedByHuman: v.optional(v.boolean()),
   },
   handler: async (ctx, { id, ...updates }) => {
     await ctx.db.patch(id, updates);
@@ -43,12 +45,13 @@ export const bulkCreate = mutation({
         content: v.any(),
         rank: v.string(),
         parentId: v.optional(v.union(v.string(), v.null())),
+        approvedByHuman: v.boolean(),
       })
     ),
   },
   handler: async (ctx, { textFileId, blocks }) => {
     for (const block of blocks) {
-      await ctx.db.insert("blocks", { ...block, textFileId, });
+      await ctx.db.insert("blocks", { ...block, textFileId});
     }
   },
 });
@@ -65,6 +68,7 @@ export const bulkUpdate = mutation({
         rank: v.optional(v.string()),
         type: v.optional(v.string()),
         parentId: v.optional(v.union(v.string(), v.null())), 
+        approvedByHuman: v.optional(v.boolean()),
       })
     ),
   },
@@ -98,6 +102,7 @@ export const bulkUpdate = mutation({
           props: block.props ?? {},
           rank: block.rank ?? "a0",
           parentId: block.parentId ?? null,
+          approvedByHuman:block.approvedByHuman ?? true,
         });
         console.log(`Inserted new block with UUID ${block.externalId}`);
       }
