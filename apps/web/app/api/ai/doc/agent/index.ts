@@ -1,4 +1,4 @@
-import { ChatGroq } from "@langchain/groq";
+import { getAIModel } from "@/lib/ai-model";
 import { StateGraph, START, END } from "@langchain/langgraph";
 import { Annotation } from "@langchain/langgraph";
 import { RunnableConfig } from "@langchain/core/runnables";
@@ -22,6 +22,12 @@ export interface ChatHistoryItem {
 export interface ChatMessage {
   role: "user" | "assistant" | "system";
   content: string;
+}
+
+export interface EditOperation {
+  type: 'insert_smartblock' | 'insert_table' | 'replace' | 'delete' | 'chat_response' | 'insert_smartblock_mention';
+  position: number;
+  content: any;
 }
 
 // ============= STATE ANNOTATION =============
@@ -50,14 +56,10 @@ export const AgentStateAnnotation = Annotation.Root({
   error: Annotation<string | undefined>,
 });
 
-export interface EditOperation {
-  type: 'insert_smartblock' | 'insert_table' | 'replace' | 'delete' | 'chat_response' | 'insert_smartblock_mention';
-  position: number;
-  content: any;
-}
 
 // ============= AI CLIENT =============
-const groq = new ChatGroq({model:"openai/gpt-oss-120b", maxTokens: 8192, maxRetries: 2});
+// 👇 To switch models, edit apps/web/lib/ai-model.ts
+const aiModel = getAIModel();
 
 // ============= TOKEN RATE LIMITER =============
 const TOKEN_LIMIT = 600_000;
@@ -89,7 +91,7 @@ export async function callAI(messages: ChatMessage[], options: {
   // Check token usage before making the call
   await checkAndWaitForRateLimit();
 
-  const stream = await groq.stream(messages as any, runConfig);
+  const stream = await aiModel.stream(messages as any, runConfig);
 
   let text = "";
   let inputTokens = 0;

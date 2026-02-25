@@ -1,11 +1,11 @@
 import { inngest } from "../client";
-import { ChatGroq } from "@langchain/groq";
-import { SystemMessage, HumanMessage, AIMessage, ToolMessage } from "@langchain/core/messages";
+import { HumanMessage, AIMessage, ToolMessage } from "@langchain/core/messages";
 import { createFileTool, deleteFileTool, renameFileTool } from "@/app/api/ai/doc/agent/tools/file-tools";
 import { addDatabaseSmartBlockTool } from "@/app/api/ai/doc/agent/tools/add-database-smart-block";
 import { addSmartBlockMentionTool } from "@/app/api/ai/doc/agent/tools/add-smart-block-mention";
 import { listFiles } from "@/app/api/ai/doc/agent/context-tools";
 import { StructuredToolInterface } from "@langchain/core/tools";
+import { getAIModelWithTools } from "@/lib/ai-model";
 
 const tools = [
     createFileTool,
@@ -79,7 +79,8 @@ The \`content\` field is a structured array, NOT a markdown string. Use these bl
 - Do NOT use raw markdown strings — always use the typed content array.
 - Do NOT stop after creating folders or files — you MUST populate every file.`;
 
-        const groq = new ChatGroq({ model: "openai/gpt-oss-120b", maxTokens: 8192, maxRetries: 2 }).bindTools(tools);
+        // 👇 To switch models, edit apps/web/lib/ai-model.ts
+        const aiModel = getAIModelWithTools(tools);
 
         const historyMessages = (chatHistory ?? []).slice(-5).map((m: any) => {
             if (m.role?.toLowerCase() === "user") return new HumanMessage(m.content || "");
@@ -102,10 +103,15 @@ The \`content\` field is a structured array, NOT a markdown string. Use these bl
         const maxLoops = 15;
         let cumulativeTokens = 0;
 
+        // Keep the first message (main prompt) + the last N messages to avoid context overflow.
+        // After 14 loops the context grows so large that the model returns "" → 400 parse error.
+        const trimMessages = (msgs: any[], keepRecent = 30) =>
+            msgs.length <= keepRecent + 1 ? msgs : [msgs[0], ...msgs.slice(-keepRecent)];
+
         // ── Main agentic loop — each iteration is a durable Inngest step ──
         for (let loopCount = 0; loopCount < maxLoops; loopCount++) {
             const { toolCalls, shouldBreak, aiMessage, tokensUsed } = await step.run(`arch-loop-${loopCount}`, async () => {
-                const res = await groq.invoke(finalMessages, toolConfig);
+                const res = await aiModel.invoke(trimMessages(finalMessages), toolConfig);
                 const usage = (res as any).usage_metadata;
                 const total = (usage?.input_tokens ?? 0) + (usage?.output_tokens ?? 0);
                 return {
@@ -124,12 +130,12 @@ The \`content\` field is a structured array, NOT a markdown string. Use these bl
             cumulativeTokens += tokensUsed;
             if (cumulativeTokens >= 600_000) {
                 console.log(`[Tokens] Main loop cumulative ${cumulativeTokens} tokens → pausing 60s to avoid TPM limit`);
-                await step.sleep(`rate-limit-main-${loopCount}`, "60s");
+                // await step.sleep(`rate-limit-main-${loopCount}`, "60s");
                 cumulativeTokens = 0;
             } else if (tokensUsed > 0) {
                 const delaySec = Math.ceil(tokensUsed / 1000) * 10;
                 console.log(`[Tokens] Main loop ${loopCount + 1} used ${tokensUsed} tokens → pausing ${delaySec}s`);
-                await step.sleep(`rate-limit-main-${loopCount}`, `${delaySec}s`);
+                // await step.sleep(`rate-limit-main-${loopCount}`, `${delaySec}s`);
             }
 
             console.log(`Executing ${toolCalls.length} arch tool calls (Loop ${loopCount + 1})...`);
@@ -205,7 +211,7 @@ Do NOT skip any of them. Do NOT use raw markdown strings.`;
 
             for (let fallbackLoop = 0; fallbackLoop < 5; fallbackLoop++) {
                 const { fallbackToolCalls, shouldBreak, fallbackAiMessage, fallbackTokensUsed } = await step.run(`arch-failsafe-${fallbackLoop}`, async () => {
-                    const res = await groq.invoke(finalMessages, toolConfig);
+                    const res = await aiModel.invoke(trimMessages(finalMessages), toolConfig);
                     const usage = (res as any).usage_metadata;
                     const total = (usage?.input_tokens ?? 0) + (usage?.output_tokens ?? 0);
                     return {
@@ -243,7 +249,7 @@ Do NOT skip any of them. Do NOT use raw markdown strings.`;
                 if (fallbackTokensUsed > 0) {
                     const delaySec = Math.ceil(fallbackTokensUsed / 1000) * 10;
                     console.log(`[Tokens] Failsafe ${fallbackLoop + 1} used ${fallbackTokensUsed} tokens → pausing ${delaySec}s to avoid TPM limit`);
-                    await step.sleep(`rate-limit-failsafe-${fallbackLoop}`, `${delaySec}s`);
+                    // await step.sleep(`rate-limit-failsafe-${fallbackLoop}`, `${delaySec}s`);
                 }
             }
         }
