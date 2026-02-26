@@ -10,8 +10,12 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Model assets moved to root/model/
-env.localModelPath = path.dirname(__dirname);
+// Model assets live in src/model/.
+// __dirname is either "src/" (tsx dev) or "dist/" (compiled prod).
+// One dirname-up reaches the package root; then we enter src/.
+// @xenova/transformers appends MODEL_NAME → src/model/tokenizer.json ✓
+env.localModelPath = path.join(path.dirname(__dirname), "src");
+
 env.allowRemoteModels = false;
 
 export const MODEL_NAME = "model";
