@@ -2,10 +2,11 @@
  * Sentence-aware text chunker with overlap.
  *
  * Strategy:
- *  1. Split text into sentences on `.  !  ?  \n\n`
- *  2. Accumulate sentences until the chunk reaches `chunkSize` words
- *  3. Slide forward by `chunkSize - overlap` words, keeping the tail sentences
- *     as the leading context of the next chunk
+ *  1. Split text on paragraph breaks (`\n\n+`) first, then on sentence
+ *     boundaries (`.  !  ?`) within each paragraph.
+ *  2. Accumulate sentences until the chunk reaches `chunkWords` words.
+ *  3. Slide forward by `chunkWords - overlapWords` words, keeping the tail
+ *     sentences as the leading context of the next chunk.
  *
  * This guarantees no sentence is cut mid-way and key boundary sentences
  * appear in both adjacent chunks.
@@ -22,8 +23,10 @@ export interface Chunk {
 
 const SENTENCE_BOUNDARY = /(?<=[.!?])\s+/;
 
+/** Returns 0 for empty/whitespace-only strings (fixes `"".split() → [""]` bug). */
 function wordCount(s: string): number {
-  return s.trim().split(/\s+/).length;
+  const t = s.trim();
+  return t === "" ? 0 : t.split(/\s+/).length;
 }
 
 /**
@@ -38,11 +41,15 @@ export function chunkText(
   chunkWords = 250,
   overlapWords = 50
 ): Chunk[] {
-  // Split into sentences, keeping the delimiter attached to the sentence
-  const rawSentences = text
-    .replace(/\r\n/g, "\n")
-    .split(SENTENCE_BOUNDARY)
-    .map((s) => s.trim())
+  // Normalise line endings, then split on paragraph breaks first,
+  // then on sentence boundaries within each paragraph.
+  const normalised = text.replace(/\r\n/g, "\n");
+
+  const rawSentences = normalised
+    .split(/\n{2,}/)                              // paragraph splits
+    .flatMap((para) =>
+      para.split(SENTENCE_BOUNDARY).map((s) => s.trim()).filter(Boolean)
+    )
     .filter(Boolean);
 
   if (rawSentences.length === 0) return [];
@@ -52,6 +59,10 @@ export function chunkText(
   let charCursor = 0;
 
   while (sentenceIdx < rawSentences.length) {
+    // Remember where this chunk's sliding window started so the infinite-loop
+    // guard can compare against the correct sentence index.
+    const windowStart = sentenceIdx;
+
     const bucket: string[] = [];
     let bucketWords = 0;
     let i = sentenceIdx;
@@ -63,15 +74,15 @@ export function chunkText(
       i++;
     }
 
-    const chunkText = bucket.join(" ");
+    const chunkStr = bucket.join(" ");
 
-    // Track character offsets in the original text
-    const startChar = text.indexOf(bucket[0], charCursor);
-    const endChar = startChar + chunkText.length;
+    // Track character offsets in the original (normalised) text
+    const startChar = normalised.indexOf(bucket[0], charCursor);
+    const endChar = startChar + chunkStr.length;
 
     chunks.push({
       index: chunks.length,
-      text: chunkText,
+      text: chunkStr,
       startChar: Math.max(0, startChar),
       endChar,
     });
@@ -84,12 +95,16 @@ export function chunkText(
       sentenceIdx++;
     }
 
-    // Prevent infinite loop on a single massive sentence
-    if (sentenceIdx === chunks[chunks.length - 1].index && sentenceIdx < rawSentences.length) {
+    // Prevent infinite loop when a single sentence exceeds chunkWords.
+    // Compare against windowStart (the sentence index at the start of this
+    // iteration), NOT the chunk's array index.
+    if (sentenceIdx === windowStart && sentenceIdx < rawSentences.length) {
       sentenceIdx++;
     }
 
-    charCursor = startChar;
+    // Advance charCursor past the end of this chunk so indexOf() on the next
+    // iteration doesn't accidentally match an earlier repeated sentence.
+    charCursor = endChar;
   }
 
   return chunks;

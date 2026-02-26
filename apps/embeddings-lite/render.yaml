@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: embeddings-lite
+    runtime: node
+    rootDir: apps/embeddings-lite
+    buildCommand: npm install && npm run build
+    startCommand: node dist/server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
