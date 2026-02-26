@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx src/server.ts",
-    "build": "npm i && tsc --build --clean && tsc",
+    "build": "npm install --include=dev && tsc --build --clean && tsc",
     "start": "node dist/server.js"
   },
   "dependencies": {
