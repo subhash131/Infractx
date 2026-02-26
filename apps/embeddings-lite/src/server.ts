@@ -39,7 +39,7 @@ const PORT = parseInt(process.env.PORT ?? "8000", 10);
 loadModel()
   .then(() => {
     app.listen(PORT, () => {
-      console.log(`[server] http://localhost:${PORT}`);
+      console.log(`[server] Listening on port ${PORT}`);
       console.log(`[server] GET /health | POST /embed | POST /store | GET /store | POST /match`);
     });
   })

@@ -213,15 +213,9 @@ export default defineSchema({
     updatedAt: v.number(),
     type:v.union(v.literal("FILE"),v.literal("FOLDER")),
     parentId: v.union(v.id("text_files"),v.null()),
-    embeddedContent:v.optional(v.union(v.array(v.float64()), v.null()))
   })
   .index("by_document", ["documentId"])
-  .index("by_parent", ["parentId"])
-  .vectorIndex("by_embeddedContent",{
-    vectorField:"embeddedContent",
-    dimensions:384,
-    filterFields:["parentId", "documentId"]
-  }),
+  .index("by_parent", ["parentId"]),
 
   documents: defineTable({
     projectId:v.id("projects"),
@@ -257,6 +251,7 @@ export default defineSchema({
     externalId: v.string(), // uuid from the client
     approvedByHuman: v.boolean(),
     embeddedContent: v.optional(v.union(v.array(v.float64()), v.null())),
+    pendingEmbedJobId: v.optional(v.union(v.id("_scheduled_functions"), v.null())), // for debouncing embed scheduler
   })
     .index("by_text_file", ["textFileId"])
     .index("by_external_id", ["externalId"])

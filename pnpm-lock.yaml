@@ -66,6 +66,8 @@ importers:
         specifier: ^5.4.5
         version: 5.9.3
 
+  apps/inngest-dev: {}
+
   apps/mcp:
     dependencies:
       '@modelcontextprotocol/sdk':
@@ -93,6 +95,8 @@ importers:
       tsx:
         specifier: 4.21.0
         version: 4.21.0
+
+  apps/mcp-inspector-dev: {}
 
   apps/web:
     dependencies:
