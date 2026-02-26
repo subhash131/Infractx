@@ -5,8 +5,8 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "build": "tsc",
-    "build:watch": "tsc --watch",
+    "build": "npm i && tsc --build --clean && tsc",
+    "build:watch": "npm i && tsc --watch",
     "dev": "tsx src/server.ts",
     "inspect": "npx @modelcontextprotocol/inspector pnpm run dev"
   },
