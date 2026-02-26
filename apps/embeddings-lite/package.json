@@ -1,5 +1,5 @@
 {
-  "name": "all-minilm-l6-v2-server",
+  "name": "embeddings-lite",
   "version": "1.0.0",
   "description": "Express.js embedding server for all-MiniLM-L6-v2",
   "main": "dist/server.js",

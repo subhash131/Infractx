@@ -18,7 +18,8 @@ export const create = mutation({
       updatedAt: Date.now(),    
       type: args.type,
       documentId: args.documentId,
-      parentId: args.parentId,
+      parentId: args.parentId || null,
+      embeddedContent: null
     });
 
     return docId;
@@ -149,6 +150,7 @@ export const duplicateFile = mutation({
       type: file.type,
       documentId: file.documentId,
       parentId: file.parentId,
+      embeddedContent:null
     });
 
     // Duplicate all blocks associated with this file
@@ -185,6 +187,7 @@ async function duplicateFileRecursive(
     type: file.type,
     documentId: file.documentId,
     parentId: newParentId,
+    embeddedContent:null
   });
 
   // Duplicate all blocks associated with this file

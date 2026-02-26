@@ -14,7 +14,7 @@ export const createBlock = mutation({
     approvedByHuman: v.boolean(),
   },
   handler: async (ctx, args) => {
-    return await ctx.db.insert("blocks", {...args});
+    return await ctx.db.insert("blocks", {...args, embeddedContent:null});
   },
 });
 
@@ -51,7 +51,7 @@ export const bulkCreate = mutation({
   },
   handler: async (ctx, { textFileId, blocks }) => {
     for (const block of blocks) {
-      await ctx.db.insert("blocks", { ...block, textFileId});
+      await ctx.db.insert("blocks", { ...block, textFileId, embeddedContent:null});
     }
   },
 });
@@ -103,6 +103,7 @@ export const bulkUpdate = mutation({
           rank: block.rank ?? "a0",
           parentId: block.parentId ?? null,
           approvedByHuman:block.approvedByHuman ?? true,
+          embeddedContent:null
         });
         console.log(`Inserted new block with UUID ${block.externalId}`);
       }
