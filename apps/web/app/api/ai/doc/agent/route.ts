@@ -6,7 +6,7 @@ import { inngest } from "@/inngest/client";
 export const maxDuration = 300; // Allow up to 5 minutes for agent execution
 
 export const POST = async (req:NextRequest) => {
-    const {selectedText, userMessage, docContext, cursorPosition, projectId, conversationId, source, docId, sessionToken} = await req.json();
+    const {selectedText, userMessage, docContext, cursorPosition, projectId, conversationId, source, docId, fileId, sessionToken} = await req.json();
     console.log({docContext,cursorPosition, projectId, conversationId, source, docId, sessionToken})
     const encoder = new TextEncoder();
     
@@ -32,11 +32,13 @@ export const POST = async (req:NextRequest) => {
                 const events = await docEditAgent.streamEvents({
                     selectedText,
                     userMessage,
-                    docContext,
+                    docContext: docContext ?? "",
+                    cursorPosition: cursorPosition ?? 0,
                     projectId: projectId || "",
                     conversationId: conversationId || undefined,
                     source: source || 'ui',
                     docId,
+                    fileId: fileId || "",
                     sessionToken,
                     intent: null,
                     extractedData: null,
@@ -47,7 +49,10 @@ export const POST = async (req:NextRequest) => {
                     error: undefined
                 }, { 
                     version: "v2",
-                    configurable: { token: sessionToken }
+                    configurable: { 
+                        token: sessionToken,
+                        thread_id: conversationId || docId || "default"
+                    }
                 });
 
                 for await (const event of events) {

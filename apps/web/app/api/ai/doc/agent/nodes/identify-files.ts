@@ -1,5 +1,4 @@
 
-import { interrupt } from "@langchain/langgraph";
 import { RunnableConfig } from "@langchain/core/runnables";
 import { AgentStateAnnotation, callAI, ChatMessage } from "../index";
 import { getProjectInfo, listFiles } from "../context-tools";
@@ -64,21 +63,20 @@ export async function identifyFiles(state: typeof AgentStateAnnotation.State, co
              return { targetFileIds: response.matches };
         }
 
-        // 4. If ambiguous, interrupt and ask
+        // 4. If ambiguous, return a request_user_input operation.
+        // The frontend shows a file picker and re-submits with the selected file IDs.
         console.log("❓ File selection ambiguous, asking user...");
-        
-        const userInput = interrupt({
-            type: "file_selection",
-            options: allFiles.map(f => ({ label: `${f.title} (${f.documentTitle})`, value: f.id })),
-            message: "I'm not sure which file you're referring to. Please select one or more:"
-        });
-
-        if (userInput && userInput.value) {
-             // Handle single or multiple selection (assuming value might be array or string)
-             const ids = Array.isArray(userInput.value) ? userInput.value : [userInput.value];
-             return { targetFileIds: ids };
-        }
-
+        return {
+            operations: [{
+                type: "request_user_input",
+                position: 0,
+                content: {
+                    type: "file_selection",
+                    options: allFiles.map(f => ({ label: `${f.title} (${f.documentTitle})`, value: f.id })),
+                    message: "I'm not sure which file you're referring to. Please select one or more:"
+                }
+            }]
+        };
 
     } catch (e) {
         console.error("File identification failed:", e);

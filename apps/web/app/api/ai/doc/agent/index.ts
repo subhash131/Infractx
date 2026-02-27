@@ -12,6 +12,7 @@ import { extractTableData } from "./nodes/extract-table-data";
 import { generateOperations } from "./nodes/generate-operations";
 import { fetchChatHistory } from "./nodes/fetch-chat-history";
 import { manageFiles } from "./nodes/manage-files";
+import { semanticSearch } from "./nodes/semantic-search";
 
 export interface ChatHistoryItem {
   role: "USER" | "AI" | "SYSTEM";
@@ -164,7 +165,7 @@ function routeByIntent(state: typeof AgentStateAnnotation.State): string {
     case 'text':
     case 'delete':
     case 'general':
-      return 'generateOps';
+      return 'semanticSearch'; // RAG: fetch relevant blocks before generating
     case 'architecture':
       return 'architectureAgent';
     case 'file_management':
@@ -186,6 +187,7 @@ const workflow = new StateGraph(AgentStateAnnotation)
   .addNode('extractTable', extractTableData)
   .addNode('generateOps', generateOperations)
   .addNode('manageFiles', manageFiles)
+  .addNode('semanticSearch', semanticSearch)
 
   .addEdge(START, 'fetchChatHistory')
   .addEdge('fetchChatHistory', 'classifyIntent')
@@ -201,7 +203,8 @@ const workflow = new StateGraph(AgentStateAnnotation)
   .addEdge('fetchFileData', 'explainContext')
   .addEdge('explainContext', END)
 
-  // Edit Branch
+  // Edit Branch — semantic search runs first for RAG context
+  .addEdge('semanticSearch', 'generateOps')
   .addEdge('extractSchema', 'generateOps')
   .addEdge('extractTable', 'generateOps')
   .addEdge('generateOps', END)
