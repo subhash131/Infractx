@@ -87,7 +87,7 @@ export async function generateOperations(state: typeof AgentStateAnnotation.Stat
     Context:
     - Document Context: "${state.docContext}"
     - Selected Text: "${state.selectedText}"
-    
+    ${state.fetchedContext ? `- Related project content (semantic search):\n${state.fetchedContext}\n` : ""}
     If the request implies editing the selected text or using the document context, ensure the generated logic reflects that.
     
     CRITICAL RULES:
@@ -130,6 +130,7 @@ export async function generateOperations(state: typeof AgentStateAnnotation.Stat
 User Request: "${state.userMessage}"
 Context (Selected Text): "${state.selectedText}"
 Document Context: "${state.docContext}"
+${state.fetchedContext ? `\nRelated project content (semantic search):\n${state.fetchedContext}` : ""}
 
 Perform the requested text generation, rewriting, or editing on the 'Selected Text'.
 Return ONLY the replacement text for the 'Selected Text'.
@@ -159,9 +160,10 @@ User Message: "${state.userMessage}"
 Context:
 - Document Content: "${state.docContext}"
 - Selected Text: "${state.selectedText}"
+${state.fetchedContext ? `- Relevant project blocks (semantic search):\n${state.fetchedContext}` : ""}
 
 Provide a helpful, concise response to the user.
-If the user asks about the document, use the provided Context.`;
+If the user asks about the document or project, use the provided Context.`;
       const genMessages: ChatMessage[] = [...historyMessages, { role: "user" as const, content: prompt }];
       const response = await callAI(genMessages, { tags: ['chat_stream'], config });
       operations.push({
