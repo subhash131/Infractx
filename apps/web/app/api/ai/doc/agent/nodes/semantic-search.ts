@@ -2,6 +2,7 @@ import { AgentStateAnnotation } from "../index";
 import { RunnableConfig } from "@langchain/core/runnables";
 import { getConvexClient } from "../convex-client";
 import { api } from "@workspace/backend/_generated/api";
+import { Id } from "@workspace/backend/_generated/dataModel";
 
 /**
  * Semantic search node (RAG step).
@@ -28,8 +29,8 @@ export async function semanticSearch(
     const results = await client.action(api.requirements.embeddings.searchBlocks, {
       query: state.userMessage,
       // Scope to the current file when available so results are closely relevant
-      ...(state.fileId ? { textFileId: state.fileId as any } : {}),
-      limit: 5,
+      ...(state.fileId ? { textFileId: state.fileId as Id<"text_files"> } : {}),
+      limit: 3,
     });
 
     if (!results || results.length === 0) {

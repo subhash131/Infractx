@@ -133,7 +133,7 @@ export const searchBlocks = action({
     }
 
     const { embeddings } = (await response.json()) as { embeddings: number[][] };
-    const queryVector: number[] = embeddings?.[0];
+    const queryVector: number[] = embeddings?.[0] || [];
 
     if (!queryVector) {
       throw new Error("[searchBlocks] Embeddings server returned no vector.");
@@ -188,10 +188,10 @@ export const getBlocksByIds = internalQuery({
  * Recursively extracts plain text from a BlockNote / Tiptap content array.
  * Adjust as needed to match your content schema.
  */
-function extractTextFromContent(content: unknown): string {
+function extractTextFromContent(content: any): string {
   if (!content || !Array.isArray(content)) return "";
   return content
-    .map((node: any) => {
+    .map((node) => {
       if (typeof node?.text === "string") return node.text;
       if (Array.isArray(node?.content)) return extractTextFromContent(node.content);
       return "";
