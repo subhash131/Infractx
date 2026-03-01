@@ -2,6 +2,7 @@
 import {  getConvexClient } from "./convex-client";
 import { api } from "@workspace/backend/_generated/api";
 import { parseBlocks } from "./parse-blocks";
+import { Doc, Id } from "@workspace/backend/_generated/dataModel";
 
 // ============================================
 // REAL TOOLS — Convex data access
@@ -12,12 +13,12 @@ export const listProjectsByUser = async (organizationId: string, token?: string)
         const client = getConvexClient(token);
         const projects = await client.query(api.projects.getProjectsByOrganization);
         
-        return projects.map((p: any) => ({
+        return projects.map((p) => ({
             id: p._id,
             name: p.name,
             description: p.description
         }));
-    } catch (error: any) {
+    } catch (error) {
         console.error("Error fetching projects:", error);
         return [];
     }
@@ -27,7 +28,7 @@ export const getProjectInfo = async (projectId: string, token?: string) => {
     try {
         const client = getConvexClient(token);
         const project = await client.query(api.projects.getProjectById, { 
-            projectId: projectId as any 
+            projectId: projectId as Id<"projects"> 
         });
         return project;
     } catch (error) {
@@ -40,10 +41,10 @@ export const listFiles = async (documentId: string, token?: string) => {
     try {
         const client = getConvexClient(token);
         const files = await client.query(api.requirements.textFiles.getFilesByDocumentId, { 
-            documentId: documentId as any 
+            documentId: documentId as Id<"documents"> 
         });
         
-        return files.map((f: any) => ({
+        return files.map((f) => ({
             id: f._id,
             title: f.title,
             type: f.type,
@@ -62,9 +63,9 @@ export const listFiles = async (documentId: string, token?: string) => {
  * Returns a Map<blockId, blockDoc> ready to pass into parseBlocks().
  */
 async function resolveSmartBlockMentions(
-    blocks: any[],
+    blocks: Doc<"blocks">[],
     client: ReturnType<typeof getConvexClient>
-): Promise<Map<string, any>> {
+): Promise<Map<string, Doc<"blocks">>> {
     // Collect unique blockIds referenced anywhere in the block content arrays
     const mentionIds = new Set<string>();
 
@@ -77,7 +78,7 @@ async function resolveSmartBlockMentions(
         }
     }
 
-    const resolved = new Map<string, any>();
+    const resolved = new Map<string, Doc<"blocks">>();
     if (mentionIds.size === 0) return resolved;
 
     // Fetch all referenced smartblocks in parallel
@@ -103,7 +104,7 @@ export const getFileContent = async (fileId: string, token?: string) => {
     try {
         const client = getConvexClient(token);
         const blocks = await client.query(api.requirements.textFileBlocks.getBlocksByFileId, {
-            textFileId: fileId as any
+            textFileId: fileId as Id<"text_files">
         });
 
         // Pre-fetch any smartblocks referenced via smartBlockMention nodes

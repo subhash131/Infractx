@@ -1,6 +1,8 @@
 import { mutation, query } from "../_generated/server";
 import { api } from "../_generated/api";
 import { v } from "convex/values";
+import { DataModel, Doc, Id } from "../_generated/dataModel";
+import { GenericMutationCtx } from "convex/server";
 
 
 //file operations
@@ -56,7 +58,7 @@ export const updateFile = mutation({
     const { fileId, ...updates } = args;
     
     // Build the update object with only provided fields
-    const updateData: Record<string, any> = {
+    const updateData:Partial<Doc<"text_files">> = {
       updatedAt: Date.now(),
     };
     
@@ -171,9 +173,9 @@ export const duplicateFile = mutation({
 });
 
 async function duplicateFileRecursive(
-  ctx: any,
-  fileId: any,
-  newParentId: any
+  ctx: GenericMutationCtx<DataModel>,
+  fileId: Id<"text_files">,
+  newParentId: Id<"text_files">,
 ) {
   const file = await ctx.db.get(fileId);
   if (!file) return;
@@ -185,7 +187,6 @@ async function duplicateFileRecursive(
     type: file.type,
     documentId: file.documentId,
     parentId: newParentId,
-    embeddedContent:null
   });
 
   // Duplicate all blocks associated with this file
@@ -194,7 +195,7 @@ async function duplicateFileRecursive(
   if (file.type === "FOLDER") {
     const children = await ctx.db
       .query("text_files")
-      .withIndex("by_parent", (q: any) => q.eq("parentId", fileId))
+      .withIndex("by_parent", (q) => q.eq("parentId", fileId))
       .collect();
 
     for (const child of children) {
@@ -204,13 +205,13 @@ async function duplicateFileRecursive(
 }
 
 async function duplicateBlocks(
-  ctx: any,
-  sourceFileId: any,
-  newFileId: any
+  ctx:GenericMutationCtx<DataModel>,
+  sourceFileId: Id<"text_files">,
+  newFileId: Id<"text_files">,
 ) {
   const blocks = await ctx.db
     .query("blocks")
-    .withIndex("by_text_file", (q: any) => q.eq("textFileId", sourceFileId))
+    .withIndex("by_text_file", (q) => q.eq("textFileId", sourceFileId))
     .collect();
 
   // Build mapping: oldExternalId → newExternalId
@@ -230,7 +231,8 @@ async function duplicateBlocks(
       props: block.props,
       content: block.content,
       rank: block.rank,
-      externalId: idMap[block.externalId],
+      externalId: idMap[block.externalId] || "",
+      approvedByHuman: block.approvedByHuman,
     });
   }
 }
