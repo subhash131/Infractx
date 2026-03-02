@@ -20,6 +20,10 @@
     "@langchain/groq": "^1.0.3",
     "@langchain/langgraph": "^1.1.2",
     "@modelcontextprotocol/sdk": "^1.26.0",
+    "@types/aws-lambda": "^8.10.161",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/node": "^24.0.3",
     "@upstash/redis": "^1.36.3",
     "convex": "^1.31.6",
     "cors": "^2.8.6",
@@ -30,10 +34,6 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@types/aws-lambda": "^8.10.161",
-    "@types/cors": "^2.8.19",
-    "@types/express": "^5.0.6",
-    "@types/node": "^24.0.3",
     "tsx": "4.21.0"
   }
 }

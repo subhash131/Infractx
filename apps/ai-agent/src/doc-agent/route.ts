@@ -56,6 +56,14 @@ export const docAgentHandler = async (req: Request, res: Response) => {
         });
 
         for await (const event of events) {
+            // Log tool and agent activity
+            if (["on_tool_start", "on_tool_end"].includes(event.event)) {
+                console.log(`🔨 [${event.event}] ${event.name}`);
+            }
+            if (["on_chain_start", "on_chain_end"].includes(event.event) && event.name !== "LangGraph" && !event.name.startsWith("__")) {
+                console.log(`🤖 [${event.event}] ${event.name}`);
+            }
+
             if (event.event === "on_chain_end") {
                  if (event.name === "classifyIntent" && event.data?.output?.intent) {
                     const intent = event.data.output.intent;
