@@ -1,34 +1,26 @@
 import { Request, Response } from "express";
 import { docEditAgent } from "./index";
 import { inngest } from "../inngest/client";
-import { redis } from "../lib/redis";
 
 export const docAgentHandler = async (req: Request, res: Response) => {
     const {selectedText, userMessage, docContext, cursorPosition, projectId, conversationId, source, docId, fileId, sessionToken} = req.body;
     console.log({docContext,cursorPosition, projectId, conversationId, source, docId, sessionToken})
-    
-    // Establish a Redis key for this conversation's stream
-    const streamKey = `agent:stream:${conversationId || docId}`;
 
-    // Helper to push to Redis
-    const pushToRedis = async (payload: any) => {
+    // Set headers for Server-Sent Events (SSE)
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+
+    // Helper to send SSE chunks
+    const sendSSE = (payload: any) => {
         try {
-            await redis.rpush(streamKey, JSON.stringify(payload));
-            // Extend expiry to 1 hour so the frontend has plenty of time to read it
-            await redis.expire(streamKey, 3600);
+            res.write(`data: ${JSON.stringify(payload)}\n\n`);
         } catch (e) {
-            console.error("Redis push error:", e);
+            console.error("SSE write error:", e);
         }
     };
 
-    // We do NOT return a stream. We just run the process and await it.
-    // The frontend will fire-and-forget this POST request (or wait for it to just finish)
-    // and simultaneously poll the Redis endpoint.
-    
     try {
-        // Clear old stream if any
-        await redis.del(streamKey);
-
         const events = await docEditAgent.streamEvents({
             selectedText,
             userMessage,
@@ -60,7 +52,7 @@ export const docAgentHandler = async (req: Request, res: Response) => {
                  if (event.name === "classifyIntent" && event.data?.output?.intent) {
                     const intent = event.data.output.intent;
                     console.log("Sending Intent:", intent);
-                    await pushToRedis({ type: "intent", intent });
+                    sendSSE({ type: "intent", intent });
 
                     // ── Architecture intent: offload to Inngest ──
                     if (intent === "architecture") {
@@ -68,7 +60,7 @@ export const docAgentHandler = async (req: Request, res: Response) => {
                             name: "doc/architecture.requested",
                             data: { docId, userMessage, sessionToken, cursorPosition: cursorPosition ?? 0 },
                         });
-                        await pushToRedis({
+                        sendSSE({
                             type: "response",
                             response: {
                                 operations: [{
@@ -78,8 +70,8 @@ export const docAgentHandler = async (req: Request, res: Response) => {
                                 }]
                             }
                         });
-                        await pushToRedis({ type: "done" });
-                        res.status(200).json({ success: true, message: "Architecture task initiated" });
+                        sendSSE({ type: "done" });
+                        res.end();
                         return;
                     }
                  }
@@ -89,25 +81,25 @@ export const docAgentHandler = async (req: Request, res: Response) => {
                 const token = chunk?.content;
                 
                 if (event.tags?.includes("generate_title")) {
-                    if (token) await pushToRedis({ type: "title", content: token });
+                    if (token) sendSSE({ type: "title", content: token });
                 }
                 else if (event.tags?.includes("chat_stream")) {
-                    if (token) await pushToRedis({ type: "chat_token", content: token });
+                    if (token) sendSSE({ type: "chat_token", content: token });
                 }
                 else if (event.tags?.includes("doc_stream") || event.tags?.includes("streamable")) {
-                    if (token) await pushToRedis({ type: "doc_token", content: token });
+                    if (token) sendSSE({ type: "doc_token", content: token });
                 }
             }
             else if (event.event === "on_chain_end" && event.name === "LangGraph") {
                 if (event.data?.output) {
                     if (event.data.output.__interrupt__) {
-                         await pushToRedis({
+                         sendSSE({
                              type: "interrupt",
                              payload: event.data.output.__interrupt__
                          });
                     }
                     else if (event.data.output.operations) {
-                        await pushToRedis({ 
+                        sendSSE({ 
                             type: "response",
                             response: { operations: event.data.output.operations } 
                         });
@@ -117,26 +109,25 @@ export const docAgentHandler = async (req: Request, res: Response) => {
         }
         
         // Signal the frontend that the stream is complete
-        await pushToRedis({ type: "done" });
+        sendSSE({ type: "done" });
+        res.end();
 
     } catch (e: any) {
         if (e.name === "GraphInterrupt") {
              console.log("Graph interrupted");
-             await pushToRedis({
+             sendSSE({
                  type: "interrupt",
                  payload: e.interrupts[0].value
              });
-             await pushToRedis({ type: "done" });
-             res.status(200).json({ success: true, message: "Interrupted" });
+             sendSSE({ type: "done" });
+             res.end();
              return;
         }
         
         console.error("Streaming error:", e);
-        await pushToRedis({ type: "error", error: String(e) });
-        await pushToRedis({ type: "done" });
-        res.status(500).json({ success: false, error: String(e) });
+        sendSSE({ type: "error", error: String(e) });
+        sendSSE({ type: "done" });
+        res.end();
         return;
     }
-
-    res.status(200).json({ success: true });
 }

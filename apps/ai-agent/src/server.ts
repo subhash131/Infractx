@@ -12,7 +12,6 @@ import { Session } from "./types";
 import { extractAuthToken, resolveAuth } from "./utils/auth";
 import { createSession, cleanupOldSessions } from "./utils/session";
 import { docAgentHandler } from "./doc-agent/route";
-import { docAgentPollHandler } from "./doc-agent/poll/route";
 
 const app = express();
 
@@ -149,7 +148,6 @@ app.all("/mcp", async (req: Request, res: Response) => {
 ========================= */
 
 app.post("/ai/doc-agent", docAgentHandler);
-app.get("/ai/doc-agent/poll", docAgentPollHandler);
 
 /* =========================
    Session Cleanup

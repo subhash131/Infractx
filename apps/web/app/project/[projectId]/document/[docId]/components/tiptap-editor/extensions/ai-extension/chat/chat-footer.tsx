@@ -15,7 +15,7 @@ import { Editor } from "@tiptap/core";
 import { useParams } from "next/navigation";
 import { RESET_STREAMING_TEXT, useChatStore } from "../../../store/chat-store";
 import { useAuth } from "@clerk/nextjs";
-import { handleAIResponse } from "./ai-response-handlers/handle-ai-response";
+import { handleAIStream } from "./ai-response-handlers/handle-ai-response";
 import { useMutation } from "convex/react";
 import { api } from "@workspace/backend/_generated/api";
 import { Id } from "@workspace/backend/_generated/dataModel";
@@ -92,7 +92,8 @@ export const ChatFooter = ({ conversationId, editor }: ChatFooterProps) => {
 
         const token = await getToken({ template: "convex" }) ?? undefined;
 
-        const response = await fetch("http://localhost:3000/api/ai/doc/agent", {
+        // 3. Handle Streaming
+        const response = await fetch("http://localhost:3001/ai/doc-agent", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -100,7 +101,6 @@ export const ChatFooter = ({ conversationId, editor }: ChatFooterProps) => {
           body: JSON.stringify({
             userMessage: prompt,
             selectedText,
-            // docContext, // TODO
             cursorPosition,
             projectId,
             conversationId: currentConversationId,
@@ -110,62 +110,43 @@ export const ChatFooter = ({ conversationId, editor }: ChatFooterProps) => {
             fileId,
           }),
         });
-
-      
-    
+        
         if (!response.ok) {
-            console.error("Failed to fetch AI response");
-            return;
+            throw new Error(`Agent request failed: ${response.statusText}`);
         }
 
-        // 3. Handle Streaming Response
-        if(response.body){
-             let streamReader;
-             if (editor) {
-                 const [stream1, stream2] = response.body.tee();
-                 handleAIResponse(new Response(stream1), editor, handlerSelection).catch(console.error);
-                 streamReader = stream2.getReader();
-             } else {
-                 streamReader = response.body.getReader();
-             }
+        if (response.body) {
+            let aiResponseText = "";
+            
+            if (editor) {
+                aiResponseText = await handleAIStream(
+                    response.body,
+                    currentConversationId,
+                    editor, 
+                    handlerSelection, 
+                    (token) => setStreamingText(token)
+                );
+            } else {
+                // Fallback if no editor is focused: still process stream but just accumulate text
+                aiResponseText = await handleAIStream(
+                    response.body,
+                    currentConversationId,
+                    null as any,
+                    handlerSelection,
+                    (token) => setStreamingText(token)
+                );
+            }
 
-             const reader = streamReader;
-             const decoder = new TextDecoder();
-             let aiResponseText = "";
-
-             while(true) {
-                 const { done, value } = await reader.read();
-                 
-                 // When the stream officially finishes, save the final aggregated text and break
-                 if (done) {
-                     if(aiResponseText.trim()) {
-                         await insertMessage({
-                             conversationId: currentConversationId as Id<"conversations">,
-                             content: aiResponseText,
-                             role: "AI"
-                         });
-                         // Reset streaming text store after saving
-                         setStreamingText(RESET_STREAMING_TEXT);
-                     }
-                     break;
-                 }
-
-                 const chunk = decoder.decode(value);
-                 const lines = chunk.split("\n").filter((line) => line.trim() !== "");
-
-                 for (const line of lines) {
-                     try {
-                         const data = JSON.parse(line);
-                         if (data.type === "chat_token") {
-                             setStreamingText(data.content); // updates UI delta
-                             aiResponseText += data.content; // aggregates full text
-                         } 
-                     } catch(e) {
-                         console.error("Error parsing chunk", e);
-                     }
-                 }
-             }
+            if (aiResponseText.trim()) {
+                await insertMessage({
+                    conversationId: currentConversationId as Id<"conversations">,
+                    content: aiResponseText,
+                    role: "AI"
+                });
+                setStreamingText(RESET_STREAMING_TEXT);
+            }
         }
+
 
     } catch (error) {
         console.error("Error in chat flow:", error);
