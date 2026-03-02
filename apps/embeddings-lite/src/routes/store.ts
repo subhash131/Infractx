@@ -1,9 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { Router, Request, Response } from "express";
-import { isModelLoaded, embedTexts } from "../model.js";
-import { docStore, chunkStore, upsertChunks } from "../store.js";
-import { chunkText } from "../chunker.js";
-import { StoreRequest, StoreResponse, ErrorResponse } from "../types.js";
+import { isModelLoaded, embedTexts } from "../model";
+import { docStore, chunkStore, upsertChunks } from "../store";
+import { chunkText } from "../chunker";
+import { StoreRequest, StoreResponse, ErrorResponse } from "../types";
 
 const router = Router();
 

@@ -2,11 +2,11 @@ import "dotenv/config";
 import express, { Request, Response, NextFunction } from "express";
 import cors from "cors";
 
-import { loadModel } from "./model.js";
-import healthRouter from "./routes/health.js";
-import embedRouter from "./routes/embed.js";
-import storeRouter from "./routes/store.js";
-import matchRouter from "./routes/match.js";
+import { loadModel } from "./model";
+import healthRouter from "./routes/health";
+import embedRouter from "./routes/embed";
+import storeRouter from "./routes/store";
+import matchRouter from "./routes/match";
 
 const app = express();
 

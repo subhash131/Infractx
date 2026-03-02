@@ -1,7 +1,7 @@
 import { Router, Request, Response } from "express";
-import { isModelLoaded, embedTexts } from "../model.js";
-import { chunkStore, cosineSimilarity } from "../store.js";
-import { MatchRequest, MatchResponse, MatchResult, ErrorResponse } from "../types.js";
+import { isModelLoaded, embedTexts } from "../model";
+import { chunkStore, cosineSimilarity } from "../store";
+import { MatchRequest, MatchResponse, MatchResult, ErrorResponse } from "../types";
 
 const router = Router();
 

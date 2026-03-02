@@ -1,7 +1,7 @@
 import { Router, Request, Response } from "express";
-import { isModelLoaded, MODEL_NAME } from "../model.js";
-import { docStore, chunkStore } from "../store.js";
-import { HealthResponse } from "../types.js";
+import { isModelLoaded, MODEL_NAME } from "../model";
+import { docStore, chunkStore } from "../store";
+import { HealthResponse } from "../types";
 
 const router = Router();
 

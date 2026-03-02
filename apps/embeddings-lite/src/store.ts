@@ -1,4 +1,4 @@
-import { Chunk } from "./chunker.js";
+import { Chunk } from "./chunker";
 
 // ─── Store types ──────────────────────────────────────────────────────────────
 

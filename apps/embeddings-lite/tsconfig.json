@@ -1,16 +1,24 @@
 {
   "compilerOptions": {
-    "target": "ES2020",
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
-    "outDir": "dist",
-    "rootDir": "src",
+    "target": "ES2022",
+    "module": "es2022",
+    "moduleResolution": "Bundler",
+    "outDir": "./build",
+    "rootDir": "./src",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true
+    "types": ["node","express","cors"],
+    "paths": {
+      "@workspace/backend/*": ["../../packages/backend/convex/*"],
+      "@/*": ["./src/*"],
+    }
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist"]
+  "include": [
+    "src/**/*",
+    "**/*.ts",
+    "types/**/*.ts"
+  ],
+  "exclude": ["node_modules"]
 }

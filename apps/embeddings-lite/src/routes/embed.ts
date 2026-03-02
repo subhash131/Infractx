@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
-import { isModelLoaded, embedTexts, MODEL_NAME } from "../model.js";
-import { EmbedRequest, EmbedResponse, ErrorResponse } from "../types.js";
+import { isModelLoaded, embedTexts, MODEL_NAME } from "../model";
+import { EmbedRequest, EmbedResponse, ErrorResponse } from "../types";
 
 const router = Router();
 
