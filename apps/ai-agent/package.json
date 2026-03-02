@@ -7,7 +7,7 @@
   "scripts": {
     "build": "tsc",
     "build:watch": "tsc --watch",
-    "dev": "tsx src/server.ts",
+    "dev": "tsx watch src/server.ts",
     "inspect": "npx @modelcontextprotocol/inspector pnpm run dev",
     "start": "tsx src/server.ts"
   },
