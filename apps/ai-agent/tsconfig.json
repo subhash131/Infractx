@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "es2022",
+    "moduleResolution": "Bundler",
+    "outDir": "./build",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "types": ["node","express","cors"],
+    "paths": {
+      "@workspace/backend/*": ["../../packages/backend/convex/*"],
+      "@/*": ["./src/*"],
+    }
+  },
+  "include": [
+    "src/**/*",
+    "**/*.ts",
+    "types/**/*.ts"
+  ],
+  "exclude": ["node_modules"]
+}
