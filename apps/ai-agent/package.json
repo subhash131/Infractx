@@ -8,7 +8,8 @@
     "build": "tsc",
     "build:watch": "tsc --watch",
     "dev": "tsx src/server.ts",
-    "inspect": "npx @modelcontextprotocol/inspector pnpm run dev"
+    "inspect": "npx @modelcontextprotocol/inspector pnpm run dev",
+    "start": "node dist/server.js"
   },
   "keywords": [],
   "author": "Subhash Nayak",
