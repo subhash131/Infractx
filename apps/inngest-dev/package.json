@@ -2,7 +2,7 @@
   "name": "inngest-dev",
   "version": "1.0.0",
   "description": "dev server for inggest processes",
-  "main": "index.js",
+  "main": "index",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "npx --ignore-scripts=false inngest-cli@latest dev -u http://localhost:3000/api/inngest"
