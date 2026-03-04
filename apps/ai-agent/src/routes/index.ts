@@ -6,8 +6,10 @@ import { inngestRouter } from "./inngest";
 
 export const routes = Router();
 
-routes.use("/mcp", mcpRouter);
 routes.use("/ai", aiRouter);
-routes.use("/health", healthRouter);
+routes.use("/mcp", mcpRouter);
 routes.use("/inngest", inngestRouter);
+
+
+routes.use("/health", healthRouter);
 routes.use("/", healthRouter);

@@ -20,7 +20,6 @@ export const createBlock = mutation({
   handler: async (ctx, args) => {
     const blockId = await ctx.db.insert("blocks", {
       ...args,
-      embeddedContent: null,
       pendingEmbedJobId: null,
     });
 
@@ -48,7 +47,21 @@ export const updateBlock = mutation({
     approvedByHuman: v.optional(v.boolean()),
   },
   handler: async (ctx, { id, ...updates }) => {
+    const existing = await ctx.db.get(id);
+    if (!existing) return;
+
+    if (existing.pendingEmbedJobId) {
+      await ctx.scheduler.cancel(existing.pendingEmbedJobId);
+    }
+
     await ctx.db.patch(id, updates);
+
+    const jobId = await ctx.scheduler.runAfter(
+      EMBED_DEBOUNCE_MS,
+      internal.requirements.embeddings.embedBlock,
+      { blockId: id }
+    );
+    await ctx.db.patch(id, { pendingEmbedJobId: jobId });
   },
 });
 
@@ -72,7 +85,6 @@ export const bulkCreate = mutation({
       const blockId = await ctx.db.insert("blocks", {
         ...block,
         textFileId,
-        embeddedContent: null,
         pendingEmbedJobId: null,
       });
 
@@ -136,7 +148,6 @@ export const bulkUpdate = mutation({
           rank: block.rank ?? "a0",
           parentId: block.parentId ?? null,
           approvedByHuman: block.approvedByHuman ?? true,
-          embeddedContent: null,
           pendingEmbedJobId: null,
         });
         console.log(`Inserted new block with UUID ${block.externalId}`);
@@ -165,6 +176,11 @@ export const bulkDelete = mutation({
         .unique();
       if (existing) {
         console.log(`Deleting block with UUID ${extId}`);
+        await ctx.scheduler.runAfter(
+          0,
+          internal.requirements.embeddings.saveEmbedding,
+          { blockId: existing._id, embedding: null }
+        );
         await ctx.db.delete(existing._id);
       }else{
         console.log(`Block with UUID ${extId} not found`);
