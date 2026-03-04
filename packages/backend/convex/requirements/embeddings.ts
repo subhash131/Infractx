@@ -1,9 +1,8 @@
 import { action, internalAction, internalMutation, internalQuery } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { v } from "convex/values";
+import { Id } from "../_generated/dataModel";
 
-/** Debounce delay matches the one in textFileBlocks.ts */
-const EMBED_DEBOUNCE_MS = 3000;
 
 /**
  * Internal action: embeds a single block's content.
@@ -18,7 +17,7 @@ export const embedBlock = internalAction({
     blockId: v.id("blocks"),
   },
   handler: async (ctx, { blockId }) => {
-    const block = await ctx.runQuery(internal.requirements.embeddings.getBlock, { blockId });
+    const { block, parentText } = await ctx.runQuery(internal.requirements.embeddings.getBlockWithParent, { blockId });
 
     if (!block) {
       console.warn(`[embedBlock] Block ${blockId} not found, skipping.`);
@@ -33,7 +32,12 @@ export const embedBlock = internalAction({
     }
 
     // ── Extract plain text from block content ──────────────────────────────
-    const text = extractTextFromContent(block.content);
+    let text = extractTextFromContent(block.content);
+    
+    // Add parent text constraint to the current block's vector data
+    if (parentText && parentText.trim().length > 0) {
+        text = `## Parent Context:\n${parentText}\n\n## Block Content:\n${text}`;
+    }
 
     if (!text || text.trim().length === 0) {
       console.log(`[embedBlock] Block ${blockId} has no text, skipping embed.`);
@@ -71,12 +75,47 @@ export const embedBlock = internalAction({
 });
 
 /**
- * Internal query: fetch a block by ID (used inside the action above).
+ * Internal query: fetch a block by ID (used inside the action above) along with its parent's text context if available.
  */
-export const getBlock = internalQuery({
+export const getBlockWithParent = internalQuery({
   args: { blockId: v.id("blocks") },
-  handler: async (ctx, { blockId }) => {
-    return await ctx.db.get(blockId);
+  handler: async (ctx, { blockId }: { blockId: Id<"blocks"> }) => {
+    const block = await ctx.db.get(blockId);
+    if (!block) return { block: null, parentText: "" };
+
+    let parentText = "";
+    if (block.parentId) {
+      // Find the parent block by its externalId
+      const parentBlock = await ctx.db
+        .query("blocks")
+        .withIndex("by_external_id", (q: any) => q.eq("externalId", block.parentId!))
+        .unique();
+
+      if (parentBlock) {
+        if (parentBlock.type === "smartBlock") {
+          // If parent is a smartBlock, fetch ALL children to represent the full smartBlock context
+          const siblings = await ctx.db
+            .query("blocks")
+            .withIndex("by_text_file", (q: any) => q.eq("textFileId", block.textFileId))
+            .collect();
+            
+          const smartBlockChildren = siblings.filter((s: any) => s.parentId === parentBlock.externalId);
+          // Sort children by rank or order if needed. Here we just concatenate them.
+          const smartBlockText = smartBlockChildren
+            .map((child: any) => extractTextFromContent(child.content))
+            .filter((t: string) => t.trim().length > 0)
+            .join("\n");
+            
+          // Parent text includes the smartBlock's own content + all its children
+          parentText = extractTextFromContent(parentBlock.content) + "\n" + smartBlockText;
+        } else {
+          // Normal block parent, just extract its text directly
+          parentText = extractTextFromContent(parentBlock.content);
+        }
+      }
+    }
+
+    return { block, parentText };
   },
 });
 
@@ -89,10 +128,44 @@ export const saveEmbedding = internalMutation({
     embedding: v.union(v.array(v.float64()), v.null()),
   },
   handler: async (ctx, { blockId, embedding }) => {
-    await ctx.db.patch(blockId, {
-      embeddedContent: embedding,
-      pendingEmbedJobId: null, // clear the job reference once done
-    });
+    const existing = await ctx.db
+      .query("embeddings")
+      .withIndex("by_block", (q) => q.eq("blockId", blockId))
+      .unique();
+
+    if (embedding === null) {
+      if (existing) {
+        await ctx.db.delete(existing._id);
+      }
+    } else {
+      const block = await ctx.db.get(blockId);
+      if (block) {
+        const textFile = await ctx.db.get(block.textFileId);
+        const documentId = textFile?.documentId;
+
+        if (existing) {
+          await ctx.db.patch(existing._id, {
+            embedding,
+            blockType: block.type,
+            textFileId: block.textFileId,
+            documentId: documentId,
+          });
+        } else {
+          await ctx.db.insert("embeddings", {
+            embeddingType: "block",
+            blockId,
+            blockType: block.type,
+            textFileId: block.textFileId,
+            documentId: documentId,
+            embedding,
+          });
+        }
+      }
+
+      await ctx.db.patch(blockId, {
+        pendingEmbedJobId: null, // clear the job reference once done
+      });
+    }
   },
 });
 
@@ -113,7 +186,7 @@ export const searchBlocks = action({
     type: v.optional(v.string()),
     limit: v.optional(v.number()),
   },
-  handler: async (ctx, { query, textFileId, type, limit }): Promise<Array<{ score: number; block: Record<string, unknown> | null }>> => {
+  handler: async (ctx, { query, textFileId, type, limit }: { query: string; textFileId?: Id<"text_files">; type?: string; limit?: number }): Promise<Array<{ score: number; block: Record<string, unknown> | null }>> => {
     const embeddingModelUrl = process.env.EMBEDDING_384_MODEL_URL;
 
     if (!embeddingModelUrl) {
@@ -139,47 +212,85 @@ export const searchBlocks = action({
       throw new Error("[searchBlocks] Embeddings server returned no vector.");
     }
 
-    // ── 2. Vector search ──────────────────────────────────────────────────
-    // Build a Convex VectorFilterBuilder callback only when filters are needed.
-    const filterFn =
-      textFileId || type
-        ? (q: any) => {
-            const clauses: any[] = [];
-            if (textFileId) clauses.push(q.eq("textFileId", textFileId));
-            if (type) clauses.push(q.eq("type", type));
-            return clauses.length === 1 ? clauses[0] : q.and(...clauses);
-          }
-        : undefined;
 
-    const results = await ctx.vectorSearch("blocks", "by_embeddedContent", {
+    const limitNum = limit ?? 10;
+    // We pull more results from the vector search because we have to post-filter.
+    // Convex vector filters do not support "and", so we apply the most restrictive
+    // filter first, then filter the rest in JavaScript.
+    const vectorResults = await ctx.vectorSearch("embeddings", "by_embedding", {
       vector: queryVector,
-      limit: limit ?? 10,
-      ...(filterFn ? { filter: filterFn } : {}),
+      limit: limitNum * 5,
+      filter: (q) => {
+        if (textFileId) return q.eq("textFileId", textFileId);
+        if (type) return q.eq("blockType", type);
+        return q.eq("embeddingType", "block");
+      },
     });
 
-    // ── 3. Hydrate block documents ────────────────────────────────────────
-    const blocks = await ctx.runQuery(internal.requirements.embeddings.getBlocksByIds, {
-      ids: results.map((r) => r._id),
+    const populatedResults = await ctx.runQuery(internal.requirements.embeddings.hydrateAndFilterBlocks, {
+      results: vectorResults,
+      limit: limitNum,
+      textFileId,
+      type,
     });
 
-    // Re-attach the similarity score to each block and filter out any nulls
-    return results
-      .map((r) => ({
-        score: r._score,
-        block: blocks.find((b) => b?._id === r._id) ?? null,
-      }))
-      .filter((r) => r.block !== null);
+    return populatedResults;
   },
 });
 
 /**
- * Internal query: fetch multiple blocks by their IDs in one shot.
- * Used by searchBlocks to hydrate vector search results.
+ * Internal query: hydrate embedding documents, post-filter them to support logical AND,
+ * and then fetch and attach the corresponding blocks.
  */
-export const getBlocksByIds = internalQuery({
-  args: { ids: v.array(v.id("blocks")) },
-  handler: async (ctx, { ids }) => {
-    return await Promise.all(ids.map((id) => ctx.db.get(id)));
+export const hydrateAndFilterBlocks = internalQuery({
+  args: {
+    results: v.array(v.object({ _id: v.id("embeddings"), _score: v.number() })),
+    limit: v.number(),
+    textFileId: v.optional(v.id("text_files")),
+    type: v.optional(v.string()),
+  },
+  handler: async (
+    ctx,
+    {
+      results,
+      limit,
+      textFileId,
+      type,
+    }: {
+      results: Array<{ _id: Id<"embeddings">; _score: number }>;
+      limit: number;
+      textFileId?: Id<"text_files">;
+      type?: string;
+    }
+  ) => {
+    const embeddings = await Promise.all(
+      results.map(async (r: { _id: Id<"embeddings">; _score: number }) => {
+        const doc = await ctx.db.get(r._id);
+        if (!doc) return null;
+        return { ...doc, _score: r._score };
+      })
+    );
+
+    const filteredEmbeddings = embeddings
+      .flatMap((d) => {
+        if (!d) return [];
+        if (d.embeddingType !== "block") return [];
+        if (textFileId && d.textFileId !== textFileId) return [];
+        if (type && d.blockType !== type) return [];
+        return [d];
+      })
+      .slice(0, limit);
+
+    const populated = await Promise.all(
+      filteredEmbeddings.map(async (doc) => {
+        if (!doc.blockId) return null;
+        const block = await ctx.db.get(doc.blockId);
+        if (!block) return null;
+        return { score: doc._score, block };
+      })
+    );
+
+    return populated.filter((item) => item !== null) as Array<{ score: number; block: Record<string, unknown> }>;
   },
 });
 

@@ -250,16 +250,32 @@ export default defineSchema({
     rank: v.string(),
     externalId: v.string(), // uuid from the client
     approvedByHuman: v.boolean(),
-    embeddedContent: v.optional(v.union(v.array(v.float64()), v.null())),
     pendingEmbedJobId: v.optional(v.union(v.id("_scheduled_functions"), v.null())), // for debouncing embed scheduler
   })
     .index("by_text_file", ["textFileId"])
     .index("by_external_id", ["externalId"])
-    .index("by_textfileId_blockType", ["textFileId", "type"])
-    .vectorIndex("by_embeddedContent", {
-      vectorField: "embeddedContent",
+    .index("by_textfileId_blockType", ["textFileId", "type"]),
+
+  embeddings: defineTable({
+    embeddingType: v.union(v.literal("block"), v.literal("file"), v.literal("doc")),
+    
+    // For block embeddings
+    blockId: v.optional(v.id("blocks")),
+    blockType: v.optional(v.string()),
+
+    // Context fields (to allow vector search filtering)
+    textFileId: v.optional(v.id("text_files")),
+    documentId: v.optional(v.id("documents")),
+
+    embedding: v.array(v.float64()),
+  })
+    .index("by_block", ["blockId"])
+    .index("by_text_file", ["textFileId"])
+    .index("by_document", ["documentId"])
+    .vectorIndex("by_embedding", {
+      vectorField: "embedding",
       dimensions: 384, // change this to match your embedding model
-      filterFields: ["textFileId", "type"], 
+      filterFields: ["embeddingType", "textFileId", "documentId", "blockType"], 
     }),
 });
 
