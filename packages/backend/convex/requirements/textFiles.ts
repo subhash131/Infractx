@@ -1,5 +1,5 @@
 import { mutation, query } from "../_generated/server";
-import { api } from "../_generated/api";
+import { api, internal } from "../_generated/api";
 import { v } from "convex/values";
 import { DataModel, Doc, Id } from "../_generated/dataModel";
 import { GenericMutationCtx } from "convex/server";
@@ -22,6 +22,13 @@ export const create = mutation({
       documentId: args.documentId,
       parentId: args.parentId || null,
     });
+
+    // Schedule the embedding generation for the text file
+    await ctx.scheduler.runAfter(
+      0,
+      internal.requirements.embeddings.embedTextFile,
+      { textFileId: docId }
+    );
 
     return docId;
   },
@@ -67,6 +74,14 @@ export const updateFile = mutation({
     if (updates.parentId !== undefined) updateData.parentId = updates.parentId;
     
     await ctx.db.patch(fileId, updateData);
+
+    if (updates.title !== undefined || updates.description !== undefined) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.requirements.embeddings.embedTextFile,
+        { textFileId: fileId }
+      );
+    }
   },
 });
 
@@ -132,6 +147,13 @@ export const deleteFile = mutation({
       await ctx.db.delete(block._id);
     }
 
+    // Clear embedding associated with this folder or file
+    await ctx.scheduler.runAfter(
+      0,
+      internal.requirements.embeddings.saveTextFileEmbedding,
+      { textFileId: args.fileId, embedding: null }
+    );
+
     await ctx.db.delete(args.fileId);
   },
 });
@@ -152,6 +174,13 @@ export const duplicateFile = mutation({
       documentId: file.documentId,
       parentId: file.parentId,
     });
+
+    // Schedule the embedding generation for the duplicated text file
+    await ctx.scheduler.runAfter(
+      0,
+      internal.requirements.embeddings.embedTextFile,
+      { textFileId: newId }
+    );
 
     // Duplicate all blocks associated with this file
     await duplicateBlocks(ctx, args.fileId, newId);
