@@ -271,6 +271,10 @@ export const saveTextFileEmbedding = internalMutation({
           });
         }
       }
+
+      await ctx.db.patch(textFileId, {
+        pendingEmbedJobId: null, // clear the job reference once done
+      });
     }
   },
 });

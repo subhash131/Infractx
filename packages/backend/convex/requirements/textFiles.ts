@@ -4,6 +4,8 @@ import { v } from "convex/values";
 import { DataModel, Doc, Id } from "../_generated/dataModel";
 import { GenericMutationCtx } from "convex/server";
 
+/** Debounce delay **/
+const EMBED_DEBOUNCE_MS = 10000;
 
 //file operations
 export const create = mutation({
@@ -21,14 +23,16 @@ export const create = mutation({
       type: args.type,
       documentId: args.documentId,
       parentId: args.parentId || null,
+      pendingEmbedJobId: null,
     });
 
     // Schedule the embedding generation for the text file
-    await ctx.scheduler.runAfter(
-      0,
+    const jobId = await ctx.scheduler.runAfter(
+      EMBED_DEBOUNCE_MS,
       internal.requirements.embeddings.embedTextFile,
       { textFileId: docId }
     );
+    await ctx.db.patch(docId, { pendingEmbedJobId: jobId });
 
     return docId;
   },
@@ -73,15 +77,21 @@ export const updateFile = mutation({
     if (updates.description !== undefined) updateData.description = updates.description;
     if (updates.parentId !== undefined) updateData.parentId = updates.parentId;
     
-    await ctx.db.patch(fileId, updateData);
-
     if (updates.title !== undefined || updates.description !== undefined) {
-      await ctx.scheduler.runAfter(
-        0,
+      const existing = await ctx.db.get(fileId);
+      if (existing?.pendingEmbedJobId) {
+        await ctx.scheduler.cancel(existing.pendingEmbedJobId);
+      }
+      
+      const jobId = await ctx.scheduler.runAfter(
+        EMBED_DEBOUNCE_MS,
         internal.requirements.embeddings.embedTextFile,
         { textFileId: fileId }
       );
+      updateData.pendingEmbedJobId = jobId;
     }
+    
+    await ctx.db.patch(fileId, updateData);
   },
 });
 
@@ -173,14 +183,16 @@ export const duplicateFile = mutation({
       type: file.type,
       documentId: file.documentId,
       parentId: file.parentId,
+      pendingEmbedJobId: null,
     });
 
     // Schedule the embedding generation for the duplicated text file
-    await ctx.scheduler.runAfter(
-      0,
+    const jobId = await ctx.scheduler.runAfter(
+      EMBED_DEBOUNCE_MS,
       internal.requirements.embeddings.embedTextFile,
       { textFileId: newId }
     );
+    await ctx.db.patch(newId, { pendingEmbedJobId: jobId });
 
     // Duplicate all blocks associated with this file
     await duplicateBlocks(ctx, args.fileId, newId);
@@ -216,7 +228,16 @@ async function duplicateFileRecursive(
     type: file.type,
     documentId: file.documentId,
     parentId: newParentId,
+    pendingEmbedJobId: null,
   });
+
+  // Schedule the embedding generation for the recursive text file
+  const jobId = await ctx.scheduler.runAfter(
+    EMBED_DEBOUNCE_MS,
+    internal.requirements.embeddings.embedTextFile,
+    { textFileId: newId }
+  );
+  await ctx.db.patch(newId, { pendingEmbedJobId: jobId });
 
   // Duplicate all blocks associated with this file
   await duplicateBlocks(ctx, fileId, newId);

@@ -213,6 +213,7 @@ export default defineSchema({
     updatedAt: v.number(),
     type:v.union(v.literal("FILE"),v.literal("FOLDER")),
     parentId: v.union(v.id("text_files"),v.null()),
+    pendingEmbedJobId: v.optional(v.union(v.id("_scheduled_functions"), v.null())),
   })
   .index("by_document", ["documentId"])
   .index("by_parent", ["parentId"]),
