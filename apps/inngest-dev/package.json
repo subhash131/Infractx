@@ -5,7 +5,7 @@
   "main": "index",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "npx --ignore-scripts=false inngest-cli@latest dev -u http://localhost:3000/api/inngest"
+    "dev": "npx --ignore-scripts=false inngest-cli@latest dev -u http://localhost:3001/inngest"
   },
   "author": "Subhash Nayak",
   "license": "ISC"

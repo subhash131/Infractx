@@ -92,7 +92,7 @@ export const ChatFooter = ({ conversationId, editor }: ChatFooterProps) => {
 
         const token = await getToken({ template: "convex" }) ?? undefined;
 
-        const response = await fetch("http://localhost:3000/api/ai/doc/agent", {
+        const response = await fetch("http://localhost:3001/ai/doc-agent", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
