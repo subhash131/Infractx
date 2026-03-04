@@ -1,5 +1,5 @@
 import { action, internalAction, internalMutation, internalQuery } from "../_generated/server";
-import { internal } from "../_generated/api";
+import { api, internal } from "../_generated/api";
 import { v } from "convex/values";
 import { Id } from "../_generated/dataModel";
 
@@ -163,6 +163,116 @@ export const saveEmbedding = internalMutation({
       }
 
       await ctx.db.patch(blockId, {
+        pendingEmbedJobId: null, // clear the job reference once done
+      });
+    }
+  },
+});
+
+/**
+ * Internal action: embeds a text_file's title and description.
+ */
+export const embedTextFile = internalAction({
+  args: {
+    textFileId: v.id("text_files"),
+  },
+  handler: async (ctx, { textFileId }) => {
+    const textFile = await ctx.runQuery(api.requirements.textFiles.getTextFileById, { fileId: textFileId });
+
+
+    if (!textFile) {
+      console.warn(`[embedTextFile] TextFile ${textFileId} not found, skipping.`);
+      return;
+    }
+
+    const embeddingModelUrl = process.env.EMBEDDING_384_MODEL_URL;
+
+    if (!embeddingModelUrl) {
+      console.error("[embedTextFile] EMBEDDING_384_MODEL_URL is not set.");
+      return;
+    }
+
+    // Combine title and description
+    let textToEmbed = textFile.title;
+    if (textFile.description) {
+      textToEmbed += `\n\n${textFile.description}`;
+    }
+
+    if (!textToEmbed || textToEmbed.trim().length === 0) {
+      console.log(`[embedTextFile] TextFile ${textFileId} has no text, skipping embed.`);
+      await ctx.runMutation(internal.requirements.embeddings.saveTextFileEmbedding, {
+        textFileId,
+        embedding: null,
+      });
+      return;
+    }
+
+    // Call the embeddings server
+    const response = await fetch(`${embeddingModelUrl}/embed`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ input: textToEmbed }),
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error(`[embedTextFile] Embedding server error (${response.status}): ${errText}`);
+      return;
+    }
+
+    const { embeddings } = (await response.json()) as { embeddings: number[][] };
+    const embedding: number[] | null = embeddings?.[0] ?? null;
+
+    // Persist embedding back to the file
+    await ctx.runMutation(internal.requirements.embeddings.saveTextFileEmbedding, {
+      textFileId,
+      embedding,
+    });
+
+    console.log(`[embedTextFile] Embedded textFile ${textFileId}`);
+  },
+});
+
+/**
+ * Internal mutation: saves the computed embedding for a text file.
+ */
+export const saveTextFileEmbedding = internalMutation({
+  args: {
+    textFileId: v.id("text_files"),
+    embedding: v.union(v.array(v.float64()), v.null()),
+  },
+  handler: async (ctx, { textFileId, embedding }) => {
+    const existingList = await ctx.db
+      .query("embeddings")
+      .withIndex("by_text_file", (q) => q.eq("textFileId", textFileId))
+      .collect();
+      
+    // Find the specific embedding that represents the file itself, not its blocks
+    const existing = existingList.find(e => e.embeddingType === "file");
+
+    if (embedding === null) {
+      if (existing) {
+        await ctx.db.delete(existing._id);
+      }
+    } else {
+      const textFile = await ctx.db.get(textFileId);
+      if (textFile) {
+        if (existing) {
+          await ctx.db.patch(existing._id, {
+            embedding,
+            documentId: textFile.documentId,
+          });
+        } else {
+          await ctx.db.insert("embeddings", {
+            embeddingType: "file",
+            textFileId: textFile._id,
+            documentId: textFile.documentId,
+            embedding,
+          });
+        }
+      }
+
+      await ctx.db.patch(textFileId, {
         pendingEmbedJobId: null, // clear the job reference once done
       });
     }

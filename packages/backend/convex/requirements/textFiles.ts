@@ -1,9 +1,11 @@
 import { mutation, query } from "../_generated/server";
-import { api } from "../_generated/api";
+import { api, internal } from "../_generated/api";
 import { v } from "convex/values";
 import { DataModel, Doc, Id } from "../_generated/dataModel";
 import { GenericMutationCtx } from "convex/server";
 
+/** Debounce delay **/
+const EMBED_DEBOUNCE_MS = 10000;
 
 //file operations
 export const create = mutation({
@@ -21,7 +23,16 @@ export const create = mutation({
       type: args.type,
       documentId: args.documentId,
       parentId: args.parentId || null,
+      pendingEmbedJobId: null,
     });
+
+    // Schedule the embedding generation for the text file
+    const jobId = await ctx.scheduler.runAfter(
+      EMBED_DEBOUNCE_MS,
+      internal.requirements.embeddings.embedTextFile,
+      { textFileId: docId }
+    );
+    await ctx.db.patch(docId, { pendingEmbedJobId: jobId });
 
     return docId;
   },
@@ -65,6 +76,20 @@ export const updateFile = mutation({
     if (updates.title !== undefined) updateData.title = updates.title;
     if (updates.description !== undefined) updateData.description = updates.description;
     if (updates.parentId !== undefined) updateData.parentId = updates.parentId;
+    
+    if (updates.title !== undefined || updates.description !== undefined) {
+      const existing = await ctx.db.get(fileId);
+      if (existing?.pendingEmbedJobId) {
+        await ctx.scheduler.cancel(existing.pendingEmbedJobId);
+      }
+      
+      const jobId = await ctx.scheduler.runAfter(
+        EMBED_DEBOUNCE_MS,
+        internal.requirements.embeddings.embedTextFile,
+        { textFileId: fileId }
+      );
+      updateData.pendingEmbedJobId = jobId;
+    }
     
     await ctx.db.patch(fileId, updateData);
   },
@@ -132,6 +157,13 @@ export const deleteFile = mutation({
       await ctx.db.delete(block._id);
     }
 
+    // Clear embedding associated with this folder or file
+    await ctx.scheduler.runAfter(
+      0,
+      internal.requirements.embeddings.saveTextFileEmbedding,
+      { textFileId: args.fileId, embedding: null }
+    );
+
     await ctx.db.delete(args.fileId);
   },
 });
@@ -151,7 +183,16 @@ export const duplicateFile = mutation({
       type: file.type,
       documentId: file.documentId,
       parentId: file.parentId,
+      pendingEmbedJobId: null,
     });
+
+    // Schedule the embedding generation for the duplicated text file
+    const jobId = await ctx.scheduler.runAfter(
+      EMBED_DEBOUNCE_MS,
+      internal.requirements.embeddings.embedTextFile,
+      { textFileId: newId }
+    );
+    await ctx.db.patch(newId, { pendingEmbedJobId: jobId });
 
     // Duplicate all blocks associated with this file
     await duplicateBlocks(ctx, args.fileId, newId);
@@ -187,7 +228,16 @@ async function duplicateFileRecursive(
     type: file.type,
     documentId: file.documentId,
     parentId: newParentId,
+    pendingEmbedJobId: null,
   });
+
+  // Schedule the embedding generation for the recursive text file
+  const jobId = await ctx.scheduler.runAfter(
+    EMBED_DEBOUNCE_MS,
+    internal.requirements.embeddings.embedTextFile,
+    { textFileId: newId }
+  );
+  await ctx.db.patch(newId, { pendingEmbedJobId: jobId });
 
   // Duplicate all blocks associated with this file
   await duplicateBlocks(ctx, fileId, newId);
