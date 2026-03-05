@@ -23,7 +23,7 @@ export const ChatBody = ({
   const previousScrollTop = useRef<number>(0);
   const previousMessageCount = useRef<number>(messages.length);
 
-  const { streamingText, sendingMessage } = useChatStore();
+  const { streamingText, sendingMessage, architecturePlan } = useChatStore();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -108,6 +108,60 @@ export const ChatBody = ({
       {sendingMessage && <ReceivedMessage message={"thinking..."} />}
       {streamingText && <ReceivedMessage message={streamingText} />}
       
+      {architecturePlan && (
+        <div className="w-full bg-accent/30 border border-accent rounded-lg p-3 my-2 flex flex-col gap-2">
+          <h3 className="font-semibold text-sm">Proposed Architecture</h3>
+          <div className="max-h-48 overflow-y-auto w-full text-xs text-muted-foreground p-2 bg-background rounded border">
+            {architecturePlan.plan.map((item, idx) => (
+              <div key={idx} className="mb-1">
+                {item.type === "FOLDER" ? "📁" : "📄"} <strong>{item.title}</strong>
+                {item.description && <span className="block ml-5 opacity-70">{item.description}</span>}
+              </div>
+            ))}
+          </div>
+          <div className="flex w-full gap-2 mt-2">
+            <Button 
+              className="flex-1" 
+              variant="default" 
+              size="sm"
+              onClick={() => {
+                const form = document.querySelector('form');
+                if (form) {
+                  // Simulate an approval submission from the footer
+                  const input = document.getElementById('ai-chat-textarea') as HTMLTextAreaElement;
+                  if (input) {
+                     input.value = "Looks good, approve plan!";
+                     // The footer handles the replyType based on architecturePlan existing
+                     form.requestSubmit();
+                  }
+                }
+              }}
+            >
+              Approve Plan
+            </Button>
+            <Button 
+              className="flex-1" 
+              variant="outline" 
+              size="sm"
+              onClick={async () => {
+                const form = document.querySelector('form');
+                if (form) {
+                  const input = document.getElementById('ai-chat-textarea') as HTMLTextAreaElement;
+                  if (input) {
+                     // Stash the reject intent on the dataset so ChatFooter can read it
+                     input.dataset.replyType = "reject";
+                     input.value = "Regenerate architecture plan"; 
+                     form.requestSubmit();
+                  }
+                }
+              }}
+            >
+              Reject Plan
+            </Button>
+          </div>
+        </div>
+      )}
+
       <div ref={messagesEndRef} />
     </div>
   );

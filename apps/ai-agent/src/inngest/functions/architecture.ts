@@ -5,9 +5,10 @@ import { redis } from "../../lib/redis";
 import { ChatGroq } from "@langchain/groq";
 import { Id } from "@workspace/backend/_generated/dataModel";
 
-// ─── Dedicated LLM caller for architecture (uses invoke, not stream) ───────────
-// Reasoning models spend all stream tokens on thinking — invoke() returns the 
-// final answer after reasoning is complete, with no token budget conflict.
+// ─────────────────────────────────────────────────────────────────────────────
+// LLM Helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
 async function callLLMInvoke(prompt: string): Promise<string> {
   const model = new ChatGroq({
     model: process.env.ARCHITECTURE_MODEL ?? "llama-3.3-70b-versatile",
@@ -24,10 +25,8 @@ async function callLLMInvoke(prompt: string): Promise<string> {
   return "";
 }
 
-// ─── Helper: parse JSON from LLM output (strips markdown fences) ─────────────
 function parseJSON<T>(raw: string): T | null {
   let cleaned = raw.replace(/```json/g, "").replace(/```/g, "").trim();
-  // Repair truncated arrays
   if (cleaned.startsWith("[") && !cleaned.endsWith("]")) {
     const lastBrace = cleaned.lastIndexOf("}");
     if (lastBrace !== -1) cleaned = cleaned.substring(0, lastBrace + 1) + "]";
@@ -40,12 +39,14 @@ function parseJSON<T>(raw: string): T | null {
   }
 }
 
-// ─── Helper: push an event to Redis (consumed by SSE poller in route.ts) ─────
 async function pushToRedis(streamKey: string, payload: object) {
   await redis.rpush(streamKey, JSON.stringify(payload));
 }
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// Types
+// ─────────────────────────────────────────────────────────────────────────────
+
 interface StructureOp {
   action: "create";
   type: "FILE" | "FOLDER";
@@ -55,49 +56,220 @@ interface StructureOp {
   parentId?: string;
 }
 
-// ─── Inngest function ─────────────────────────────────────────────────────────
-export const architectureHandler = inngest.createFunction(
+// ─────────────────────────────────────────────────────────────────────────────
+// PHASE 1 — doc/architecture.requested
+// Generates clarifying questions about the system, stores them in Convex,
+// and immediately pushes the first question to the SSE stream.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const architectureRequestedHandler = inngest.createFunction(
   { id: "doc-architecture-requested" },
   { event: "doc/architecture.requested" },
 
   async ({ event }) => {
-    const { docId, userMessage, sessionToken, cursorPosition } = event.data as {
+    const { docId, userMessage, sessionToken, conversationId, streamKey } = event.data as {
       docId: string;
       userMessage: string;
       sessionToken: string;
-      cursorPosition: number;
+      conversationId?: Id<"conversations">;
+      streamKey: string;
     };
 
-    const streamKey = `agent:stream:${docId}`;
-    console.log("🏛️ Architecture job started for doc:", docId);
+    console.log("🏛️ [Phase 1] Generating questions for doc:", docId);
 
     try {
       const client = getConvexClient(sessionToken);
 
-      // ── Fetch existing file tree ─────────────────────────────────────────────
+      // Generate targeted Q&A questions via LLM
+      const questionsPrompt = `
+You are a senior software architect starting to design a system based on a user's request.
+Before building anything, you need to gather structured requirements.
+
+User Request: "${userMessage}"
+
+Generate exactly 5 concise, targeted clarifying questions to understand this system better.
+Focus on: actors/users, use cases, scale expectations, tech stack preferences, key integrations or constraints.
+
+Return ONLY a valid JSON array of strings, no markdown fences:
+["Question 1?", "Question 2?", "Question 3?", "Question 4?", "Question 5?"]
+`;
+
+      const questionsRaw = await callLLMInvoke(questionsPrompt);
+      const questions = parseJSON<string[]>(questionsRaw);
+
+      if (!questions || !Array.isArray(questions) || questions.length === 0) {
+        await pushToRedis(streamKey, { type: "error", error: "Failed to generate questions. Please try again." });
+        await pushToRedis(streamKey, { type: "done" });
+        return;
+      }
+
+      // Persist session in Convex (permanent — no TTL)
+      await client.mutation(api.requirements.architectureSessions.upsertSession, {
+        docId,
+        conversationId,
+        userMessage,
+        sessionToken,
+        streamKey,
+        questions,
+      });
+
+      console.log(`❓ [Phase 1] ${questions.length} questions generated, pushing Q #1`);
+
+      // Push the first question to the SSE stream
+      await pushToRedis(streamKey, {
+        type: "architecture_question",
+        question: questions[0],
+        questionIndex: 0,
+        totalQuestions: questions.length,
+      });
+      await pushToRedis(streamKey, { type: "done" });
+
+    } catch (err) {
+      console.error("❌ [Phase 1] Failed:", err);
+      await pushToRedis(streamKey, { type: "error", error: "Architecture setup failed. Please try again." });
+      await pushToRedis(streamKey, { type: "done" });
+    }
+  }
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PHASE 2 — doc/architecture.answered
+// Stores the user's answer in Convex. If more questions remain, pushes the next
+// one. If all answered, triggers plan generation.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const architectureAnsweredHandler = inngest.createFunction(
+  { id: "doc-architecture-answered" },
+  { event: "doc/architecture.answered" },
+
+  async ({ event }) => {
+    const { docId, answer, sessionToken } = event.data as {
+      docId: string;
+      answer: string;
+      sessionToken: string;
+    };
+
+    const client = getConvexClient(sessionToken);
+
+    // Load session first to get the streamKey route.ts computed
+    const session = await client.query(
+      api.requirements.architectureSessions.getSession,
+      { docId }
+    );
+    if (!session) {
+      console.error("❌ [Phase 2] No session for doc:", docId);
+      return;
+    }
+    console.log("💬 [Phase 2] Answer received for doc:", docId);
+    const streamKey = session.streamKey;
+
+    try {
+      // Store the answer and get updated state
+      const { allAnswered, nextQuestion, nextIndex, answeredCount, totalQuestions } =
+        await client.mutation(
+          api.requirements.architectureSessions.addAnswer,
+          { docId, answer }
+        );
+
+      if (!allAnswered && nextQuestion) {
+        // More questions remain — push the next one
+        console.log(`❓ [Phase 2] Pushing Q #${answeredCount + 1}`);
+        await pushToRedis(streamKey, {
+          type: "architecture_question",
+          question: nextQuestion,
+          questionIndex: nextIndex,
+          totalQuestions,
+        });
+        await pushToRedis(streamKey, { type: "done" });
+
+      } else {
+        // All questions answered — trigger plan generation
+        console.log("📋 [Phase 2] All questions answered — triggering plan generation");
+        await pushToRedis(streamKey, {
+          type: "architecture_status",
+          message: "✨ Great! Let me design the architecture plan based on your answers...",
+        });
+
+        // Fire the plan generation event (handled by phase 3)
+        await inngest.send({
+          name: "doc/architecture.plan_requested",
+          data: { docId, sessionToken },
+        });
+
+        await pushToRedis(streamKey, { type: "done" });
+      }
+
+    } catch (err) {
+      console.error("❌ [Phase 2] Failed:", err);
+      await pushToRedis(streamKey, { type: "error", error: "Failed to process answer. Please try again." });
+      await pushToRedis(streamKey, { type: "done" });
+    }
+  }
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PHASE 3 — doc/architecture.plan_requested
+// Reads all Q&A from Convex, generates the StructureOp[] plan, saves it,
+// and pushes it to the SSE stream for the frontend to render with Approve/Reject.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const architecturePlanRequestedHandler = inngest.createFunction(
+  { id: "doc-architecture-plan-requested" },
+  { event: "doc/architecture.plan_requested" },
+
+  async ({ event }) => {
+    const { docId, sessionToken } = event.data as {
+      docId: string;
+      sessionToken: string;
+    };
+
+    console.log("📐 [Phase 3] Generating plan for doc:", docId);
+
+    const client = getConvexClient(sessionToken);
+
+    // Load session with all Q&A
+    const session = await client.query(
+      api.requirements.architectureSessions.getSession,
+      { docId }
+    );
+
+    if (!session) {
+      // n.b. we don't have streamKey yet — log only
+      console.error("❌ [Phase 3] Session not found for doc:", docId);
+      return;
+    }
+    const streamKey = session.streamKey;
+
+    try {
+
+      // Fetch existing file tree so we don't duplicate
       const existingFiles = await client.query(
         api.requirements.textFiles.getFilesByDocumentId,
         { documentId: docId as Id<"documents"> }
       );
       const existingTitles = existingFiles.map((f) => f.title);
 
-      // ═══════════════════════════════════════════════════════════════════════
-      // PHASE 1: Generate the file/folder structure (titles + descriptions only)
-      //          Small output → won't hit token limits.
-      // ═══════════════════════════════════════════════════════════════════════
-      const structurePrompt = `
-You are an expert software architect. Design a complete production-ready system architecture for the following request.
+      // Build Q&A context block
+      const qaContext = session.qa
+        .map((item) => `Q: ${item.question}\nA: ${item.answer ?? "(not answered)"}`)
+        .join("\n\n");
 
-User Request: "${userMessage}"
+      const planPrompt = `
+You are an expert software architect. Design a complete production-ready system architecture.
+
+Original Request: "${session.userMessage}"
+
+Requirements gathered from the user:
+${qaContext}
 
 Already existing files (do NOT create these): ${JSON.stringify(existingTitles)}
 
-Output a flat JSON array of file/folder operations. Each item is ONLY structure — no file content yet.
+Output a flat JSON array of file/folder operations. Each item is ONLY structure — no content yet.
 
 Rules:
 - Use "FILE" or "FOLDER" for type.
 - Assign a "tempId" (e.g. "temp_1") to every FOLDER.
-- Set "parentId" to a tempId or an existing real file ID for nesting.
+- Set "parentId" to a tempId for nesting within a folder.
 - For FILES, add a short "description" (1-2 sentences) describing what content it will have.
 - Do NOT use file extensions in titles (no .md, .ts, .tsx).
 - Cover: backend services, database schema, frontend pages, API contracts, infrastructure.
@@ -105,35 +277,96 @@ Rules:
 Return ONLY valid JSON array, no markdown fences:
 [
   { "action": "create", "type": "FOLDER", "title": "Backend", "tempId": "temp_1" },
-  { "action": "create", "type": "FILE", "title": "Database Schema", "parentId": "temp_1", "description": "PostgreSQL schema with tables for users, tracks, playlists, and subscriptions." }
+  { "action": "create", "type": "FILE", "title": "Database Schema", "parentId": "temp_1", "description": "PostgreSQL schema with tables for users, tracks, playlists." }
 ]
 `;
 
-      console.log("📐 Phase 1: Generating structure...");
-      const structureRaw = await callLLMInvoke(structurePrompt);
-      console.log("📐 Phase 1 raw (first 300 chars):", structureRaw.slice(0, 300));
+      console.log("📐 [Phase 3] Calling LLM for structure plan...");
+      const planRaw = await callLLMInvoke(planPrompt);
+      const plan = parseJSON<StructureOp[]>(planRaw);
 
-      const structureOps = parseJSON<StructureOp[]>(structureRaw);
-      if (!structureOps || !Array.isArray(structureOps)) {
-        await pushToRedis(streamKey, { type: "error", error: "AI failed to generate architecture structure." });
+      if (!plan || !Array.isArray(plan)) {
+        await pushToRedis(streamKey, { type: "error", error: "Failed to generate architecture plan. Please try again." });
         await pushToRedis(streamKey, { type: "done" });
         return;
       }
 
-      console.log(`📋 Structure plan: ${structureOps.length} items`);
+      console.log(`📋 [Phase 3] Plan generated: ${plan.length} items`);
 
-      // ═══════════════════════════════════════════════════════════════════════
-      // PHASE 2: Create each item in Convex, then generate content per FILE
-      //          individually (one LLM call per file → small, reliable output)
-      // ═══════════════════════════════════════════════════════════════════════
+      // Persist plan in Convex
+      await client.mutation(api.requirements.architectureSessions.setPlan, {
+        docId,
+        planJson: JSON.stringify(plan),
+      });
+
+      // Push the plan to SSE — frontend renders a preview with Approve/Reject
+      await pushToRedis(streamKey, {
+        type: "architecture_plan",
+        plan,
+      });
+      await pushToRedis(streamKey, { type: "done" });
+
+    } catch (err) {
+      console.error("❌ [Phase 3] Failed:", err);
+      await pushToRedis(streamKey, { type: "error", error: "Plan generation failed. Please try again." });
+      await pushToRedis(streamKey, { type: "done" });
+    }
+  }
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PHASE 4 — doc/architecture.approved
+// Reads the approved plan from Convex, creates all folders and files, generates
+// per-file content, and streams progress back via Redis.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const architectureApprovedHandler = inngest.createFunction(
+  { id: "doc-architecture-approved" },
+  { event: "doc/architecture.approved" },
+
+  async ({ event }) => {
+    const { docId, sessionToken } = event.data as {
+      docId: string;
+      sessionToken: string;
+    };
+
+    const client = getConvexClient(sessionToken);
+
+    // Load session to get the streamKey and plan
+    const session = await client.query(
+      api.requirements.architectureSessions.getSession,
+      { docId }
+    );
+    if (!session || !session.plan) {
+      console.error("❌ [Phase 4] No session/plan for doc:", docId);
+      return;
+    }
+    console.log("🚀 [Phase 4] Executing approved plan for doc:", docId);
+
+    const streamKey = session.streamKey;
+
+    try {
+      const plan = parseJSON<StructureOp[]>(session.plan);
+      if (!plan) {
+        await pushToRedis(streamKey, { type: "error", error: "Corrupted plan data. Please start over." });
+        await pushToRedis(streamKey, { type: "done" });
+        return;
+      }
+
+      // Mark session as executing
+      await client.mutation(api.requirements.architectureSessions.setPhase, {
+        docId,
+        phase: "executing",
+      });
+
+      // ── Create all items, generate per-file content ─────────────────────────
       const tempIdMap = new Map<string, string>(); // temp_X → real Convex ID
       let filesCreated = 0;
       let foldersCreated = 0;
 
-      for (const op of structureOps) {
+      for (const op of plan) {
         if (op.action !== "create") continue;
 
-        // Resolve parent ID
         let parentId: string | undefined;
         if (op.parentId) {
           parentId = op.parentId.startsWith("temp_")
@@ -142,7 +375,6 @@ Return ONLY valid JSON array, no markdown fences:
         }
 
         try {
-          // Create the file or folder in Convex
           const newId = await client.mutation(api.requirements.textFiles.create, {
             title: op.title,
             documentId: docId as Id<"documents">,
@@ -154,18 +386,25 @@ Return ONLY valid JSON array, no markdown fences:
 
           if (op.type === "FOLDER") {
             foldersCreated++;
-            console.log(`📁 Created FOLDER: "${op.title}"`);
+            console.log(`📁 [Phase 4] Created FOLDER: "${op.title}"`);
           }
 
           if (op.type === "FILE") {
             filesCreated++;
-            console.log(`📄 Created FILE: "${op.title}" — generating content...`);
+            console.log(`📄 [Phase 4] Created FILE: "${op.title}" — generating content...`);
 
-            // ── Per-file content generation ──────────────────────────────────
+            const qaContext = session.qa
+              .map((item) => `Q: ${item.question}\nA: ${item.answer ?? "(not answered)"}`)
+              .join("\n\n");
+
             const contentPrompt = `
 You are a senior software architect writing detailed documentation for a software system.
 
-System: "${userMessage}"
+System: "${session.userMessage}"
+
+User Requirements:
+${qaContext}
+
 File: "${op.title}"
 Purpose: ${op.description || "No description provided."}
 
@@ -190,45 +429,36 @@ Return ONLY the markdown content, no extra explanation.
             }
           }
 
-          // Push live progress to SSE poller after each item
           await pushToRedis(streamKey, {
             type: "architecture_progress",
-            item: {
-              id: newId,
-              title: op.title,
-              itemType: op.type,
-              parentId: parentId ?? null,
-            },
+            item: { id: newId, title: op.title, itemType: op.type, parentId: parentId ?? null },
           });
 
         } catch (opErr) {
-          console.error(`❌ Failed on "${op.title}":`, opErr);
-          // Keep going — don't abort the whole job for one item
+          console.error(`❌ [Phase 4] Failed on "${op.title}":`, opErr);
         }
       }
 
-      // ── Done ─────────────────────────────────────────────────────────────────
+      await client.mutation(api.requirements.architectureSessions.setPhase, { docId, phase: "done" });
+
       await pushToRedis(streamKey, {
         type: "response",
         response: {
           operations: [{
             type: "chat_response",
-            position: cursorPosition ?? 0,
             content: `✅ Architecture scaffolded! Created ${foldersCreated} folder(s) and ${filesCreated} file(s) with full content. Check the file tree on the left.`,
           }],
         },
       });
       await pushToRedis(streamKey, { type: "done" });
 
-      console.log(`🏛️ Architecture job complete: ${foldersCreated} folders, ${filesCreated} files.`);
+      console.log(`🏛️ [Phase 4] Complete: ${foldersCreated} folders, ${filesCreated} files.`);
 
     } catch (err) {
-      console.error("❌ Architecture job failed:", err);
-      await pushToRedis(streamKey, {
-        type: "error",
-        error: "Architecture generation failed. Please try again.",
-      });
+      console.error("❌ [Phase 4] Architecture execution failed:", err);
+      await pushToRedis(streamKey, { type: "error", error: "Architecture execution failed. Please try again." });
       await pushToRedis(streamKey, { type: "done" });
     }
   }
 );
+

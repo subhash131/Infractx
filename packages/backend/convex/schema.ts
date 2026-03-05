@@ -257,6 +257,26 @@ export default defineSchema({
     .index("by_external_id", ["externalId"])
     .index("by_textfileId_blockType", ["textFileId", "type"]),
 
+  // Persists the multi-step architecture session state (Q&A → plan → execution)
+  architecture_sessions: defineTable({
+    docId: v.string(),
+    conversationId: v.optional(v.id("conversations")), // links back to the permanent chat conversation
+    phase: v.union(
+      v.literal("questions"),
+      v.literal("plan_approval"),
+      v.literal("executing"),
+      v.literal("done")
+    ),
+    userMessage: v.string(),
+    sessionToken: v.string(),
+    streamKey: v.optional(v.string()), // the Redis key that route.ts is polling — must stay consistent
+    qa: v.array(v.object({
+      question: v.string(),
+      answer: v.optional(v.string()), // undefined until the user answers
+    })),
+    plan: v.optional(v.string()),   // JSON-stringified StructureOp[] — set during plan_approval phase
+  }).index("by_doc", ["docId"]).index("by_conversation", ["conversationId"]),
+
   embeddings: defineTable({
     embeddingType: v.union(v.literal("block"), v.literal("file"), v.literal("doc")),
     

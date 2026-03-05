@@ -1,18 +1,50 @@
 import { Request, Response } from "express";
 import { docEditAgent } from "./index";
 import { inngest } from "../inngest/client";
-import { redis } from "../lib/redis"; // Used for publishing, need a new instance for subscribing
-import { Redis } from '@upstash/redis';
+import { redis } from "../lib/redis";
 
-// Create a dedicated Redis subscriber client Since Upstash REST is stateless,
-// we just poll it natively or use their specialized subscriber if available.
-// However, Upstash REST does NOT natively support long-lived Pub/Sub connections. 
-// We will simulate it via an expiring key polling loop, OR we can just use normal Upstash 
-// polling but keep the HTTP connection alive and pipe it to SSE.
+// ─── Shared Redis polling helper ────────────────────────────────────────────
+// Polls `streamKey` every second, piping each message to the SSE response.
+// Stops (and ends the response) when a "done" or "error" message arrives.
+function pipeRedisToSSE(
+    streamKey: string,
+    res: Response,
+    req: Request,
+    pushToStream: (payload: any) => void,
+) {
+    let lastOffset = 0;
+    const pollInterval = setInterval(async () => {
+        try {
+            const items = await redis.lrange(streamKey, lastOffset, -1);
+            if (items && items.length > 0) {
+                for (const item of items) {
+                    const parsed = typeof item === "string" ? JSON.parse(item) : item;
+                    pushToStream(parsed);
+
+                    if (parsed.type === "done" || parsed.type === "error") {
+                        clearInterval(pollInterval);
+                        await redis.del(streamKey);
+                        res.end();
+                        return;
+                    }
+                }
+                lastOffset += items.length;
+            }
+        } catch (err) {
+            console.error("Error polling background stream:", err);
+            clearInterval(pollInterval);
+            pushToStream({ type: "error", error: "Lost connection to background process." });
+            pushToStream({ type: "done" });
+            res.end();
+        }
+    }, 1000);
+
+    req.on('close', () => { clearInterval(pollInterval); });
+}
 
 export const docAgentHandler = async (req: Request, res: Response) => {
     const {selectedText, userMessage, docContext, cursorPosition, projectId, conversationId, source, docId, fileId, sessionToken} = req.body;
-    console.log({docContext,cursorPosition, projectId, conversationId, source, docId, sessionToken})
+    console.log({docContext,cursorPosition, projectId, conversationId, source, docId, sessionToken});
     
     // Establish a Redis key for this conversation's background stream
     const streamKey = `agent:stream:${conversationId || docId}`;
@@ -28,6 +60,65 @@ export const docAgentHandler = async (req: Request, res: Response) => {
         res.write(`${JSON.stringify(payload)}\n`);
     };
 
+    // ── Architecture reply types bypass LangGraph entirely ───────────────────
+    // These are follow-up messages in an ongoing architecture session.
+    // We don't need to re-run the agent — just fire the right Inngest event
+    // and poll Redis for the Inngest function's response.
+    const replyType = req.body.replyType as string | undefined;
+
+    if (replyType === "answer") {
+        const { answer } = req.body as { answer: string };
+        await redis.del(streamKey);
+        await inngest.send({
+            name: "doc/architecture.answered",
+            data: { docId, answer, sessionToken },
+        });
+        pipeRedisToSSE(streamKey, res, req, pushToStream);
+        return;
+    }
+
+    if (replyType === "approve") {
+        await redis.del(streamKey);
+        await inngest.send({
+            name: "doc/architecture.approved",
+            data: { docId, sessionToken },
+        });
+        pushToStream({
+            type: "response",
+            response: {
+                operations: [{
+                    type: "chat_response",
+                    content: "🚀 Plan approved! Creating all files and content now. This may take a minute...",
+                }]
+            }
+        });
+        pipeRedisToSSE(streamKey, res, req, pushToStream);
+        return;
+    }
+
+    if (replyType === "reject") {
+        const { getConvexClient } = await import("./convex-client");
+        const { api } = await import("@workspace/backend/_generated/api");
+        const client = getConvexClient(sessionToken);
+        await client.mutation(
+            api.requirements.architectureSessions.deleteSession,
+            { docId }
+        );
+        pushToStream({
+            type: "response",
+            response: {
+                operations: [{
+                    type: "chat_response",
+                    content: "Got it! The plan has been cleared. Feel free to describe your system again and I'll ask better questions.",
+                }]
+            }
+        });
+        pushToStream({ type: "done" });
+        res.end();
+        return;
+    }
+
+    // ── Normal LangGraph agent flow ──────────────────────────────────────────
     try {
         // Clear old stream if any
         await redis.del(streamKey);
@@ -68,65 +159,34 @@ export const docAgentHandler = async (req: Request, res: Response) => {
             }
 
             if (event.event === "on_chain_end") {
-                 if (event.name === "classifyIntent" && event.data?.output?.intent) {
+                if (event.name === "classifyIntent" && event.data?.output?.intent) {
                     const intent = event.data.output.intent;
                     console.log("Sending Intent:", intent);
                     pushToStream({ type: "intent", intent });
 
-                    // ── Architecture intent: offload to Inngest ──
+                    // ── Architecture intent: start the Q&A flow ──
                     if (intent === "architecture") {
                         await inngest.send({
                             name: "doc/architecture.requested",
-                            data: { docId, userMessage, sessionToken, cursorPosition: cursorPosition ?? 0 },
+                            data: { docId, userMessage, sessionToken, conversationId, streamKey },
                         });
                         pushToStream({
                             type: "response",
                             response: {
                                 operations: [{
                                     type: "chat_response",
-                                    position: cursorPosition ?? 0,
-                                    content: "🏛️ Scaffolding your architecture in the background. Files and content will appear automatically as they're created!"
+                                    content: "🏛️ Let me ask you a few questions to design the perfect architecture for you!",
                                 }]
                             }
                         });
 
-                        // Start piping the background stream to the open SSE connection
-                        let lastOffset = 0;
-                        const pollInterval = setInterval(async () => {
-                            try {
-                                const items = await redis.lrange(streamKey, lastOffset, -1);
-                                if (items && items.length > 0) {
-                                    for (const item of items) {
-                                        const parsed = typeof item === "string" ? JSON.parse(item) : item;
-                                        pushToStream(parsed);
-                                        
-                                        if (parsed.type === "done" || parsed.type === "error") {
-                                            clearInterval(pollInterval);
-                                            await redis.del(streamKey);
-                                            res.end();
-                                            return;
-                                        }
-                                    }
-                                    lastOffset += items.length;
-                                }
-                            } catch (err) {
-                                console.error("Error polling background stream:", err);
-                                clearInterval(pollInterval);
-                                pushToStream({ type: "error", error: "Lost connection to background process." });
-                                pushToStream({ type: "done" });
-                                res.end();
-                            }
-                        }, 1000); // Check Redis every second
-
-                        // Clean up if the user closes the connection early
-                        req.on('close', () => {
-                            clearInterval(pollInterval);
-                        });
-
-                        return; // Exit the loop, leaving the SSE stream open
+                        // Pipe the Inngest background response back to the SSE stream
+                        pipeRedisToSSE(streamKey, res, req, pushToStream);
+                        return; // Stop iterating the LangGraph event loop
                     }
-                 }
+                }
             }
+
             if (event.event === "on_chat_model_stream") {
                 const chunk = event.data?.chunk;
                 const token = chunk?.content;
@@ -139,10 +199,10 @@ export const docAgentHandler = async (req: Request, res: Response) => {
             else if (event.event === "on_chain_end" && event.name === "LangGraph") {
                 if (event.data?.output) {
                     if (event.data.output.__interrupt__) {
-                         pushToStream({
-                             type: "interrupt",
-                             payload: event.data.output.__interrupt__
-                         });
+                        pushToStream({
+                            type: "interrupt",
+                            payload: event.data.output.__interrupt__
+                        });
                     }
                     else if (event.data.output.operations) {
                         pushToStream({ 
@@ -160,14 +220,14 @@ export const docAgentHandler = async (req: Request, res: Response) => {
 
     } catch (e: any) {
         if (e.name === "GraphInterrupt") {
-             console.log("Graph interrupted");
-             pushToStream({
-                 type: "interrupt",
-                 payload: e.interrupts[0].value
-             });
-             pushToStream({ type: "done" });
-             res.end();
-             return;
+            console.log("Graph interrupted");
+            pushToStream({
+                type: "interrupt",
+                payload: e.interrupts[0].value
+            });
+            pushToStream({ type: "done" });
+            res.end();
+            return;
         }
         
         console.error("Streaming error:", e);
