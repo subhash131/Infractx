@@ -17,10 +17,6 @@ export type ArchitectureQuestion = {
     totalQuestions: number;
 } | null;
 
-export type ArchitecturePlan = {
-    plan: any[];
-} | null;
-
 interface ChatStore {
     selectedContext: SelectedContext[]
     setSelectedContext: (selectedText: SelectedContext | "reset") => void
@@ -39,8 +35,6 @@ interface ChatStore {
     setShowHistory: (show: boolean) => void
     architectureQuestion: ArchitectureQuestion
     setArchitectureQuestion: (question: ArchitectureQuestion) => void
-    architecturePlan: ArchitecturePlan
-    setArchitecturePlan: (plan: ArchitecturePlan) => void
 }
 
 export const useChatStore = create<ChatStore>((set) => ({
@@ -78,6 +72,4 @@ export const useChatStore = create<ChatStore>((set) => ({
     setShowHistory: (show: boolean) => set({ showHistory: show }),
     architectureQuestion: null,
     setArchitectureQuestion: (question: ArchitectureQuestion) => set({ architectureQuestion: question }),
-    architecturePlan: null,
-    setArchitecturePlan: (plan: ArchitecturePlan) => set({ architecturePlan: plan }),
 }))

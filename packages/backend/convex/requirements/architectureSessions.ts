@@ -15,7 +15,7 @@ export const upsertSession = mutation({
     conversationId: v.optional(v.id("conversations")),
     userMessage: v.string(),
     sessionToken: v.string(),
-    streamKey: v.optional(v.string()),
+    streamKey: v.string(),
     questions: v.array(v.string()),
   },
   handler: async (ctx, args) => {
@@ -66,7 +66,11 @@ export const addAnswer = mutation({
 
     // Find the first unanswered question
     const firstUnanswered = session.qa.findIndex((item) => item.answer === undefined);
-    if (firstUnanswered === -1) throw new Error("All questions already answered.");
+    if (firstUnanswered === -1) {
+      // The frontend might accidentally send the last answer twice. 
+      // Return gracefully so the background job doesn't crash and stream an error.
+      return { alreadyAnswered: true, answeredCount: session.qa.length, totalQuestions: session.qa.length, allAnswered: true, nextQuestion: null, nextIndex: null };
+    }
 
     const updatedQA = session.qa.map((item, i) =>
       i === firstUnanswered ? { ...item, answer: args.answer } : item
@@ -79,6 +83,7 @@ export const addAnswer = mutation({
     const allAnswered = answeredCount === totalQuestions;
 
     return {
+      alreadyAnswered: false,
       answeredCount,
       totalQuestions,
       allAnswered,
