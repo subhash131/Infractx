@@ -22,6 +22,7 @@ import type * as design_templates from "../design/templates.js";
 import type * as design_utils from "../design/utils.js";
 import type * as http from "../http.js";
 import type * as projects from "../projects.js";
+import type * as requirements_architectureSessions from "../requirements/architectureSessions.js";
 import type * as requirements_documents from "../requirements/documents.js";
 import type * as requirements_embeddings from "../requirements/embeddings.js";
 import type * as requirements_textFileBlocks from "../requirements/textFileBlocks.js";
@@ -49,6 +50,7 @@ declare const fullApi: ApiFromModules<{
   "design/utils": typeof design_utils;
   http: typeof http;
   projects: typeof projects;
+  "requirements/architectureSessions": typeof requirements_architectureSessions;
   "requirements/documents": typeof requirements_documents;
   "requirements/embeddings": typeof requirements_embeddings;
   "requirements/textFileBlocks": typeof requirements_textFileBlocks;

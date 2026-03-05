@@ -28,7 +28,12 @@ interface ChatFooterProps {
 }
 
 export const ChatFooter = ({ conversationId, editor }: ChatFooterProps) => {
-  const {selectedContext, setSelectedContext, removeContext, setStreamingText, setConversationId, sendingMessage, setSendingMessage} = useChatStore()
+  const {
+      selectedContext, setSelectedContext, removeContext, 
+      setStreamingText, setConversationId, sendingMessage, setSendingMessage,
+      architectureQuestion, setArchitectureQuestion,
+      architecturePlan, setArchitecturePlan,
+  } = useChatStore()
   const params = useParams();
   const projectId = params?.projectId as string;
   const { getToken } = useAuth();
@@ -108,6 +113,17 @@ export const ChatFooter = ({ conversationId, editor }: ChatFooterProps) => {
             docId: params?.docId as string,
             sessionToken: token,
             fileId,
+            answer: prompt, // Required by route.ts when replyType === "answer"
+            // If there's an active question or plan, this prompt is an answer/approval
+            // Exception: Check if the text area has the reject flag set by the Reject button
+            replyType: (() => {
+               const input = document.getElementById('ai-chat-textarea') as HTMLTextAreaElement;
+               if (input?.dataset.replyType === "reject") {
+                   delete input.dataset.replyType; // clear it for next time
+                   return "reject";
+               }
+               return architecturePlan ? "approve" : (architectureQuestion ? "answer" : undefined);
+            })(),
           }),
         });
 
@@ -159,7 +175,29 @@ export const ChatFooter = ({ conversationId, editor }: ChatFooterProps) => {
                          if (data.type === "chat_token") {
                              setStreamingText(data.content); // updates UI delta
                              aiResponseText += data.content; // aggregates full text
-                         } 
+                         } else if (data.type === "architecture_question") {
+                             setArchitectureQuestion({
+                                 question: data.question,
+                                 questionIndex: data.questionIndex,
+                                 totalQuestions: data.totalQuestions,
+                             });
+                             // Also show the question in the chat as an AI message
+                             setStreamingText(data.question);
+                             aiResponseText += data.question;
+                         } else if (data.type === "architecture_plan") {
+                             setArchitecturePlan({ plan: data.plan });
+                             setArchitectureQuestion(null); // Clear questions when plan arrives
+                         } else if (data.type === "architecture_status") {
+                             setStreamingText(data.message);
+                             aiResponseText += data.message;
+                         } else if (data.type === "response" && data.response?.operations) {
+                             // Handle full chat responses sent at once (like "Let me ask..." or "Plan approved!")
+                             const chatOp = data.response.operations.find((op: any) => op.type === "chat_response");
+                             if (chatOp && chatOp.content) {
+                                 setStreamingText(chatOp.content);
+                                 aiResponseText += chatOp.content;
+                             }
+                         }
                      } catch(e) {
                          console.error("Error parsing chunk", e);
                      }
