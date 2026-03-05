@@ -97,9 +97,19 @@ export async function callAI(messages: ChatMessage[], options: {
   let text = "";
   let inputTokens = 0;
   let outputTokens = 0;
+  let firstChunk = true;
   for await (const chunk of stream) {
+      if (firstChunk) {
+          console.log("🔬 DEBUG chunk.content type:", typeof chunk.content, "| value:", JSON.stringify(chunk.content)?.slice(0, 200));
+          firstChunk = false;
+      }
       if (typeof chunk.content === 'string') {
           text += chunk.content;
+      } else if (Array.isArray(chunk.content)) {
+          for (const part of chunk.content) {
+              if (typeof part === 'string') text += part;
+              else if (part?.type === 'text') text += part.text ?? '';
+          }
       }
       // Groq streams usage stats on the last chunk
       const usage = (chunk as any).usage_metadata ?? (chunk as any).response_metadata?.usage;
@@ -115,6 +125,7 @@ export async function callAI(messages: ChatMessage[], options: {
       console.log(`📊 Tokens this call: ${chunkTokens.toLocaleString()} (input: ${inputTokens.toLocaleString()}, output: ${outputTokens.toLocaleString()}) | Total: ${totalTokensUsed.toLocaleString()}`);
   }
 
+  console.log("🔬 DEBUG text length after stream:", text.length, "| snippet:", text.slice(0, 100));
   const content = text;
   
   if (content) {
@@ -169,7 +180,7 @@ function routeByIntent(state: typeof AgentStateAnnotation.State): string {
     case 'greet':
       return 'generateOps'; // Skip semantic search for generic messages and deletes
     case 'architecture':
-      return 'architectureAgent';
+      return END; // Handled in route.ts (fires Inngest, polls Redis stream)
     case 'file_management':
       return 'manageFiles';
     default:
