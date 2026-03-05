@@ -269,7 +269,7 @@ export default defineSchema({
     ),
     userMessage: v.string(),
     sessionToken: v.string(),
-    streamKey: v.optional(v.string()), // the Redis key that route.ts is polling — must stay consistent
+    streamKey: v.string(), // the Redis key that route.ts is polling — must stay consistent
     qa: v.array(v.object({
       question: v.string(),
       answer: v.optional(v.string()), // undefined until the user answers

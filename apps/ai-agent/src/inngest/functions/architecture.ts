@@ -165,11 +165,16 @@ export const architectureAnsweredHandler = inngest.createFunction(
 
     try {
       // Store the answer and get updated state
-      const { allAnswered, nextQuestion, nextIndex, answeredCount, totalQuestions } =
+      const { allAnswered, nextQuestion, nextIndex, answeredCount, totalQuestions, alreadyAnswered } =
         await client.mutation(
           api.requirements.architectureSessions.addAnswer,
           { docId, answer }
         );
+
+      if (alreadyAnswered) {
+         console.log("⚠️ [Phase 2] Answer ignored because all questions are already answered (possibly duplicate request).");
+         return;
+      }
 
       if (!allAnswered && nextQuestion) {
         // More questions remain — push the next one
@@ -196,7 +201,8 @@ export const architectureAnsweredHandler = inngest.createFunction(
           data: { docId, sessionToken },
         });
 
-        await pushToRedis(streamKey, { type: "done" });
+        // Do NOT push "done" here. We want to keep the SSE connection open
+        // so Phase 3 can stream the generated plan!
       }
 
     } catch (err) {

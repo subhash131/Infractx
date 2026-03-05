@@ -32,7 +32,6 @@ export const ChatFooter = ({ conversationId, editor }: ChatFooterProps) => {
       selectedContext, setSelectedContext, removeContext, 
       setStreamingText, setConversationId, sendingMessage, setSendingMessage,
       architectureQuestion, setArchitectureQuestion,
-      architecturePlan, setArchitecturePlan,
   } = useChatStore()
   const params = useParams();
   const projectId = params?.projectId as string;
@@ -46,6 +45,8 @@ export const ChatFooter = ({ conversationId, editor }: ChatFooterProps) => {
   const [prompt, setPrompt] = useState("");
   const handleSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
+    const inputElement = document.getElementById('ai-chat-textarea') as HTMLTextAreaElement;
+    const currentPrompt = inputElement ? inputElement.value : prompt;
     if(sendingMessage) return;
 
     let selectedText = selectedContext.map((context) => context.text).join("\n");
@@ -69,9 +70,10 @@ export const ChatFooter = ({ conversationId, editor }: ChatFooterProps) => {
         }
     }
 
-    if(!prompt.trim() && !selectedText) return
+    if(!currentPrompt.trim() && !selectedText) return
 
     setPrompt("");
+    if (inputElement) inputElement.value = "";
     setSelectedContext("reset");
     
     try {
@@ -80,7 +82,7 @@ export const ChatFooter = ({ conversationId, editor }: ChatFooterProps) => {
         // 1. Create conversation if valid ID not present
         if (!currentConversationId) {
             // Generate title from first message
-            const title = prompt.slice(0, 30) + (prompt.length > 30 ? "..." : "");
+            const title = currentPrompt.slice(0, 30) + (currentPrompt.length > 30 ? "..." : "");
             currentConversationId = await createConversation({ organizationId: "personal", title }) as Id<"conversations">;
             setConversationId(currentConversationId);
         }
@@ -90,7 +92,7 @@ export const ChatFooter = ({ conversationId, editor }: ChatFooterProps) => {
         // 2. Save User Message
         await insertMessage({
             conversationId: currentConversationId as Id<"conversations">,
-            content: prompt,
+            content: currentPrompt,
             role: "USER",
             context: selectedContext
         });
@@ -103,7 +105,7 @@ export const ChatFooter = ({ conversationId, editor }: ChatFooterProps) => {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            userMessage: prompt,
+            userMessage: currentPrompt,
             selectedText,
             // docContext, // TODO
             cursorPosition,
@@ -113,7 +115,7 @@ export const ChatFooter = ({ conversationId, editor }: ChatFooterProps) => {
             docId: params?.docId as string,
             sessionToken: token,
             fileId,
-            answer: prompt, // Required by route.ts when replyType === "answer"
+            answer: currentPrompt, // Required by route.ts when replyType === "answer"
             // If there's an active question or plan, this prompt is an answer/approval
             // Exception: Check if the text area has the reject flag set by the Reject button
             replyType: (() => {
@@ -122,7 +124,11 @@ export const ChatFooter = ({ conversationId, editor }: ChatFooterProps) => {
                    delete input.dataset.replyType; // clear it for next time
                    return "reject";
                }
-               return architecturePlan ? "approve" : (architectureQuestion ? "answer" : undefined);
+               if (input?.dataset.replyType === "approve") {
+                   delete input.dataset.replyType; 
+                   return "approve";
+               }
+               return architectureQuestion ? "answer" : undefined;
             })(),
           }),
         });
@@ -185,8 +191,13 @@ export const ChatFooter = ({ conversationId, editor }: ChatFooterProps) => {
                              setStreamingText(data.question);
                              aiResponseText += data.question;
                          } else if (data.type === "architecture_plan") {
-                             setArchitecturePlan({ plan: data.plan });
                              setArchitectureQuestion(null); // Clear questions when plan arrives
+
+                             // Inject the plan JSON inside a special block to be parsed natively by ChatBody
+                             const planMessage = `\n[ARCHITECTURE_PLAN]${JSON.stringify({ plan: data.plan })}[/ARCHITECTURE_PLAN]\n`;
+                             
+                             setStreamingText(planMessage);
+                             aiResponseText += planMessage;
                          } else if (data.type === "architecture_status") {
                              setStreamingText(data.message);
                              aiResponseText += data.message;
