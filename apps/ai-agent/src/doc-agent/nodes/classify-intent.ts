@@ -27,11 +27,12 @@ Classify the intent into ONE of these categories:
 9. **architecture**: Request to DESIGN a system architecture, generating a structural file hierarchy of detailed backend/frontend component files.
    - "Design a system design for a spotify clone"
    - "Create a microservice architecture for e-commerce"
-10. **general**: A conversational query (e.g., "Hi", "Thanks") that doesn't need project context.
+10. **general**: A generic conversational query that doesn't fit other categories.
+11. **greet**: Simple conversational greetings or questions about the AI (e.g., "Hi", "Hello", "Who are you?", "Thanks").
 
 Return ONLY valid JSON:
 {
-  "intent": "context" | "schema" | "table" | "list" | "text" | "delete" | "code" | "file_management" | "architecture" | "general",
+  "intent": "context" | "schema" | "table" | "list" | "text" | "delete" | "code" | "file_management" | "architecture" | "general" | "greet",
   "confidence": 0.0-1.0,
   "reasoning": "brief explanation"
 }
