@@ -3,11 +3,19 @@ import { AgentStateAnnotation, callAI, ChatMessage } from "../index";
 export async function classifyIntent(state: typeof AgentStateAnnotation.State) {
   console.log("🔍 Classifying intent...");
   
+  const chatHistoryContext = state.chatHistory?.length > 0 
+    ? state.chatHistory.slice(-5).map((m: any) => `${m.role.toUpperCase()}: ${m.content}`).join("\n")
+    : "No recent history.";
+
   const prompt = `You are analyzing a user's request to edit a document or chat.
+
 User Message: "${state.userMessage}"
 Selected Text: "${state.selectedText}"
 
-Classify the intent into ONE of these categories:
+Recent Conversation History:
+${chatHistoryContext}
+
+Classify the intent into ONE of these categories based BOTH on the User Message and the Context provided in the Recent Conversation History:
 
 1. **context**: Request to EXPLAIN, SEARCH, or QUERY project data (schema, files, structure, definitions).
    - "Explain user schema"
@@ -28,7 +36,10 @@ Classify the intent into ONE of these categories:
    - "Design a system design for a spotify clone"
    - "Create a microservice architecture for e-commerce"
 10. **general**: A generic conversational query that doesn't fit other categories.
+    - "try again" (if history does NOT imply a specific category)
 11. **greet**: Simple conversational greetings or questions about the AI (e.g., "Hi", "Hello", "Who are you?", "Thanks").
+
+Remember: If the user says something ambiguous like "try again" or "do it", look at the Recent Conversation History. If the history is about generating an architecture, classify as 'architecture'. If it's about explaining a file, classify as 'context'.
 
 Return ONLY valid JSON:
 {

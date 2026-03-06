@@ -87,7 +87,7 @@ export const addAnswer = mutation({
       answeredCount,
       totalQuestions,
       allAnswered,
-      nextQuestion: !allAnswered ? updatedQA[answeredCount].question : null,
+      nextQuestion: (!allAnswered && updatedQA[answeredCount]) ? updatedQA[answeredCount].question : null,
       nextIndex: !allAnswered ? answeredCount : null,
     };
   },

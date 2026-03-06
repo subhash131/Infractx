@@ -4,6 +4,8 @@ import { getConvexClient } from "../../doc-agent/convex-client";
 import { redis } from "../../lib/redis";
 import { ChatGroq } from "@langchain/groq";
 import { Id } from "@workspace/backend/_generated/dataModel";
+import { generateKeyBetween } from "fractional-indexing";
+import { ContentBlock, buildChildBlocks, uid } from "../../doc-agent/tools/add-database-smart-block";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // LLM Helpers
@@ -387,6 +389,7 @@ Rules:
 - For FILES, add a short "description" (1-2 sentences) describing what content it will have.
 - Do NOT use file extensions in titles (no .md, .ts, .tsx).
 - Ensure all items from the Technology Plan have a logical home in this structure.
+- CRITICAL: DO NOT INCLUDE a "content" field in the JSON output. Output ONLY the structure properties (action, type, title, description, tempId, parentId). The content will be generated in a later phase.
 
 Return ONLY valid JSON array, no markdown fences. Example of a deeply nested structure:
 [
@@ -408,18 +411,24 @@ Return ONLY valid JSON array, no markdown fences. Example of a deeply nested str
         return;
       }
 
-      console.log(`📋 [Phase 3.5] Structure Plan generated: ${plan.length} items`);
+      // Force-strip any hallucinated `content` fields so phase 4 doesn't break
+      const safePlan = plan.map((op: any) => {
+        const { content, ...safeOp } = op;
+        return safeOp as StructureOp;
+      });
+
+      console.log(`📋 [Phase 3.5] Structure Plan generated: ${safePlan.length} items (cleaned)`);
 
       // Persist plan in Convex
       await client.mutation(api.requirements.architectureSessions.setPlan, {
         docId,
-        planJson: JSON.stringify(plan),
+        planJson: JSON.stringify(safePlan),
       });
 
       // Push the plan to SSE — frontend renders a preview with Approve/Reject
       await pushToRedis(streamKey, {
         type: "architecture_plan",
-        plan,
+        plan: safePlan,
       });
       await pushToRedis(streamKey, { type: "done" });
 
@@ -528,24 +537,77 @@ ${session.techPlan || "Not provided."}
 File: "${op.title}"
 Purpose: ${op.description || "No description provided."}
 
-Write the complete, production-quality content for this document file in markdown.
-Be thorough and specific — include detailed schemas, API specs, data flows, config values, or component designs as appropriate for this file's purpose.
-Do NOT include a top-level H1 title (the file already has a title).
-Return ONLY the markdown content, no extra explanation.
+Write the complete, production-quality content for this document file.
+Instead of markdown, output your response as a JSON array of "Smart Blocks".
+Each Smart Block represents a major section of the document and contains an array of content items.
+
+Output format must strictly be a JSON array of objects:
+[
+  {
+    "title": "Section Title (e.g. Database Schema, API Endpoints)",
+    "content": [
+      { "kind": "paragraph", "text": "A descriptive paragraph." },
+      { "kind": "heading", "level": 2, "text": "Sub-section heading" },
+      { "kind": "bulletList", "items": ["Item 1", "Item 2"] },
+      { "kind": "table", "headers": ["Col 1", "Col 2"], "rows": [["Val 1", "Val 2"]] }
+    ]
+  }
+]
+
+Rules for content items:
+- 'kind' MUST be exactly one of: 'paragraph', 'heading', 'bulletList', 'table'.
+- For 'paragraph', provide 'text' (string).
+- For 'heading', provide 'level' (1, 2, or 3) and 'text' (string).
+- For 'bulletList', provide 'items' (array of strings).
+- For 'table', provide 'headers' (array of strings) and 'rows' (2D array of strings).
+
+Create as many Smart Blocks as necessary to fully cover the file's purpose.
+Return ONLY the valid JSON array. No markdown fences, no explanation.
 `;
             const contentRaw = await callLLMInvoke(contentPrompt);
-            const content = typeof contentRaw === "string" ? contentRaw.trim() : "";
+            const smartBlocks = parseJSON<{ title: string; content: ContentBlock[] }[]>(contentRaw);
 
-            if (content) {
-              await client.mutation(api.requirements.textFileBlocks.createBlock, {
-                externalId: crypto.randomUUID(),
-                textFileId: newId,
-                type: "paragraph",
-                props: {},
-                content: [{ type: "text", text: content }],
-                rank: "a0",
-                approvedByHuman: false,
-              });
+            if (smartBlocks && Array.isArray(smartBlocks) && smartBlocks.length > 0) {
+              let currentRank = generateKeyBetween(null, null);
+
+              const allBlocks = [];
+              for (const sb of smartBlocks) {
+                const smartBlockId = uid();
+                
+                const smartBlockRecord = {
+                   externalId: smartBlockId,
+                   type: "smartBlock",
+                   props: {},
+                   content: [{ type: "text", text: sb.title }],
+                   rank: currentRank,
+                   parentId: null,
+                   approvedByHuman: false,
+                };
+                
+                const childStartRank = generateKeyBetween(null, null);
+                const childBlocks = buildChildBlocks(sb.content, smartBlockId, childStartRank);
+                
+                const trailingParagraph = {
+                   externalId: uid(),
+                   type: "paragraph",
+                   props: { textAlign: null },
+                   content: [],
+                   rank: generateKeyBetween(childBlocks.at(-1)?.rank ?? childStartRank, null),
+                   parentId: smartBlockId,
+                   approvedByHuman: false,
+                };
+                
+                allBlocks.push(smartBlockRecord, ...childBlocks, trailingParagraph);
+                currentRank = generateKeyBetween(currentRank, null);
+              }
+              
+              if (allBlocks.length > 0) {
+                 console.log("📝 [Phase 4] Inserting Blocks into DB:", JSON.stringify(allBlocks, null, 2));
+                 await client.mutation(api.requirements.textFileBlocks.bulkCreate, {
+                    textFileId: newId,
+                    blocks: allBlocks,
+                 });
+              }
             }
           }
 

@@ -11,7 +11,7 @@ const MODEL_CONFIG = {
     model: "gemini-3-flash-preview",
   },
   groq: {
-    model: "openai/gpt-oss-20b",
+    model: "openai/gpt-oss-120b",
     maxTokens: 8192,
     maxRetries: 2,
   },
