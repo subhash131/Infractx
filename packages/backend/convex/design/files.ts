@@ -59,7 +59,7 @@ export const setActivePage = mutation({
 
     const file = await ctx.db
       .query("designs")
-      .withIndex("by_id", (q) => q.eq("_id", args.designId))
+      .withIndex("by_id", (q: any) => q.eq("_id", args.designId))
       .unique();
     if (!file) {
       throw new ConvexError({
@@ -69,7 +69,7 @@ export const setActivePage = mutation({
     }
     const page = await ctx.db
       .query("pages")
-      .withIndex("by_id", (q) => q.eq("_id", args.pageId))
+      .withIndex("by_id", (q: any) => q.eq("_id", args.pageId))
       .unique();
     if (!page) {
       throw new ConvexError({
@@ -135,7 +135,7 @@ export const getDesignFilesByOrgId = query({
 
     const files = await ctx.db
       .query("designs")
-      .withIndex("by_owner", (q) => q.eq("ownerId", identity.subject))
+      .withIndex("by_owner", (q: any) => q.eq("ownerId", identity.subject))
       .collect();
 
     // Filter by organization if provided

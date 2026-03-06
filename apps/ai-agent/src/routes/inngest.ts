@@ -5,6 +5,7 @@ import {
   architectureRequestedHandler,
   architectureAnsweredHandler,
   architecturePlanRequestedHandler,
+  architectureStructureRequestedHandler,
   architectureApprovedHandler,
 } from "@/inngest/functions/architecture";
 
@@ -15,6 +16,7 @@ export const inngestRouter = serve({
     architectureRequestedHandler,
     architectureAnsweredHandler,
     architecturePlanRequestedHandler,
+    architectureStructureRequestedHandler,
     architectureApprovedHandler,
   ],
 });

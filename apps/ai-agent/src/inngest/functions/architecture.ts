@@ -56,6 +56,13 @@ interface StructureOp {
   parentId?: string;
 }
 
+interface TechOp {
+  title: string;
+  type: "Database Schema" | "Backend Route/Function" | "Frontend Page/Component" | "Config/Infrastructure";
+  description: string;
+  reasoning: string;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // PHASE 1 — doc/architecture.requested
 // Generates clarifying questions about the system, stores them in Convex,
@@ -87,11 +94,12 @@ Before building anything, you need to gather structured requirements.
 
 User Request: "${userMessage}"
 
-Generate exactly 5 concise, targeted clarifying questions to understand this system better.
+Generate targeted clarifying questions to understand this system better. 
+Limit the number of questions based on what you think is necessary to establish best practices for a good design (ask up to 5 questions).
 Focus on: actors/users, use cases, scale expectations, tech stack preferences, key integrations or constraints.
 
-Return ONLY a valid JSON array of strings, no markdown fences:
-["Question 1?", "Question 2?", "Question 3?", "Question 4?", "Question 5?"]
+Return ONLY a valid JSON array of strings, no markdown fences. For example:
+["Question 1?", "Question 2?"]
 `;
 
       const questionsRaw = await callLLMInvoke(questionsPrompt);
@@ -192,7 +200,7 @@ export const architectureAnsweredHandler = inngest.createFunction(
         console.log("📋 [Phase 2] All questions answered — triggering plan generation");
         await pushToRedis(streamKey, {
           type: "architecture_status",
-          message: "✨ Great! Let me design the architecture plan based on your answers...",
+          message: "✨ Great! Let me design the technology plan based on your answers...",
         });
 
         // Fire the plan generation event (handled by phase 3)
@@ -215,7 +223,7 @@ export const architectureAnsweredHandler = inngest.createFunction(
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PHASE 3 — doc/architecture.plan_requested
-// Reads all Q&A from Convex, generates the StructureOp[] plan, saves it,
+// Reads all Q&A from Convex, generates the Technology Plan (TechOp[]), saves it,
 // and pushes it to the SSE stream for the frontend to render with Approve/Reject.
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -229,7 +237,7 @@ export const architecturePlanRequestedHandler = inngest.createFunction(
       sessionToken: string;
     };
 
-    console.log("📐 [Phase 3] Generating plan for doc:", docId);
+    console.log("📐 [Phase 3] Generating Tech Plan for doc:", docId);
 
     const client = getConvexClient(sessionToken);
 
@@ -248,6 +256,100 @@ export const architecturePlanRequestedHandler = inngest.createFunction(
 
     try {
 
+      // Build Q&A context block
+      const qaContext = session.qa
+        .map((item) => `Q: ${item.question}\nA: ${item.answer ?? "(not answered)"}`)
+        .join("\n\n");
+
+      const planPrompt = `
+You are an expert software architect designing a system. Before creating any files, you must outline the core technologies and components you plan to implement.
+
+Original Request: "${session.userMessage}"
+
+Requirements gathered from the user:
+${qaContext}
+
+Design a "Technology Plan". This plan should NOT contain folders or files yet. Instead, you must specify the core components to be implemented, along with the programming languages and frameworks you recommend.
+
+Output a flat JSON array of objects. 
+Each item must have:
+- title: (e.g. "React + Next.js", "Users Table", "Stripe Webhook Route")
+- type: Must be exactly one of: "Database Schema", "Backend Route/Function", "Frontend Page/Component", or "Config/Infrastructure".
+- description: A short description of what it is.
+- reasoning: Explain *why* you chose this technology or approach based on the user's requirements.
+
+Return ONLY a valid JSON array, no markdown fences:
+[
+  { "title": "React + Vite", "type": "Config/Infrastructure", "description": "Frontend framework", "reasoning": "User requested a fast SPA without SSR." }
+]
+`;
+
+      console.log("📐 [Phase 3] Calling LLM for Tech Plan...");
+      const planRaw = await callLLMInvoke(planPrompt);
+      const plan = parseJSON<TechOp[]>(planRaw);
+
+      if (!plan || !Array.isArray(plan)) {
+        await pushToRedis(streamKey, { type: "error", error: "Failed to generate technology plan. Please try again." });
+        await pushToRedis(streamKey, { type: "done" });
+        return;
+      }
+
+      console.log(`📋 [Phase 3] Tech Plan generated: ${plan.length} items`);
+
+      // Persist tech plan in Convex
+      await client.mutation(api.requirements.architectureSessions.setTechPlan, {
+        docId,
+        techPlanJson: JSON.stringify(plan),
+      });
+
+      // Push the plan to SSE — frontend renders a preview with Approve/Reject
+      await pushToRedis(streamKey, {
+        type: "architecture_tech_plan",
+        plan,
+      });
+      await pushToRedis(streamKey, { type: "done" });
+
+    } catch (err) {
+      console.error("❌ [Phase 3] Failed:", err);
+      await pushToRedis(streamKey, { type: "error", error: "Tech Plan generation failed. Please try again." });
+      await pushToRedis(streamKey, { type: "done" });
+    }
+  }
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PHASE 3.5 — doc/architecture.structure_requested
+// Reads the approved Tech Plan, generates the Folder Structure (StructureOp[]),
+// saves it, and pushes it to the SSE stream.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const architectureStructureRequestedHandler = inngest.createFunction(
+  { id: "doc-architecture-structure-requested" },
+  { event: "doc/architecture.structure_requested" },
+
+  async ({ event }) => {
+    const { docId, sessionToken } = event.data as {
+      docId: string;
+      sessionToken: string;
+    };
+
+    console.log("📐 [Phase 3.5] Generating Folder Structure for doc:", docId);
+
+    const client = getConvexClient(sessionToken);
+
+    // Load session with all Q&A and Tech Plan
+    const session = await client.query(
+      api.requirements.architectureSessions.getSession,
+      { docId }
+    );
+
+    if (!session || !session.techPlan) {
+      console.error("❌ [Phase 3.5] Session or Tech Plan not found for doc:", docId);
+      return;
+    }
+    const streamKey = session.streamKey;
+
+    try {
       // Fetch existing file tree so we don't duplicate
       const existingFiles = await client.query(
         api.requirements.textFiles.getFilesByDocumentId,
@@ -255,49 +357,58 @@ export const architecturePlanRequestedHandler = inngest.createFunction(
       );
       const existingTitles = existingFiles.map((f) => f.title);
 
-      // Build Q&A context block
       const qaContext = session.qa
         .map((item) => `Q: ${item.question}\nA: ${item.answer ?? "(not answered)"}`)
         .join("\n\n");
 
+      // We inject the approved tech plan so the LLM knows what to build
       const planPrompt = `
-You are an expert software architect. Design a complete production-ready system architecture.
+You are an expert software architect mapping an approved technology plan to a concrete file/folder structure.
 
 Original Request: "${session.userMessage}"
 
-Requirements gathered from the user:
+User Q&A:
 ${qaContext}
+
+Approved Technology Plan:
+${session.techPlan}
 
 Already existing files (do NOT create these): ${JSON.stringify(existingTitles)}
 
-Output a flat JSON array of file/folder operations. Each item is ONLY structure — no content yet.
+Based strictly on the Approved Technology Plan, design the file/folder structure.
+Output a flat JSON array of file/folder operations to build a hierarchical tree. Each item is ONLY structure — no content yet.
 
 Rules:
 - Use "FILE" or "FOLDER" for type.
-- Assign a "tempId" (e.g. "temp_1") to every FOLDER.
-- Set "parentId" to a tempId for nesting within a folder.
+- Assign a unique "tempId" (e.g. "temp_1", "temp_2") to EVERY FOLDER.
+- Set "parentId" to a folder's "tempId" to nest items inside that folder.
+- CRITICAL: ABSOLUTELY NO FILES AT THE ROOT LEVEL. Every single FILE must have a "parentId" pointing to a valid FOLDER's tempId.
+- Group related items deeply (e.g., Folder "Backend" -> Folder "Routes" -> File "Music Streaming Route").
 - For FILES, add a short "description" (1-2 sentences) describing what content it will have.
 - Do NOT use file extensions in titles (no .md, .ts, .tsx).
-- Cover: backend services, database schema, frontend pages, API contracts, infrastructure.
+- Ensure all items from the Technology Plan have a logical home in this structure.
 
-Return ONLY valid JSON array, no markdown fences:
+Return ONLY valid JSON array, no markdown fences. Example of a deeply nested structure:
 [
-  { "action": "create", "type": "FOLDER", "title": "Backend", "tempId": "temp_1" },
-  { "action": "create", "type": "FILE", "title": "Database Schema", "parentId": "temp_1", "description": "PostgreSQL schema with tables for users, tracks, playlists." }
+  { "action": "create", "type": "FOLDER", "title": "Backend", "tempId": "backend_root" },
+  { "action": "create", "type": "FOLDER", "title": "Database", "parentId": "backend_root", "tempId": "db_folder" },
+  { "action": "create", "type": "FILE", "title": "Database Schema", "parentId": "db_folder", "description": "PostgreSQL schema" },
+  { "action": "create", "type": "FOLDER", "title": "Frontend", "tempId": "frontend_root" },
+  { "action": "create", "type": "FILE", "title": "Home Page", "parentId": "frontend_root", "description": "The main landing page" }
 ]
 `;
 
-      console.log("📐 [Phase 3] Calling LLM for structure plan...");
+      console.log("📐 [Phase 3.5] Calling LLM for folder structure plan...");
       const planRaw = await callLLMInvoke(planPrompt);
       const plan = parseJSON<StructureOp[]>(planRaw);
 
       if (!plan || !Array.isArray(plan)) {
-        await pushToRedis(streamKey, { type: "error", error: "Failed to generate architecture plan. Please try again." });
+        await pushToRedis(streamKey, { type: "error", error: "Failed to generate structure plan. Please try again." });
         await pushToRedis(streamKey, { type: "done" });
         return;
       }
 
-      console.log(`📋 [Phase 3] Plan generated: ${plan.length} items`);
+      console.log(`📋 [Phase 3.5] Structure Plan generated: ${plan.length} items`);
 
       // Persist plan in Convex
       await client.mutation(api.requirements.architectureSessions.setPlan, {
@@ -313,8 +424,8 @@ Return ONLY valid JSON array, no markdown fences:
       await pushToRedis(streamKey, { type: "done" });
 
     } catch (err) {
-      console.error("❌ [Phase 3] Failed:", err);
-      await pushToRedis(streamKey, { type: "error", error: "Plan generation failed. Please try again." });
+      console.error("❌ [Phase 3.5] Failed:", err);
+      await pushToRedis(streamKey, { type: "error", error: "Structure Plan generation failed. Please try again." });
       await pushToRedis(streamKey, { type: "done" });
     }
   }
@@ -410,6 +521,9 @@ System: "${session.userMessage}"
 
 User Requirements:
 ${qaContext}
+
+Approved Technology Plan:
+${session.techPlan || "Not provided."}
 
 File: "${op.title}"
 Purpose: ${op.description || "No description provided."}

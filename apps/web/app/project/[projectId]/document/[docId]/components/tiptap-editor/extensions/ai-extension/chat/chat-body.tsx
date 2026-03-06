@@ -27,7 +27,20 @@ export const ChatBody = ({
 
   const renderMessageContent = (content: string, isLatest: boolean, role: string, id: string) => {
     let planJson = null;
+    let techPlanJson = null;
     let textContent = content;
+
+    if (role === "AI" && content.includes("[ARCHITECTURE_TECH_PLAN]")) {
+      const match = content.match(/\[ARCHITECTURE_TECH_PLAN\](.*)\[\/ARCHITECTURE_TECH_PLAN\]/s);
+      if (match && match[0] && match[1]) {
+        try {
+          techPlanJson = JSON.parse(match[1]);
+          textContent = content.replace(match[0], "").trim();
+        } catch (e) {
+          console.error("Failed to parse tech plan", e);
+        }
+      }
+    }
 
     if (role === "AI" && content.includes("[ARCHITECTURE_PLAN]")) {
       const match = content.match(/\[ARCHITECTURE_PLAN\](.*)\[\/ARCHITECTURE_PLAN\]/s);
@@ -46,14 +59,18 @@ export const ChatBody = ({
         {role === "AI" && textContent && <ReceivedMessage message={textContent} />}
         {role === "USER" && textContent && <SentMessage message={textContent} />}
         
-        {planJson && (
+        {techPlanJson && (
           <div className="w-[90%] bg-accent/30 border border-accent rounded-lg p-3 my-2 flex flex-col gap-2 self-start">
-            <h3 className="font-semibold text-sm">Proposed Architecture</h3>
-            <div className="max-h-48 overflow-y-auto w-full text-xs text-muted-foreground p-2 bg-background rounded border">
-              {planJson.plan.map((item: any, idx: number) => (
-                <div key={idx} className="mb-1">
-                  {item.type === "FOLDER" ? "📁" : "📄"} <strong>{item.title}</strong>
-                  {item.description && <span className="block ml-5 opacity-70">{item.description}</span>}
+            <h3 className="font-semibold text-sm">Tech Plan</h3>
+            <div className="max-h-48 overflow-y-auto w-full text-xs text-muted-foreground p-2 bg-background rounded border flex flex-col gap-3 hide-scrollbar">
+              {techPlanJson.plan.map((item: any, idx: number) => (
+                <div key={idx} className="flex flex-col gap-1 border-b last:border-0 pb-2 last:pb-0">
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 bg-primary/10 text-primary rounded-md font-medium text-[10px]">{item.type}</span>
+                    <strong className="text-foreground">{item.title}</strong>
+                  </div>
+                  {item.description && <span className="opacity-80">{item.description}</span>}
+                  {item.reasoning && <span className="text-[10px] italic opacity-70">Why: {item.reasoning}</span>}
                 </div>
               ))}
             </div>
@@ -65,13 +82,72 @@ export const ChatBody = ({
                     const form = document.querySelector('form');
                     const input = document.getElementById('ai-chat-textarea') as HTMLTextAreaElement;
                     if (form && input) {
-                       input.dataset.replyType = "approve";
-                       input.value = "Looks good, approve plan!";
+                       input.dataset.replyType = "approve_tech";
+                       input.value = "Great tech stack, let's map out the folders!";
                        form.requestSubmit();
                     }
                   }}
                 >
-                  Approve Plan
+                  Approve Tech Plan
+                </Button>
+                <Button 
+                  className="flex-1" variant="outline" size="sm"
+                  onClick={() => {
+                    const form = document.querySelector('form');
+                    const input = document.getElementById('ai-chat-textarea') as HTMLTextAreaElement;
+                    if (form && input) {
+                       input.dataset.replyType = "reject";
+                       input.value = "Reject technology plan"; 
+                       form.requestSubmit();
+                    }
+                  }}
+                >
+                  Reject Plan
+                </Button>
+              </div>
+            ) : (
+                <div className="text-center text-xs text-muted-foreground italic mt-1">Tech Plan decided</div>
+            )}
+          </div>
+        )}
+
+        {planJson && (
+          <div className="w-[90%] bg-accent/30 border border-accent rounded-lg p-3 my-2 flex flex-col gap-2 self-start">
+            <h3 className="font-semibold text-sm">Folder Structure</h3>
+            <div className="max-h-48 overflow-y-auto w-full text-xs text-muted-foreground p-2 bg-background rounded border hide-scrollbar">
+              {planJson.plan.map((item: any, idx: number) => {
+                let depth = 0;
+                let currentParentId = item.parentId;
+                while (currentParentId) {
+                  depth++;
+                  const parent = planJson.plan.find((p: any) => p.tempId === currentParentId);
+                  if (!parent) break;
+                  currentParentId = parent.parentId;
+                }
+                
+                return (
+                  <div key={idx} className="mb-1" style={{ marginLeft: `${depth * 16}px` }}>
+                    {item.type === "FOLDER" ? "📁" : "📄"} <strong>{item.title}</strong>
+                    {item.description && <span className="block ml-5 opacity-70">{item.description}</span>}
+                  </div>
+                );
+              })}
+            </div>
+            {isLatest ? (
+              <div className="flex w-full gap-2 mt-2">
+                <Button 
+                  className="flex-1" variant="default" size="sm"
+                  onClick={() => {
+                    const form = document.querySelector('form');
+                    const input = document.getElementById('ai-chat-textarea') as HTMLTextAreaElement;
+                    if (form && input) {
+                       input.dataset.replyType = "approve";
+                       input.value = "Looks good, create files!";
+                       form.requestSubmit();
+                    }
+                  }}
+                >
+                  Approve Structure
                 </Button>
                 <Button 
                   className="flex-1" variant="outline" size="sm"
@@ -89,7 +165,7 @@ export const ChatBody = ({
                 </Button>
               </div>
             ) : (
-                <div className="text-center text-xs text-muted-foreground italic mt-1">Plan finalized</div>
+                <div className="text-center text-xs text-muted-foreground italic mt-1">Structure finalized</div>
             )}
           </div>
         )}
