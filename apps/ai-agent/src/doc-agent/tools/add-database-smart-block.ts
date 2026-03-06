@@ -9,7 +9,7 @@ import { Id } from "@workspace/backend/_generated/dataModel";
 
 type TextNode = { type: "text"; text: string };
 
-type ContentBlock =
+export type ContentBlock =
     | { kind: "paragraph"; text: string }
     | { kind: "heading"; level: 1 | 2 | 3; text: string }
     | { kind: "bulletList"; items: string[] }
@@ -17,7 +17,7 @@ type ContentBlock =
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-function uid() {
+export function uid() {
     return crypto.randomUUID();
 }
 
@@ -25,7 +25,7 @@ function uid() {
  * Convert a ContentBlock into one or more flat DB block records
  * (smartBlock children).  All parentId values use externalId strings (UUIDs).
  */
-function buildChildBlocks(
+export function buildChildBlocks(
     items: ContentBlock[],
     smartBlockId: string,
     startRank: string
@@ -84,7 +84,7 @@ function buildChildBlocks(
                 currentRank = generateKeyBetween(currentRank, null);
             }
             // Skip the normal rank bump below since we did it inside the loop
-            continue;
+
         } else if (item.kind === "table") {
             // Build the TipTap table structure that matches what the DB stores
             const makeCell = (text: string, isHeader: boolean) => ({

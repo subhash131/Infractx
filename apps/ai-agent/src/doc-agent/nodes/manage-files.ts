@@ -2,6 +2,8 @@ import { RunnableConfig } from "@langchain/core/runnables";
 import { AgentStateAnnotation, callAI, ChatMessage } from "../index";
 import { api } from "@workspace/backend/_generated/api";
 import { getConvexClient } from "../convex-client";
+import { generateKeyBetween } from "fractional-indexing";
+import { buildChildBlocks, uid } from "../tools/add-database-smart-block";
 
 export async function manageFiles(state: typeof AgentStateAnnotation.State, config: RunnableConfig) {
   console.log("📁 Managing files...");
@@ -35,20 +37,37 @@ ${JSON.stringify(filesRepresentation, null, 2)}
 
 Instructions:
 1. Analyze the request. Does the user want to create, delete, rename, move, or generate files/folders?
-2. If the user asks for high-level generative docs (e.g., "design a system architecture"), break this down into a low-level, detailed roadmap folder hierarchy and multiple files, providing detailed 'content' for each file. This content is meant for AI coding agents: include detailed backend schemas and actions/APIs, frontend pages with actions linking to the backend, and advanced infrastructure like Kafka or Redis if needed. DO NOT use any file extensions for titles (e.g., no .md, .txt, .tsx).
+2. If the user asks for high-level generative docs (e.g., "design a system architecture"), break this down into a low-level, detailed roadmap folder hierarchy and multiple files, providing detailed 'content' for each file. 
 3. Only use existing parentIds if placing inside existing folders. If creating new nested folders, assign a temporary ID (e.g., "temp_1") to the folder, and use that temporary ID as the parentId for its children.
-4. Output a list of operations in valid JSON format. Make sure to escape all newlines in the content strings as \\n.
+4. Output a list of operations in valid JSON format.
+5. For FILE creation content, DO NOT use markdown strings. You MUST output an array of "Smart Blocks", where each block has a title and an array of inner content items (paragraph, heading, bulletList, table).
 
 Supported Operations:
-- create: { "action": "create", "type": "FILE" | "FOLDER", "title": string, "parentId"?: string | "temp_X", "tempId"?: "temp_X", "content"?: string (markdown content for files) }
 - delete: { "action": "delete", "fileId": string }
 - rename: { "action": "rename", "fileId": string, "title": string }
 - move: { "action": "move", "fileId": string, "parentId": string | null }
+- create: { 
+    "action": "create", 
+    "type": "FILE" | "FOLDER", 
+    "title": string, 
+    "parentId"?: string | "temp_X", 
+    "tempId"?: "temp_X", 
+    "content"?: [ 
+       { 
+         "title": "Section Title", 
+         "content": [ 
+           { "kind": "paragraph", "text": "A descriptive paragraph." }, 
+           { "kind": "heading", "level": 2, "text": "Sub-section heading" },
+           { "kind": "bulletList", "items": ["Item 1", "Item 2"] } 
+         ] 
+       } 
+    ]
+  }
 
-Return ONLY the JSON array (NO MARKDOWN WRAPPERS):
+Return ONLY the valid JSON array (NO MARKDOWN WRAPPERS):
 [
   { "action": "create", "type": "FOLDER", "title": "backend", "tempId": "temp_1" },
-  { "action": "create", "type": "FILE", "title": "schema", "parentId": "temp_1", "content": "## Database Schema\\n\\n..." }
+  { "action": "create", "type": "FILE", "title": "schema", "parentId": "temp_1", "content": [{ "title": "Database Schema", "content": [{ "kind": "paragraph", "text": "Overview of schema" }] }] }
 ]
 `;
 
@@ -62,7 +81,7 @@ Return ONLY the JSON array (NO MARKDOWN WRAPPERS):
     messages.push({ role: "user" as const, content: prompt });
 
     const operationsList = await callAI(messages, { returnJson: true, config });
-    console.log("File Operations Planned:", operationsList);
+    console.log("File Operations Planned:", JSON.stringify(operationsList, null, 2));
 
     if (!Array.isArray(operationsList)) {
       throw new Error("Invalid output format from LLM, expected array.");
@@ -91,16 +110,47 @@ Return ONLY the JSON array (NO MARKDOWN WRAPPERS):
         }
         
         // Insert initial block content if provided
-        if (op.type === "FILE" && op.content) {
-          await client.mutation(api.requirements.textFileBlocks.createBlock, {
-            externalId: crypto.randomUUID(),
-            textFileId: newId,
-            type: "paragraph",
-            props: {},
-            content: [{ type: "text", text: op.content }],
-            rank: "a0",
-            approvedByHuman:false
-          });
+        if (op.type === "FILE" && Array.isArray(op.content) && op.content.length > 0) {
+          let currentRank = generateKeyBetween(null, null);
+          const allBlocks = [];
+          
+          for (const sb of op.content) {
+            const smartBlockId = uid();
+            
+            const smartBlockRecord = {
+               externalId: smartBlockId,
+               type: "smartBlock",
+               props: {},
+               content: [{ type: "text", text: sb.title }],
+               rank: currentRank,
+               parentId: null,
+               approvedByHuman: false,
+            };
+            
+            const childStartRank = generateKeyBetween(null, null);
+            const childBlocks = buildChildBlocks(sb.content, smartBlockId, childStartRank);
+            
+            const trailingParagraph = {
+               externalId: uid(),
+               type: "paragraph",
+               props: { textAlign: null },
+               content: [],
+               rank: generateKeyBetween(childBlocks.at(-1)?.rank ?? childStartRank, null),
+               parentId: smartBlockId,
+               approvedByHuman: false,
+            };
+            
+            allBlocks.push(smartBlockRecord, ...childBlocks, trailingParagraph);
+            currentRank = generateKeyBetween(currentRank, null);
+          }
+          
+          if (allBlocks.length > 0) {
+            console.log("📝 [manageFiles] Inserting SmartBlocks into DB:", JSON.stringify(allBlocks, null, 2));
+            await client.mutation(api.requirements.textFileBlocks.bulkCreate, {
+              textFileId: newId,
+              blocks: allBlocks,
+            });
+          }
         }
         actionCount++;
       } else if (op.action === "delete") {
