@@ -124,6 +124,10 @@ export const ChatFooter = ({ conversationId, editor }: ChatFooterProps) => {
                    delete input.dataset.replyType; // clear it for next time
                    return "reject";
                }
+               if (input?.dataset.replyType === "approve_tech") {
+                   delete input.dataset.replyType; 
+                   return "approve_tech";
+               }
                if (input?.dataset.replyType === "approve") {
                    delete input.dataset.replyType; 
                    return "approve";
@@ -190,6 +194,14 @@ export const ChatFooter = ({ conversationId, editor }: ChatFooterProps) => {
                              // Also show the question in the chat as an AI message
                              setStreamingText(data.question);
                              aiResponseText += data.question;
+                         } else if (data.type === "architecture_tech_plan") {
+                             setArchitectureQuestion(null); // Clear questions when plan arrives
+
+                             // Inject the plan JSON inside a special block to be parsed natively by ChatBody
+                             const planMessage = `\n[ARCHITECTURE_TECH_PLAN]${JSON.stringify({ plan: data.plan })}[/ARCHITECTURE_TECH_PLAN]\n`;
+                             
+                             setStreamingText(planMessage);
+                             aiResponseText += planMessage;
                          } else if (data.type === "architecture_plan") {
                              setArchitectureQuestion(null); // Clear questions when plan arrives
 

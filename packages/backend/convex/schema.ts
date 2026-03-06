@@ -263,6 +263,7 @@ export default defineSchema({
     conversationId: v.optional(v.id("conversations")), // links back to the permanent chat conversation
     phase: v.union(
       v.literal("questions"),
+      v.literal("tech_plan_approval"),
       v.literal("plan_approval"),
       v.literal("executing"),
       v.literal("done")
@@ -274,6 +275,7 @@ export default defineSchema({
       question: v.string(),
       answer: v.optional(v.string()), // undefined until the user answers
     })),
+    techPlan: v.optional(v.string()), // JSON-stringified TechOp[] — set during tech_plan_approval phase
     plan: v.optional(v.string()),   // JSON-stringified StructureOp[] — set during plan_approval phase
   }).index("by_doc", ["docId"]).index("by_conversation", ["conversationId"]),
 

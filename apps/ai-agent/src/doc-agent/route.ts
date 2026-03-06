@@ -77,6 +77,25 @@ export const docAgentHandler = async (req: Request, res: Response) => {
         return;
     }
 
+    if (replyType === "approve_tech") {
+        await redis.del(streamKey);
+        await inngest.send({
+            name: "doc/architecture.structure_requested",
+            data: { docId, sessionToken },
+        });
+        pushToStream({
+            type: "response",
+            response: {
+                operations: [{
+                    type: "chat_response",
+                    content: "🚀 Technology Plan approved! Mapping this to a folder structure now...",
+                }]
+            }
+        });
+        pipeRedisToSSE(streamKey, res, req, pushToStream);
+        return;
+    }
+
     if (replyType === "approve") {
         await redis.del(streamKey);
         await inngest.send({

@@ -12,7 +12,7 @@ export const getSubscriptionStatus = query({
 
     const user = await ctx.db
       .query("users")
-      .withIndex("by_email", (q) => q.eq("email", identity.email!))
+      .withIndex("by_email", (q: any) => q.eq("email", identity.email!))
       .first();
 
     if (!user) {
@@ -21,7 +21,7 @@ export const getSubscriptionStatus = query({
 
     const subscriptions = await ctx.db
       .query("subscriptions")
-      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .withIndex("by_user", (q: any) => q.eq("userId", user._id))
       .collect();
 
     // If no subscriptions found at all, user is "new" to payments
@@ -58,7 +58,7 @@ export const syncClerkUser = mutation({
   handler: async (ctx, args) => {
     const existingUser = await ctx.db
       .query("users")
-      .withIndex("by_email", (q) => q.eq("email", args.email))
+      .withIndex("by_email", (q: any) => q.eq("email", args.email))
       .first();
 
     if (existingUser) {

@@ -3,7 +3,7 @@ import { internalMutation, mutation, query } from "../_generated/server";
 import { internal } from "../_generated/api";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-export type ArchPhase = "questions" | "plan_approval" | "executing" | "done";
+export type ArchPhase = "questions" | "tech_plan_approval" | "plan_approval" | "executing" | "done";
 
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -93,8 +93,25 @@ export const addAnswer = mutation({
   },
 });
 
+// ─── setTechPlan ──────────────────────────────────────────────────────────────
+// Transitions to tech_plan_approval phase, storing the generated technology plan JSON.
+export const setTechPlan = mutation({
+  args: {
+    docId: v.string(),
+    techPlanJson: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const session = await ctx.db
+      .query("architecture_sessions")
+      .withIndex("by_doc", (q) => q.eq("docId", args.docId))
+      .first();
+    if (!session) throw new Error("No active architecture session for doc: " + args.docId);
+    await ctx.db.patch(session._id, { phase: "tech_plan_approval", techPlan: args.techPlanJson });
+  },
+});
+
 // ─── setPlan ──────────────────────────────────────────────────────────────────
-// Transitions to plan_approval phase, storing the generated plan JSON.
+// Transitions to plan_approval phase, storing the generated structure plan JSON.
 export const setPlan = mutation({
   args: {
     docId: v.string(),
@@ -117,6 +134,7 @@ export const setPhase = mutation({
     docId: v.string(),
     phase: v.union(
       v.literal("questions"),
+      v.literal("tech_plan_approval"),
       v.literal("plan_approval"),
       v.literal("executing"),
       v.literal("done")
