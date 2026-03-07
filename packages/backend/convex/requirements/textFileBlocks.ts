@@ -227,3 +227,34 @@ export const getSmartBlocks = query({
     return blocks
   },
 });
+
+export const getSmartBlocksByDocumentId = query({
+  args: {
+    documentId: v.id("documents"),
+  },
+  handler: async (ctx, { documentId }) => {
+    const files = await ctx.db
+      .query("text_files")
+      .withIndex("by_document", (q) => q.eq("documentId", documentId))
+      .collect();
+
+    const fileMap = new Map();
+    files.forEach(f => fileMap.set(f._id, f.title));
+
+    const blocksPromises = files.map(async (f) => {
+      const blocks = await ctx.db
+        .query("blocks")
+        .withIndex("by_textfileId_blockType", (q) => q.eq("textFileId", f._id).eq("type", "smartBlock"))
+        .collect();
+      
+      return blocks.map(b => ({
+        ...b,
+        fileId: f._id,
+        fileName: fileMap.get(f._id),
+      }));
+    });
+
+    const results = await Promise.all(blocksPromises);
+    return results.flat();
+  },
+});

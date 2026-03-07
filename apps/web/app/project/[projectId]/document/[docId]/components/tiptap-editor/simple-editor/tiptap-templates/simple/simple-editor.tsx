@@ -90,7 +90,7 @@ export function SimpleEditor({textFileId}:{textFileId:Id<"text_files">}) {
   const ancestors = useQuery(api.requirements.textFiles.getAncestors, { fileId: textFileId });
 
   const allFiles = useQuery(api.requirements.textFiles.getFilesByDocumentId, { documentId: docId });
-  const smartBlocks = useQuery(api.requirements.textFileBlocks.getSmartBlocks, { textFileId });
+  const smartBlocks = useQuery(api.requirements.textFileBlocks.getSmartBlocksByDocumentId, { documentId: docId });
   
   // Use refs to avoid stale closures in the editor extension
   const allFilesRef = useRef(allFiles);

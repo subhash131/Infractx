@@ -17,6 +17,8 @@ interface FileData {
 
 interface SmartBlockData {
   externalId: string;
+  fileId?: Id<"text_files">;
+  fileName?: string;
   content?: { text?: string }[];
   props?: {
     title?: string;
@@ -105,13 +107,13 @@ export const getMentionSuggestions = async (
                 id: b.externalId,
                 label: title,
                 icon: '⚡',
-                description: `Smart Block in ${targetFile.title}`,
+                description: `${targetFile.title}`,
                 command: (editor: any) => {
                     editor.chain().focus().insertContent({
                         type: 'smartBlockMention',
                         attrs: {
                             blockId: b.externalId,
-                            label: title,
+                            label: targetFile._id === currentFileId ? `${title}` : `${targetFile.title}:${title}`,
                             fileId: targetFile._id,
                             fileName: targetFile.title,
                         },
@@ -168,8 +170,61 @@ export const getMentionSuggestions = async (
     }));
   }
 
-  // 3. Smart Blocks (default @...)
-  // 3. Smart Blocks (default @...)
+  const getFilePath = (fileId: Id<"text_files"> | null | undefined) => {
+    if (!fileId || !files) return "Unknown File";
+    let path: string[] = [];
+    let curr: Id<"text_files"> | null | undefined = fileId;
+    while (curr) {
+      const f = files.find(f => f._id === curr);
+      if (!f) break;
+      path.unshift(f.title);
+      curr = f.parentId;
+    }
+    return path.join('/');
+  };
+
+  // 3. Colon File Search (e.g. filename:)
+  if (!query.startsWith('.') && query.includes(':')) {
+    if (!smartBlocks) return [];
+    
+    const colIndex = query.indexOf(':');
+    const fileQuery = query.substring(0, colIndex).toLowerCase();
+    const filterPart = query.substring(colIndex + 1).toLowerCase();
+
+    return smartBlocks
+      .filter(b => {
+         const title = (b.content && b.content[0] && b.content[0].text) || "Untitled Smart Block";
+         const filePath = getFilePath(b.fileId).toLowerCase();
+         
+         const fileMatches = filePath.includes(fileQuery);
+         const blockMatches = !filterPart || title.toLowerCase().includes(filterPart);
+         
+         return fileMatches && blockMatches;
+      })
+      .map(b => {
+        const title = (b.content && b.content[0] && b.content[0].text) || "Untitled Smart Block";
+        const filePath = getFilePath(b.fileId);
+        return {
+           id: b.externalId,
+           label: title,
+           icon: '⚡',
+           description: filePath ? `${filePath}` : 'Smart Block',
+           command: (editor: any) => {
+              editor.chain().focus().insertContent({
+                 type: 'smartBlockMention',
+                 attrs: {
+                    blockId: b.externalId,
+                    label: b.fileId === currentFileId ? `${title}` : (b.fileName ? `${b.fileName}:${title}` : title),
+                    fileId: b.fileId || null,
+                    fileName: b.fileName || null,
+                 },
+              }).run()
+           }
+        }
+      });
+  }
+
+  // 4. Smart Blocks (default @...)
   if (!smartBlocks) return [];
   
   return smartBlocks
@@ -183,14 +238,16 @@ export const getMentionSuggestions = async (
       id: b.externalId,
       label: (b.content && b.content[0] && b.content[0].text) || "Untitled Smart Block",
       icon: '⚡',
-      description: 'Smart Block',
+      description: b.fileId ? `${getFilePath(b.fileId)}` : 'Smart Block',
       command: (editor: any) => {
          const title = (b.content && b.content[0] && b.content[0].text) || "Untitled Smart Block";
          editor.chain().focus().insertContent({
             type: 'smartBlockMention',
             attrs: {
                blockId: b.externalId,
-               label: title,
+               label: b.fileId === currentFileId ? `${title}` : (b.fileName ? `${b.fileName}:${title}` : title),
+               fileId: b.fileId || null,
+               fileName: b.fileName || null,
             },
          }).run()
       }
