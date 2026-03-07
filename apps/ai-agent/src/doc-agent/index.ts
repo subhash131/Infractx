@@ -7,7 +7,6 @@ import { identifyFiles } from "./nodes/identify-files";
 import { fetchFileData } from "./nodes/fetch-file-data";
 import { explainContext } from "./nodes/explain-context";
 import { classifyIntent } from "./nodes/classify-intent";
-import { extractSchemaData } from "./nodes/extract-schema-data";
 import { extractTableData } from "./nodes/extract-table-data";
 import { generateOperations } from "./nodes/generate-operations";
 import { fetchChatHistory } from "./nodes/fetch-chat-history";
@@ -46,7 +45,7 @@ export const AgentStateAnnotation = Annotation.Root({
   sessionToken:Annotation<string>, // session token
   
   // Processing
-  intent: Annotation<'context' | 'schema' | 'table' | 'list' | 'code' | 'text' | 'general' | 'greet' | 'delete' | 'file_management' | 'architecture' | null>,
+  intent: Annotation<'context' | 'table' | 'list' | 'code' | 'text' | 'general' | 'greet' | 'delete' | 'file_management' | 'architecture' | null>,
   extractedData: Annotation<any>,
   confidence: Annotation<number>,
   targetFileIds: Annotation<string[]>,
@@ -167,8 +166,6 @@ function routeByIntent(state: typeof AgentStateAnnotation.State): string {
   switch (state.intent) {
     case 'context':
       return 'identifyProject';
-    case 'schema':
-      return 'extractSchema';
     case 'table':
       return 'extractTable';
     case 'list':
@@ -196,7 +193,6 @@ const workflow = new StateGraph(AgentStateAnnotation)
   .addNode('identifyFiles', identifyFiles)
   .addNode('fetchFileData', fetchFileData)
   .addNode('explainContext', explainContext)
-  .addNode('extractSchema', extractSchemaData)
   .addNode('extractTable', extractTableData)
   .addNode('generateOps', generateOperations)
   .addNode('manageFiles', manageFiles)
@@ -218,7 +214,6 @@ const workflow = new StateGraph(AgentStateAnnotation)
 
   // Edit Branch — semantic search runs first for RAG context
   .addEdge('semanticSearch', 'generateOps')
-  .addEdge('extractSchema', 'generateOps')
   .addEdge('extractTable', 'generateOps')
   .addEdge('generateOps', END)
   

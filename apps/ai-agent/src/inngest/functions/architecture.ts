@@ -6,6 +6,7 @@ import { ChatGroq } from "@langchain/groq";
 import { Id } from "@workspace/backend/_generated/dataModel";
 import { generateKeyBetween } from "fractional-indexing";
 import { ContentBlock, buildChildBlocks, uid } from "../../doc-agent/tools/add-database-smart-block";
+import { getFileContent, listFiles } from "../../doc-agent/context-tools";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // LLM Helpers
@@ -46,6 +47,68 @@ async function pushToRedis(streamKey: string, payload: object) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Context Helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function buildArchitectureContext(docId: string, sessionToken: string): Promise<string> {
+  const files = await listFiles(docId, sessionToken);
+  
+  if (!files || files.length === 0) return "No existing files in this document.";
+
+  // Build a tree structure string
+  const fileMap = new Map();
+  const roots: any[] = [];
+  
+  for (const f of files) {
+    fileMap.set(f.id, { ...f, children: [] });
+  }
+
+  for (const f of files) {
+    if (f.parentId && fileMap.has(f.parentId)) {
+      fileMap.get(f.parentId).children.push(fileMap.get(f.id));
+    } else {
+      roots.push(fileMap.get(f.id));
+    }
+  }
+
+  let treeStr = "Current Directory Structure:\n";
+  const printTree = (nodes: any[], indent = "") => {
+    for (const node of nodes) {
+      treeStr += `${indent}- [${node.type}] ${node.title} (ID: ${node.id})\n`;
+      printTree(node.children, indent + "  ");
+    }
+  };
+  printTree(roots);
+
+  // Fetch content for files
+  let contentStr = "\n\nExisting File Contents (Truncated):\n";
+  const MAX_FILES = 20; // limit number of files to prevent blowing up context
+  const MAX_FILE_CHARS = 2000; 
+
+  let filesProcessed = 0;
+  for (const f of files) {
+    if (f.type === "FILE") {
+      if (filesProcessed >= MAX_FILES) {
+        contentStr += `\n... (More files exist but were omitted for brevity)\n`;
+        break;
+      }
+      filesProcessed++;
+      const { parsedContent } = await getFileContent(f.id, sessionToken);
+      if (parsedContent && parsedContent.trim()) {
+         contentStr += `\n--- File: ${f.title} ---\n`;
+         if (parsedContent.length > MAX_FILE_CHARS) {
+            contentStr += parsedContent.substring(0, MAX_FILE_CHARS) + "\n... [TRUNCATED]";
+         } else {
+            contentStr += parsedContent;
+         }
+      }
+    }
+  }
+
+  return treeStr + contentStr;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Types
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -80,7 +143,7 @@ export const architectureRequestedHandler = inngest.createFunction(
       docId: string;
       userMessage: string;
       sessionToken: string;
-      conversationId?: Id<"conversations">;
+      conversationId: Id<"conversations">;
       streamKey: string;
     };
 
@@ -88,13 +151,18 @@ export const architectureRequestedHandler = inngest.createFunction(
 
     try {
       const client = getConvexClient(sessionToken);
+      
+      const archContext = await buildArchitectureContext(docId, sessionToken);
 
       // Generate targeted Q&A questions via LLM
       const questionsPrompt = `
-You are a senior software architect starting to design a system based on a user's request.
+You are a senior software architect starting to design or extend a system based on a user's request.
 Before building anything, you need to gather structured requirements.
 
 User Request: "${userMessage}"
+
+Existing Architecture Context:
+${archContext}
 
 Generate targeted, highly specific clarifying questions to understand this system better. 
 CRITICAL: ONLY ask questions that are absolutely necessary to make architectural decisions. If the user's request is already detailed, ask fewer questions or even 0-1 questions. NEVER just ask 5 questions to fill a quota. Typically, 1 to 3 well-thought-out questions are better than a rigid number of generic ones.
@@ -153,8 +221,9 @@ export const architectureAnsweredHandler = inngest.createFunction(
   { event: "doc/architecture.answered" },
 
   async ({ event }) => {
-    const { docId, answer, sessionToken } = event.data as {
+    const { docId, conversationId, answer, sessionToken } = event.data as {
       docId: string;
+      conversationId: Id<"conversations">;
       answer: string;
       sessionToken: string;
     };
@@ -164,7 +233,7 @@ export const architectureAnsweredHandler = inngest.createFunction(
     // Load session first to get the streamKey route.ts computed
     const session = await client.query(
       api.requirements.architectureSessions.getSession,
-      { docId }
+      { conversationId }
     );
     if (!session) {
       console.error("❌ [Phase 2] No session for doc:", docId);
@@ -178,7 +247,7 @@ export const architectureAnsweredHandler = inngest.createFunction(
       const { allAnswered, nextQuestion, nextIndex, answeredCount, totalQuestions, alreadyAnswered } =
         await client.mutation(
           api.requirements.architectureSessions.addAnswer,
-          { docId, answer }
+          { conversationId, answer }
         );
 
       if (alreadyAnswered) {
@@ -208,7 +277,7 @@ export const architectureAnsweredHandler = inngest.createFunction(
         // Fire the plan generation event (handled by phase 3)
         await inngest.send({
           name: "doc/architecture.plan_requested",
-          data: { docId, sessionToken },
+          data: { docId, conversationId, sessionToken },
         });
 
         // Do NOT push "done" here. We want to keep the SSE connection open
@@ -234,8 +303,9 @@ export const architecturePlanRequestedHandler = inngest.createFunction(
   { event: "doc/architecture.plan_requested" },
 
   async ({ event }) => {
-    const { docId, sessionToken } = event.data as {
+    const { docId, conversationId, sessionToken } = event.data as {
       docId: string;
+      conversationId: Id<"conversations">;
       sessionToken: string;
     };
 
@@ -246,7 +316,7 @@ export const architecturePlanRequestedHandler = inngest.createFunction(
     // Load session with all Q&A
     const session = await client.query(
       api.requirements.architectureSessions.getSession,
-      { docId }
+      { conversationId }
     );
 
     if (!session) {
@@ -257,6 +327,7 @@ export const architecturePlanRequestedHandler = inngest.createFunction(
     const streamKey = session.streamKey;
 
     try {
+      const archContext = await buildArchitectureContext(docId, sessionToken);
 
       // Build Q&A context block
       const qaContext = session.qa
@@ -264,26 +335,32 @@ export const architecturePlanRequestedHandler = inngest.createFunction(
         .join("\n\n");
 
       const planPrompt = `
-You are an expert software architect designing a system. Before creating any files, you must outline the core technologies and components you plan to implement.
+You are an expert software architect designing or extending a system. Before creating any files, you must outline the core technologies and components you plan to implement.
 
 Original Request: "${session.userMessage}"
 
 Requirements gathered from the user:
 ${qaContext}
 
-Design a "Technology Plan". This plan should NOT contain folders or files yet. Instead, you must specify the core components to be implemented, along with the programming languages and frameworks you recommend.
-CRITICAL: Be highly specific to the domain of the request. DO NOT use generic names like "Backend API" or "Frontend UI". Instead, name the specific services, tables, and components (e.g., "Payment Processing Worker", "User Profile React Component", "Campaigns Database Schema"). Provide a comprehensive, tailored architecture.
+Existing Architecture Context:
+${archContext}
+
+Your task is to draft a "Technology Plan" to fulfill the Original Request.
+CRITICAL RULE: If the "Existing Architecture Context" shows that the project already has a backend, database, or frontend, DO NOT recommend establishing new core infrastructure (e.g., Node.js, Express, React, PostgreSQL) unless explicitly requested. 
+If the user's request is small (like adding a single schema or a single route), ONLY return that specific new component in your plan. DO NOT generate a full-stack architecture plan for a small feature request.
+
+Specify the new core components to be implemented. Be highly specific to the domain of the request. DO NOT use generic names like "Backend API" or "Frontend UI". Instead, name the specific services, tables, and components (e.g., "School Schema", "Payment Processing Worker").
 
 Output a flat JSON array of objects. 
 Each item must have:
-- title: (e.g. "Next.js App Router", "Transactions Table", "Stripe Webhook Route")
+- title: (e.g. "School Schema", "Teacher API Route")
 - type: Must be exactly one of: "Database Schema", "Backend Route/Function", "Frontend Page/Component", or "Config/Infrastructure".
 - description: A short description of what it handles.
 - reasoning: Explain *why* you chose this technology or approach based on the user's requirements.
 
 Return ONLY a valid JSON array, no markdown fences:
 [
-  { "title": "React + Vite", "type": "Config/Infrastructure", "description": "Frontend framework", "reasoning": "User requested a fast SPA without SSR." }
+  { "title": "School Schema", "type": "Database Schema", "description": "Stores school metadata", "reasoning": "User requested to add a school schema." }
 ]
 `;
 
@@ -301,7 +378,7 @@ Return ONLY a valid JSON array, no markdown fences:
 
       // Persist tech plan in Convex
       await client.mutation(api.requirements.architectureSessions.setTechPlan, {
-        docId,
+        conversationId,
         techPlanJson: JSON.stringify(plan),
       });
 
@@ -331,8 +408,9 @@ export const architectureStructureRequestedHandler = inngest.createFunction(
   { event: "doc/architecture.structure_requested" },
 
   async ({ event }) => {
-    const { docId, sessionToken } = event.data as {
+    const { docId, conversationId, sessionToken } = event.data as {
       docId: string;
+      conversationId: Id<"conversations">;
       sessionToken: string;
     };
 
@@ -343,7 +421,7 @@ export const architectureStructureRequestedHandler = inngest.createFunction(
     // Load session with all Q&A and Tech Plan
     const session = await client.query(
       api.requirements.architectureSessions.getSession,
-      { docId }
+      { conversationId }
     );
 
     if (!session || !session.techPlan) {
@@ -359,6 +437,8 @@ export const architectureStructureRequestedHandler = inngest.createFunction(
         { documentId: docId as Id<"documents"> }
       );
       const existingTitles = existingFiles.map((f) => f.title);
+
+      const archContext = await buildArchitectureContext(docId, sessionToken);
 
       const qaContext = session.qa
         .map((item) => `Q: ${item.question}\nA: ${item.answer ?? "(not answered)"}`)
@@ -376,31 +456,30 @@ ${qaContext}
 Approved Technology Plan:
 ${session.techPlan}
 
-Already existing files (do NOT create these): ${JSON.stringify(existingTitles)}
+Existing Architecture Context:
+${archContext}
 
-Based strictly on the Approved Technology Plan, design the file/folder structure.
-Output a flat JSON array of file/folder operations to build a hierarchical tree. Each item is ONLY structure — no content yet.
+Already existing files: ${JSON.stringify(existingTitles)}
+
+Based strictly on the Approved Technology Plan, design the file/folder structure of ONLY the NEW items that need to be created.
+Output a flat JSON array of file/folder operations. Each item is ONLY structure — no content yet.
 
 Rules:
-- You MUST generate BOTH "FOLDER" and "FILE" types. A folder structure is useless without files inside it! Create all the necessary files for the architecture.
-- Assign a unique "tempId" to EVERY FOLDER. CRITICAL: The "tempId" MUST always start with the exact string "temp_" (e.g., "temp_payments_root", "temp_models_folder").
-- Set "parentId" to a folder's "tempId" to nest items inside that folder.
-- CRITICAL: ABSOLUTELY NO FILES AT THE ROOT LEVEL. Every single FILE must have a "parentId" pointing to a valid FOLDER's tempId.
-- Group related items deeply into domain-specific folders. AVOID generic folder names like "Frontend", "Backend", or "Database" unless absolutely necessary. Instead, use feature-based or domain-driven folder names (e.g., "Auth Service", "Billing Portal", "Payment Models").
-- CRITICAL for FRONTEND: You MUST generate actual FILEs for frontend pages or screens! Do not just generate a UI folder—fill it with the individual pages and components (e.g., "Login Page", "Search Screen").
-- For FILES, add a short "description" (1-2 sentences) describing what content it will have. Be highly specific.
-- Do NOT use file extensions in titles (no .md, .ts, .tsx).
-- Ensure all items from the Technology Plan are represented as FILE items in this structure.
-- CRITICAL: DO NOT INCLUDE a "content" field in the JSON output for FILES. Output ONLY the structure properties (action, type, title, description, tempId, parentId). The actual file body will be generated in a later phase.
-- CRITICAL: DO NOT copy the dummy names from the example below. Generate a unique, custom, and comprehensive structure tailored strictly to the user's requirements.
+- You are ONLY creating NEW files and folders. DO NOT recreate anything present in the "Existing Architecture Context".
+- FOLDERS: For NEW folders you create, assign a unique "tempId" starting with "temp_" (e.g., "temp_models_folder").
+- FILES: For NEW files, assign a short "description" (1-2 sentences) describing what content it will have. Be highly specific. Do NOT use file extensions in titles.
+- NESTING (CRITICAL):
+  - NO FILES AT THE ROOT LEVEL. Every single FILE must have a "parentId".
+  - If a new file belongs inside an EXISTING folder shown in the "Existing Architecture Context", set its "parentId" to the exact ID of that existing folder (e.g., "j576abc123...").
+  - If a new file belongs inside a NEW folder you are creating, set its "parentId" to that folder's "tempId".
+- Make sure to map every item from the Technology Plan into actual FOLDERs and FILEs.
+- DO NOT INCLUDE a "content" field in the JSON output for FILES. Output ONLY the structure properties (action, type, title, description, tempId, parentId).
 
-Return ONLY valid JSON array, no markdown fences. Example of a deeply nested structure (DO NOT copy these exact titles):
+Return ONLY valid JSON array, no markdown fences. Example:
 [
-  { "action": "create", "type": "FOLDER", "title": "Payment Webhook Server", "tempId": "payments_root" },
-  { "action": "create", "type": "FOLDER", "title": "Models", "parentId": "payments_root", "tempId": "payments_models" },
-  { "action": "create", "type": "FILE", "title": "Transaction Schema", "parentId": "payments_models", "description": "PostgreSQL schema for payment transactions" },
-  { "action": "create", "type": "FOLDER", "title": "User Dashboard", "tempId": "dashboard_root" },
-  { "action": "create", "type": "FILE", "title": "Settings View", "parentId": "dashboard_root", "description": "React component for user settings" }
+  { "action": "create", "type": "FOLDER", "title": "Payment_Server", "tempId": "temp_payments_root" },
+  { "action": "create", "type": "FILE", "title": "Transaction_Schema", "parentId": "temp_payments_root", "description": "PostgreSQL schema" },
+  { "action": "create", "type": "FILE", "title": "Already_Existing_Folder_File", "parentId": "j57abc...", "description": "Inside an existing folder" }
 ]
 `;
 
@@ -424,7 +503,7 @@ Return ONLY valid JSON array, no markdown fences. Example of a deeply nested str
 
       // Persist plan in Convex
       await client.mutation(api.requirements.architectureSessions.setPlan, {
-        docId,
+        conversationId,
         planJson: JSON.stringify(safePlan),
       });
 
@@ -454,8 +533,9 @@ export const architectureApprovedHandler = inngest.createFunction(
   { event: "doc/architecture.approved" },
 
   async ({ event }) => {
-    const { docId, sessionToken } = event.data as {
+    const { docId, conversationId, sessionToken } = event.data as {
       docId: string;
+      conversationId: Id<"conversations">;
       sessionToken: string;
     };
 
@@ -464,7 +544,7 @@ export const architectureApprovedHandler = inngest.createFunction(
     // Load session to get the streamKey and plan
     const session = await client.query(
       api.requirements.architectureSessions.getSession,
-      { docId }
+      { conversationId }
     );
     if (!session || !session.plan) {
       console.error("❌ [Phase 4] No session/plan for doc:", docId);
@@ -484,7 +564,7 @@ export const architectureApprovedHandler = inngest.createFunction(
 
       // Mark session as executing
       await client.mutation(api.requirements.architectureSessions.setPhase, {
-        docId,
+        conversationId,
         phase: "executing",
       });
 
@@ -526,7 +606,8 @@ export const architectureApprovedHandler = inngest.createFunction(
 
         let parentId: string | undefined;
         if (op.parentId) {
-          parentId = tempIdMap.get(op.parentId);
+          // It could be a tempId (new folder) or a real Convex ID (existing folder).
+          parentId = tempIdMap.get(op.parentId) || op.parentId;
           if (!parentId) {
              console.warn(`⚠️ [Phase 4] Skipping "${op.title}" due to unresolved parentId: ${op.parentId}`);
              continue; // We absolutely cannot create an orphan file if it requires a parent
@@ -579,7 +660,7 @@ Output format must strictly be a JSON array of objects:
   {
     "title": "Section Title (e.g. Database Schema, API Endpoints)",
     "content": [
-      { "kind": "paragraph", "text": "A descriptive paragraph." },
+      { "kind": "paragraph", "text": "A descriptive paragraph. Use \\n for newlines, NEVER use literal hard returns inside strings." },
       { "kind": "heading", "level": 2, "text": "Sub-section heading" },
       { "kind": "bulletList", "items": ["Item 1", "Item 2"] },
       { "kind": "table", "headers": ["Col 1", "Col 2"], "rows": [["Val 1", "Val 2"]] }
@@ -593,6 +674,7 @@ Rules for content items:
 - For 'heading', provide 'level' (1, 2, or 3) and 'text' (string).
 - For 'bulletList', provide 'items' (array of strings).
 - For 'table', provide 'headers' (array of strings) and 'rows' (2D array of strings).
+- CRITICAL: NO literal newlines inside JSON string values. Use \\n instead.
 
 Create as many Smart Blocks as necessary to fully cover the file's purpose.
 Return ONLY the valid JSON array. No markdown fences, no explanation.
@@ -600,7 +682,18 @@ Return ONLY the valid JSON array. No markdown fences, no explanation.
             const contentRaw = await callLLMInvoke(contentPrompt);
             const smartBlocks = parseJSON<{ title: string; content: ContentBlock[] }[]>(contentRaw);
 
-            if (smartBlocks && Array.isArray(smartBlocks) && smartBlocks.length > 0) {
+            if (!smartBlocks || !Array.isArray(smartBlocks) || smartBlocks.length === 0) {
+              console.error(`❌ [Phase 4] Failed to generate valid content JSON for "${op.title}".`);
+              await pushToRedis(streamKey, {
+                type: "response",
+                response: {
+                  operations: [{
+                    type: "chat_response",
+                    content: `⚠️ Note: The content for **${op.title}** could not be generated properly due to a formatting error. You can ask me to write its contents by selecting the file.`
+                  }]
+                }
+              });
+            } else {
               let currentRank = generateKeyBetween(null, null);
 
               const allBlocks = [];
@@ -649,12 +742,21 @@ Return ONLY the valid JSON array. No markdown fences, no explanation.
             item: { id: newId, title: op.title, itemType: op.type, parentId: parentId ?? null },
           });
 
-        } catch (opErr) {
+        } catch (opErr: any) {
           console.error(`❌ [Phase 4] Failed on "${op.title}":`, opErr);
+          await pushToRedis(streamKey, {
+            type: "response",
+            response: {
+               operations: [{
+                  type: "chat_response",
+                  content: `⚠️ Failed to create **${op.title}**: ${opErr.message || "Unknown error"}`,
+               }]
+            }
+          });
         }
       }
 
-      await client.mutation(api.requirements.architectureSessions.setPhase, { docId, phase: "done" });
+      await client.mutation(api.requirements.architectureSessions.setPhase, { conversationId, phase: "done" });
 
       await pushToRedis(streamKey, {
         type: "response",
