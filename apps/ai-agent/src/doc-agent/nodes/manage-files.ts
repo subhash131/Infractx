@@ -112,6 +112,9 @@ Return ONLY the valid JSON array (NO MARKDOWN WRAPPERS):
         // Insert initial block content if provided
         if (op.type === "FILE" && Array.isArray(op.content) && op.content.length > 0) {
           let currentRank = generateKeyBetween(null, null);
+          // Single rolling rank shared across ALL child blocks in this file
+          // so no two blocks ever get the same rank value
+          let globalChildRank = generateKeyBetween(null, null);
           const allBlocks = [];
           
           for (const sb of op.content) {
@@ -127,18 +130,23 @@ Return ONLY the valid JSON array (NO MARKDOWN WRAPPERS):
                approvedByHuman: false,
             };
             
-            const childStartRank = generateKeyBetween(null, null);
-            const childBlocks = buildChildBlocks(sb.content, smartBlockId, childStartRank);
+            const childBlocks = buildChildBlocks(sb.content, smartBlockId, globalChildRank);
+            
+            // Advance the global child rank past all the ranks used by this SmartBlock's children
+            const lastChildRank = childBlocks.at(-1)?.rank ?? globalChildRank;
             
             const trailingParagraph = {
                externalId: uid(),
                type: "paragraph",
                props: { textAlign: null },
                content: [],
-               rank: generateKeyBetween(childBlocks.at(-1)?.rank ?? childStartRank, null),
+               rank: generateKeyBetween(lastChildRank, null),
                parentId: smartBlockId,
                approvedByHuman: false,
             };
+            
+            // Update global child rank so the next SmartBlock's children start after this one
+            globalChildRank = generateKeyBetween(trailingParagraph.rank, null);
             
             allBlocks.push(smartBlockRecord, ...childBlocks, trailingParagraph);
             currentRank = generateKeyBetween(currentRank, null);

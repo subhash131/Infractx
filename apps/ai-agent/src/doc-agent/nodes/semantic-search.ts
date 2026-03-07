@@ -28,8 +28,8 @@ export async function semanticSearch(
   try {
     const results = await client.action(api.requirements.embeddings.searchBlocks, {
       query: state.userMessage,
-      // Scope to the current file when available so results are closely relevant
-      ...(state.fileId ? { textFileId: state.fileId as Id<"text_files"> } : {}),
+      // Scope to the current document so cross-file mentions work
+      ...(state.docId ? { documentId: state.docId as Id<"documents"> } : {}),
       limit: 3,
     });
 
@@ -43,7 +43,23 @@ export async function semanticSearch(
       .map((r, i) => {
         const text = extractText(r.block?.["content"]);
         const score = r.score.toFixed(2);
-        return `[Relevant block ${i + 1} | similarity: ${score}]\n${text}`;
+        const fileName = (r.block as any)?.fileName;
+        const sbTitle = (r.block as any)?.smartBlockTitle;
+        const fileId = (r.block as any)?.textFileId;
+        const blockId = (r.block as any)?.smartBlockExternalId || (r.block as any)?.externalId;
+
+        let header = `[Relevant Context ${i + 1} | similarity: ${score}]`;
+        if (fileName && sbTitle) {
+          header += `\nLocation: File "${fileName}", Smart Block: "${sbTitle}"`;
+          const mentionData = {
+            fileId: fileId || null,
+            blockId: blockId || null,
+            fileName: fileName,
+            label: sbTitle
+          };
+          header += `\n[MENTION_METADATA: ${JSON.stringify(mentionData)}]`;
+        }
+        return `${header}\n${text}`;
       })
       .filter((s) => s.trim().length > 0)
       .join("\n\n");

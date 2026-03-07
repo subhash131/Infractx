@@ -2,6 +2,45 @@ import { Editor } from "@tiptap/core";
 import { handleSmartBlock } from "./smart-block-handler";
 import { v4 as uuid } from "uuid";
 
+function replaceInlineMentions(editor: Editor) {
+  const mentionRegex = /\[\[MENTION:\s*(\{.*?\})\s*\]\]/;
+  let matchFound = false;
+
+  editor.state.doc.descendants((node, pos) => {
+    if (matchFound) return false; // fast exit if we already found one this pass
+    if (node.isText && node.text) {
+      const match = mentionRegex.exec(node.text as string);
+      if (match) {
+        try {
+          if (!match[1]) return false;
+          const parsed = JSON.parse(match[1]);
+          const from = pos + match.index;
+          const to = from + match[0].length;
+
+          editor.chain().deleteRange({ from, to }).insertContentAt(from, {
+            type: "smartBlockMention",
+            attrs: {
+              blockId: parsed.blockId || uuid(),
+              label: parsed.label || "Untitled",
+              fileId: parsed.fileId || null,
+              fileName: parsed.fileName || null,
+            }
+          }).run();
+          
+          matchFound = true;
+          return false; // Break iteration
+        } catch(e) { 
+          console.error("Failed to parse inline MENTION json:", match[1], e);
+        }
+      }
+    }
+  });
+
+  if (matchFound) {
+    replaceInlineMentions(editor);
+  }
+}
+
 export const handleAIResponse = async (
   response: Response,
   editor: Editor,
@@ -26,6 +65,8 @@ export const handleAIResponse = async (
     
     if (done) {
       console.log("🤖 handleAIResponse: Stream complete. Final buffer length:", buffer.length);
+      replaceInlineMentions(editor);
+
       if (buffer.trim()) {
         console.log("🤖 handleAIResponse: Processing final buffer:", buffer);
         try {

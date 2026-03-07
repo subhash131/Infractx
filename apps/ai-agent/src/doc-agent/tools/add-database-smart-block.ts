@@ -13,7 +13,8 @@ export type ContentBlock =
     | { kind: "paragraph"; text: string }
     | { kind: "heading"; level: 1 | 2 | 3; text: string }
     | { kind: "bulletList"; items: string[] }
-    | { kind: "table"; headers: string[]; rows: string[][] };
+    | { kind: "table"; headers: string[]; rows: string[][] }
+    | { kind: "mention"; label: string; fileName: string | null; fileId: string | null; blockId?: string };
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -43,6 +44,7 @@ export function buildChildBlocks(
 
     for (const item of items) {
         const id = uid();
+
 
         if (item.kind === "paragraph") {
             result.push({
@@ -116,6 +118,22 @@ export function buildChildBlocks(
                 rank: currentRank,
                 parentId: smartBlockId,
                 approvedByHuman:false,
+            });
+        } else if (item.kind === "mention") {
+            // DB format provided by user context
+            result.push({
+                externalId: id,
+                type: "smartBlockMention",
+                props: {
+                    blockId: item.blockId || id,
+                    fileId: item.fileId || null,
+                    fileName: item.fileName,
+                    label: item.label,
+                },
+                content: [],
+                rank: currentRank,
+                parentId: smartBlockId,
+                approvedByHuman: false,
             });
         }
 
@@ -240,10 +258,17 @@ export const addDatabaseSmartBlockTool = tool(
                                 .array(z.array(z.string()))
                                 .describe("2D array of cell values, each inner array is one row."),
                         }),
+                        z.object({
+                            kind: z.literal("mention").describe("Must be the string 'mention'."),
+                            label: z.string().describe("The exact title of the smart block being referenced."),
+                            fileName: z.string().nullable().describe("The exact title of the file this smart block belongs to, if available."),
+                            fileId: z.string().nullable().describe("The exact fileId of the file this smart block belongs to, if available."),
+                            blockId: z.string().optional().describe("Optional blockId if known."),
+                        }),
                     ])
                 )
                 .describe(
-                    "Ordered list of content blocks. Each block MUST have a 'kind' field set to one of: 'paragraph', 'heading', 'bulletList', 'table'. " +
+                    "Ordered list of content blocks. Each block MUST have a 'kind' field set to one of: 'paragraph', 'heading', 'bulletList', 'table', 'mention'. " +
                     "NEVER omit the 'kind' field. NEVER add extra fields not defined in the schema."
                 ),
         }),

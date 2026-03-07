@@ -1,4 +1,5 @@
 import { Editor } from "@tiptap/core";
+import { generateKeyBetween } from "fractional-indexing";
 import { v4 as uuid } from "uuid";
 
 
@@ -6,6 +7,124 @@ import { v4 as uuid } from "uuid";
 interface Selection {
   from: number;
   to: number;
+}
+
+function generateSafeRank(prevRank: string | null, nextRank: string | null): string {
+  try {
+    if (prevRank && nextRank && prevRank >= nextRank) {
+      return generateKeyBetween(prevRank, null);
+    }
+    return generateKeyBetween(prevRank, nextRank);
+  } catch {
+    return generateKeyBetween(prevRank, null);
+  }
+}
+
+function normalizeInsertedSmartBlock(editor: Editor, smartBlockId: string) {
+  let smartBlockPos = -1;
+  let smartBlockNode: any = null;
+
+  editor.state.doc.descendants((node, pos) => {
+    if (node.type.name === "smartBlock" && node.attrs.id === smartBlockId) {
+      smartBlockPos = pos;
+      smartBlockNode = node;
+      return false;
+    }
+    return true;
+  });
+
+  if (smartBlockPos < 0 || !smartBlockNode) return;
+
+  const tr = editor.state.tr;
+  let modified = false;
+
+  const $smartPos = editor.state.doc.resolve(smartBlockPos);
+  const parent = $smartPos.parent;
+  const indexInParent = $smartPos.index();
+
+  const prevRank =
+    indexInParent > 0 && typeof parent.child(indexInParent - 1)?.attrs?.rank === "string"
+      ? parent.child(indexInParent - 1).attrs.rank
+      : null;
+  const nextRank =
+    indexInParent < parent.childCount - 1 && typeof parent.child(indexInParent + 1)?.attrs?.rank === "string"
+      ? parent.child(indexInParent + 1).attrs.rank
+      : null;
+
+  const currentSmartRank = typeof smartBlockNode.attrs.rank === "string" ? smartBlockNode.attrs.rank : null;
+  const shouldFixSmartRank =
+    !currentSmartRank ||
+    (prevRank !== null && currentSmartRank <= prevRank) ||
+    (nextRank !== null && currentSmartRank >= nextRank);
+
+  if (shouldFixSmartRank) {
+    tr.setNodeMarkup(smartBlockPos, undefined, {
+      ...smartBlockNode.attrs,
+      rank: generateSafeRank(prevRank, nextRank),
+    });
+    modified = true;
+  }
+
+  let groupNode: any = null;
+  let groupPos = -1;
+
+  smartBlockNode.forEach((child: any, offset: number) => {
+    if (groupNode) return;
+    if (child.type.name === "smartBlockGroup") {
+      groupNode = child;
+      groupPos = smartBlockPos + 1 + offset;
+    }
+  });
+
+  if (groupNode && groupPos > -1) {
+    let runningPos = groupPos + 1;
+    let lastRank: string | null = null;
+
+    for (let i = 0; i < groupNode.childCount; i++) {
+      const child = groupNode.child(i);
+      const childPos = runningPos;
+      runningPos += child.nodeSize;
+
+      if (!child.isBlock) continue;
+
+      const childAttrs = (child.attrs ?? {}) as Record<string, any>;
+      const nextId = typeof childAttrs.id === "string" && childAttrs.id ? childAttrs.id : uuid();
+      const nextRank = generateSafeRank(lastRank, null);
+      const nextAttrs = {
+        ...childAttrs,
+        id: nextId,
+        rank: nextRank,
+      };
+      lastRank = nextRank;
+
+      if (nextId !== childAttrs.id || nextRank !== childAttrs.rank) {
+        tr.setNodeMarkup(childPos, undefined, nextAttrs);
+        modified = true;
+      }
+    }
+  }
+
+  if (modified) {
+    editor.view.dispatch(tr);
+  }
+}
+
+function insertSmartBlockAtSelection(
+  editor: Editor,
+  selection: Selection,
+  smartBlock: Record<string, any>,
+  smartBlockId: string
+) {
+  const { from, to } = selection;
+
+  if (to !== null && to !== undefined && from !== to) {
+    editor.chain().insertContentAt(to, smartBlock).run();
+  } else {
+    const lastPos = editor.state.doc.content.size;
+    editor.chain().insertContentAt(lastPos, smartBlock).focus("end").run();
+  }
+
+  normalizeInsertedSmartBlock(editor, smartBlockId);
 }
 
 /**
@@ -72,23 +191,17 @@ function insertAnimatedTable(
         content: [
           {
             type: "table",
-            attrs: { id: tableId, rank: "a0" },
+            attrs: { id: tableId },
             content: [buildHeaderRow(tableData.headers)],
           },
-          { type: "paragraph", attrs: { id: uuid(), rank: "a0V", textAlign: null } },
-          { type: "paragraph", attrs: { id: uuid(), rank: "a1", textAlign: null } },
+          { type: "paragraph" },
+          { type: "paragraph" },
         ],
       },
     ],
   };
 
-  const { from, to } = selection;
-  if (to !== null && to !== undefined && from !== to) {
-    editor.chain().insertContentAt(to, smartBlock).run();
-  } else {
-    const lastPos = editor.state.doc.content.size;
-    editor.chain().insertContentAt(lastPos, smartBlock).focus("end").run();
-  }
+  insertSmartBlockAtSelection(editor, selection, smartBlock, blockId);
 
   // Step 2: Animate row insertion one by one
   const rows = tableData.rows;
@@ -204,12 +317,26 @@ export const handleSmartBlock = (
       ],
     };
 
+    insertSmartBlockAtSelection(editor, { from, to }, smartBlock, smartBlock.attrs.id);
+  } else if (response.type === "insert_smartblock_mention") {
+    const { from, to } = selection;
+    const { label, fileName } = response.content || {};
+
+    const mentionNode = {
+      type: "smartBlockMention",
+      attrs: {
+        blockId: uuid(), // Mock or real depending on backend support needed. Usually expects externalId.
+        label: label || "Untitled",
+        fileId: null, // Depending on if we have file ID. We usually just pass fileName string from AI.
+        fileName: fileName || null,
+      },
+    };
+
     if (to !== null && to !== undefined && from !== to) {
-      editor.chain().insertContentAt(to, smartBlock).run();
-    }
-    if (from === to) {
+      editor.chain().insertContentAt(to, mentionNode).run();
+    } else {
       const lastPos = editor.state.doc.content.size;
-      editor.chain().insertContentAt(lastPos, smartBlock).focus("end").run();
+      editor.chain().insertContentAt(lastPos, mentionNode).focus("end").run();
     }
   }
 };
