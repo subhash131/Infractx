@@ -1,4 +1,4 @@
-import { Node } from "@tiptap/core";
+import { Node, mergeAttributes } from "@tiptap/core";
 
 export const SmartBlockGroup = Node.create({
   name: "smartBlockGroup", 
@@ -13,10 +13,10 @@ export const SmartBlockGroup = Node.create({
   renderHTML({ HTMLAttributes }) {
     return [
       "div",
-      { 
-        "data-node-type": "smartBlockGroup",
+      mergeAttributes(HTMLAttributes, { 
+        "data-node-type": this.name,
         style: "padding-left: 10px; width: 100%; border-left: 1px solid gray; font-size: 12px;" 
-      },
+      }),
       0 
     ];
   }
