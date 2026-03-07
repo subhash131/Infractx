@@ -1,0 +1,10 @@
+app/konva/(components)/canvas-transformer.tsx(12,7): error TS2322: Type 'Ref<Transformer>' is not assignable to type 'Ref<Transformer> | undefined'.
+  Type '(instance: Transformer | null) => void | (() => VoidOrUndefinedOnly)' is not assignable to type 'Ref<Transformer> | undefined'.
+    Type '(instance: import("D:/ai/yt/ai-figma/node_modules/.pnpm/konva@10.2.0/node_modules/konva/lib/shapes/Transformer").Transformer | null) => void | (() => VoidOrUndefinedOnly)' is not assignable to type '(instance: import("D:/ai/yt/ai-figma/node_modules/.pnpm/konva@10.2.0/node_modules/konva/lib/shapes/Transformer").Transformer | null) => void | (() => VoidOrUndefinedOnly)'. Two different types with this name exist, but they are unrelated.
+      Type 'void | (() => VoidOrUndefinedOnly)' is not assignable to type 'void | (() => VoidOrUndefinedOnly)'. Two different types with this name exist, but they are unrelated.
+        Type '() => VoidOrUndefinedOnly' is not assignable to type 'void | (() => VoidOrUndefinedOnly)'.
+          Type '() => VoidOrUndefinedOnly' is not assignable to type '() => VoidOrUndefinedOnly'. Two different types with this name exist, but they are unrelated.
+            Type 'VoidOrUndefinedOnly' is not assignable to type 'VoidOrUndefinedOnly'. Two different types with this name exist, but they are unrelated.
+              Type '{ [UNDEFINED_VOID_ONLY]: never; }' is not assignable to type 'VoidOrUndefinedOnly'.
+app/project/[projectId]/document/[docId]/components/file-management-menu/files-list.tsx(323,12): error TS2551: Property 'startRenamingItem' does not exist on type 'TreeInstance<TreeItemData>'. Did you mean 'isRenamingItem'?
+app/project/[projectId]/document/[docId]/components/file-management-menu/files-list.tsx(433,30): error TS2551: Property 'abortRenaming' does not exist on type 'ItemInstance<TreeItemData>'. Did you mean 'startRenaming'?

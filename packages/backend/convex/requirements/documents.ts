@@ -31,3 +31,18 @@ export const getDocumentById = query({
     return document;
   },
 });
+
+export const updateDocument = mutation({
+  args: {
+    documentId: v.id("documents"),
+    title: v.string(),
+    description: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.documentId, {
+      title: args.title,
+      updatedAt: Date.now(),
+      description: args.description,
+    });
+  },
+});

@@ -96,12 +96,12 @@ Before building anything, you need to gather structured requirements.
 
 User Request: "${userMessage}"
 
-Generate targeted clarifying questions to understand this system better. 
-Limit the number of questions based on what you think is necessary to establish best practices for a good design (ask up to 5 questions).
-Focus on: actors/users, use cases, scale expectations, tech stack preferences, key integrations or constraints.
+Generate targeted, highly specific clarifying questions to understand this system better. 
+CRITICAL: ONLY ask questions that are absolutely necessary to make architectural decisions. If the user's request is already detailed, ask fewer questions or even 0-1 questions. NEVER just ask 5 questions to fill a quota. Typically, 1 to 3 well-thought-out questions are better than a rigid number of generic ones.
+Focus on missing critical information regarding: actors/users, use cases, scale expectations, tech stack preferences, key integrations, or constraints. Avoid generic questions if the user has already provided the context.
 
 Return ONLY a valid JSON array of strings, no markdown fences. For example:
-["Question 1?", "Question 2?"]
+["What specific payment gateway do you intend to use?", "Are there any expected spikes in traffic, or is the load generally consistent?"]
 `;
 
       const questionsRaw = await callLLMInvoke(questionsPrompt);
@@ -272,12 +272,13 @@ Requirements gathered from the user:
 ${qaContext}
 
 Design a "Technology Plan". This plan should NOT contain folders or files yet. Instead, you must specify the core components to be implemented, along with the programming languages and frameworks you recommend.
+CRITICAL: Be highly specific to the domain of the request. DO NOT use generic names like "Backend API" or "Frontend UI". Instead, name the specific services, tables, and components (e.g., "Payment Processing Worker", "User Profile React Component", "Campaigns Database Schema"). Provide a comprehensive, tailored architecture.
 
 Output a flat JSON array of objects. 
 Each item must have:
-- title: (e.g. "React + Next.js", "Users Table", "Stripe Webhook Route")
+- title: (e.g. "Next.js App Router", "Transactions Table", "Stripe Webhook Route")
 - type: Must be exactly one of: "Database Schema", "Backend Route/Function", "Frontend Page/Component", or "Config/Infrastructure".
-- description: A short description of what it is.
+- description: A short description of what it handles.
 - reasoning: Explain *why* you chose this technology or approach based on the user's requirements.
 
 Return ONLY a valid JSON array, no markdown fences:
@@ -381,23 +382,25 @@ Based strictly on the Approved Technology Plan, design the file/folder structure
 Output a flat JSON array of file/folder operations to build a hierarchical tree. Each item is ONLY structure — no content yet.
 
 Rules:
-- Use "FILE" or "FOLDER" for type.
-- Assign a unique "tempId" (e.g. "temp_1", "temp_2") to EVERY FOLDER.
+- You MUST generate BOTH "FOLDER" and "FILE" types. A folder structure is useless without files inside it! Create all the necessary files for the architecture.
+- Assign a unique "tempId" to EVERY FOLDER. CRITICAL: The "tempId" MUST always start with the exact string "temp_" (e.g., "temp_payments_root", "temp_models_folder").
 - Set "parentId" to a folder's "tempId" to nest items inside that folder.
 - CRITICAL: ABSOLUTELY NO FILES AT THE ROOT LEVEL. Every single FILE must have a "parentId" pointing to a valid FOLDER's tempId.
-- Group related items deeply (e.g., Folder "Backend" -> Folder "Routes" -> File "Music Streaming Route").
-- For FILES, add a short "description" (1-2 sentences) describing what content it will have.
+- Group related items deeply into domain-specific folders. AVOID generic folder names like "Frontend", "Backend", or "Database" unless absolutely necessary. Instead, use feature-based or domain-driven folder names (e.g., "Auth Service", "Billing Portal", "Payment Models").
+- CRITICAL for FRONTEND: You MUST generate actual FILEs for frontend pages or screens! Do not just generate a UI folder—fill it with the individual pages and components (e.g., "Login Page", "Search Screen").
+- For FILES, add a short "description" (1-2 sentences) describing what content it will have. Be highly specific.
 - Do NOT use file extensions in titles (no .md, .ts, .tsx).
-- Ensure all items from the Technology Plan have a logical home in this structure.
-- CRITICAL: DO NOT INCLUDE a "content" field in the JSON output. Output ONLY the structure properties (action, type, title, description, tempId, parentId). The content will be generated in a later phase.
+- Ensure all items from the Technology Plan are represented as FILE items in this structure.
+- CRITICAL: DO NOT INCLUDE a "content" field in the JSON output for FILES. Output ONLY the structure properties (action, type, title, description, tempId, parentId). The actual file body will be generated in a later phase.
+- CRITICAL: DO NOT copy the dummy names from the example below. Generate a unique, custom, and comprehensive structure tailored strictly to the user's requirements.
 
-Return ONLY valid JSON array, no markdown fences. Example of a deeply nested structure:
+Return ONLY valid JSON array, no markdown fences. Example of a deeply nested structure (DO NOT copy these exact titles):
 [
-  { "action": "create", "type": "FOLDER", "title": "Backend", "tempId": "backend_root" },
-  { "action": "create", "type": "FOLDER", "title": "Database", "parentId": "backend_root", "tempId": "db_folder" },
-  { "action": "create", "type": "FILE", "title": "Database Schema", "parentId": "db_folder", "description": "PostgreSQL schema" },
-  { "action": "create", "type": "FOLDER", "title": "Frontend", "tempId": "frontend_root" },
-  { "action": "create", "type": "FILE", "title": "Home Page", "parentId": "frontend_root", "description": "The main landing page" }
+  { "action": "create", "type": "FOLDER", "title": "Payment Webhook Server", "tempId": "payments_root" },
+  { "action": "create", "type": "FOLDER", "title": "Models", "parentId": "payments_root", "tempId": "payments_models" },
+  { "action": "create", "type": "FILE", "title": "Transaction Schema", "parentId": "payments_models", "description": "PostgreSQL schema for payment transactions" },
+  { "action": "create", "type": "FOLDER", "title": "User Dashboard", "tempId": "dashboard_root" },
+  { "action": "create", "type": "FILE", "title": "Settings View", "parentId": "dashboard_root", "description": "React component for user settings" }
 ]
 `;
 
@@ -490,14 +493,44 @@ export const architectureApprovedHandler = inngest.createFunction(
       let filesCreated = 0;
       let foldersCreated = 0;
 
-      for (const op of plan) {
+      // Topological Sort: Ensure parent folders are built before their children
+      const sortedPlan: StructureOp[] = [];
+      const pendingOps = [...plan];
+      let madeProgress = true;
+      let passes = 0;
+
+      while (pendingOps.length > 0 && madeProgress && passes < 20) {
+        madeProgress = false;
+        passes++;
+        for (let i = 0; i < pendingOps.length; i++) {
+          const op = pendingOps[i];
+          if (op.action !== "create") {
+             pendingOps.splice(i, 1);
+             i--;
+             continue;
+          }
+          // If no parent, or its parent is already in sortedPlan, it's ready.
+          if (!op.parentId || sortedPlan.some((so) => so.tempId === op.parentId)) {
+            sortedPlan.push(op);
+            pendingOps.splice(i, 1);
+            i--;
+            madeProgress = true;
+          }
+        }
+      }
+      // Any remainder likely has a cyclic dependency or an invalid parentId (push at the end; will likely be skipped)
+      sortedPlan.push(...pendingOps);
+
+      for (const op of sortedPlan) {
         if (op.action !== "create") continue;
 
         let parentId: string | undefined;
         if (op.parentId) {
-          parentId = op.parentId.startsWith("temp_")
-            ? tempIdMap.get(op.parentId)
-            : op.parentId;
+          parentId = tempIdMap.get(op.parentId);
+          if (!parentId) {
+             console.warn(`⚠️ [Phase 4] Skipping "${op.title}" due to unresolved parentId: ${op.parentId}`);
+             continue; // We absolutely cannot create an orphan file if it requires a parent
+          }
         }
 
         try {
