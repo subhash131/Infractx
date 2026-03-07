@@ -126,12 +126,23 @@ export const bulkUpdate = mutation({
       console.log(`Searching for UUID: ${block.externalId} -> Found: ${existing?._id ?? "NULL"}`);
 
       let blockId;
+      let contentChanged = false;
 
       if (existing) {
         const { externalId, ...updates } = block;
 
+        // Detect if anything meaningful changed (avoid re-embedding on no-op syncs)
+        const oldContent = JSON.stringify(existing.content);
+        const newContent = JSON.stringify(block.content);
+        const oldProps = JSON.stringify(existing.props);
+        const newProps = JSON.stringify(block.props);
+        contentChanged =
+          (block.content !== undefined && oldContent !== newContent) ||
+          (block.props !== undefined && oldProps !== newProps) ||
+          (block.type !== undefined && existing.type !== block.type);
+
         // Cancel any previously scheduled embed job for this block
-        if (existing.pendingEmbedJobId) {
+        if (contentChanged && existing.pendingEmbedJobId) {
           await ctx.scheduler.cancel(existing.pendingEmbedJobId);
         }
 
@@ -151,15 +162,18 @@ export const bulkUpdate = mutation({
           pendingEmbedJobId: null,
         });
         console.log(`Inserted new block with UUID ${block.externalId}`);
+        contentChanged = true; // New blocks always need embedding
       }
 
-      // Schedule (or reschedule) the embedding job with debounce
-      const jobId = await ctx.scheduler.runAfter(
-        EMBED_DEBOUNCE_MS,
-        internal.requirements.embeddings.embedBlock,
-        { blockId }
-      );
-      await ctx.db.patch(blockId, { pendingEmbedJobId: jobId });
+      // Only schedule embed if content actually changed
+      if (contentChanged) {
+        const jobId = await ctx.scheduler.runAfter(
+          EMBED_DEBOUNCE_MS,
+          internal.requirements.embeddings.embedBlock,
+          { blockId }
+        );
+        await ctx.db.patch(blockId, { pendingEmbedJobId: jobId });
+      }
     }
   },
 });

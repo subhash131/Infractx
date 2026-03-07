@@ -58,6 +58,9 @@ export const embedBlock = internalAction({
     if (!response.ok) {
       const errText = await response.text();
       console.error(`[embedBlock] Embedding server error (${response.status}): ${errText}`);
+      // Clear pendingEmbedJobId so the next bulkUpdate sync doesn't re-queue another embed
+      // (which would cause an infinite loop on recurring 502s)
+      await ctx.runMutation(internal.requirements.embeddings.clearPendingEmbedJob, { blockId });
       return;
     }
 
@@ -120,6 +123,20 @@ export const getBlockWithParent = internalQuery({
 });
 
 /**
+ * Internal mutation: clears the pendingEmbedJobId on a block without touching the embedding.
+ * Used when the embedding server errors so we don't re-queue an infinite loop.
+ */
+export const clearPendingEmbedJob = internalMutation({
+  args: { blockId: v.id("blocks") },
+  handler: async (ctx, { blockId }) => {
+    const block = await ctx.db.get(blockId);
+    if (block) {
+      await ctx.db.patch(blockId, { pendingEmbedJobId: null });
+    }
+  },
+});
+
+/**
  * Internal mutation: saves the computed embedding and clears the pending job ID.
  */
 export const saveEmbedding = internalMutation({
@@ -134,38 +151,48 @@ export const saveEmbedding = internalMutation({
       .unique();
 
     if (embedding === null) {
+      // Explicit null → delete the embedding
       if (existing) {
         await ctx.db.delete(existing._id);
       }
-    } else {
-      const block = await ctx.db.get(blockId);
-      if (block) {
-        const textFile = await ctx.db.get(block.textFileId);
-        const documentId = textFile?.documentId;
+      return;
+    }
 
-        if (existing) {
-          await ctx.db.patch(existing._id, {
-            embedding,
-            blockType: block.type,
-            textFileId: block.textFileId,
-            documentId: documentId,
-          });
-        } else {
-          await ctx.db.insert("embeddings", {
-            embeddingType: "block",
-            blockId,
-            blockType: block.type,
-            textFileId: block.textFileId,
-            documentId: documentId,
-            embedding,
-          });
-        }
+    const block = await ctx.db.get(blockId);
+
+    if (!block) {
+      // Block was deleted after the embed was scheduled — clean up orphan
+      console.warn(`[saveEmbedding] Block ${blockId} no longer exists, deleting orphaned embedding.`);
+      if (existing) {
+        await ctx.db.delete(existing._id);
       }
+      return;
+    }
 
-      await ctx.db.patch(blockId, {
-        pendingEmbedJobId: null, // clear the job reference once done
+    const textFile = await ctx.db.get(block.textFileId);
+    const documentId = textFile?.documentId;
+
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        embedding,
+        blockType: block.type,
+        textFileId: block.textFileId,
+        documentId: documentId,
+      });
+    } else {
+      await ctx.db.insert("embeddings", {
+        embeddingType: "block",
+        blockId,
+        blockType: block.type,
+        textFileId: block.textFileId,
+        documentId: documentId,
+        embedding,
       });
     }
+
+    await ctx.db.patch(blockId, {
+      pendingEmbedJobId: null,
+    });
   },
 });
 
@@ -251,31 +278,41 @@ export const saveTextFileEmbedding = internalMutation({
     const existing = existingList.find(e => e.embeddingType === "file");
 
     if (embedding === null) {
+      // Explicit null → delete the embedding
       if (existing) {
         await ctx.db.delete(existing._id);
       }
-    } else {
-      const textFile = await ctx.db.get(textFileId);
-      if (textFile) {
-        if (existing) {
-          await ctx.db.patch(existing._id, {
-            embedding,
-            documentId: textFile.documentId,
-          });
-        } else {
-          await ctx.db.insert("embeddings", {
-            embeddingType: "file",
-            textFileId: textFile._id,
-            documentId: textFile.documentId,
-            embedding,
-          });
-        }
-      }
+      return;
+    }
 
-      await ctx.db.patch(textFileId, {
-        pendingEmbedJobId: null, // clear the job reference once done
+    const textFile = await ctx.db.get(textFileId);
+
+    if (!textFile) {
+      // File was deleted after the embed was scheduled — clean up orphan
+      console.warn(`[saveTextFileEmbedding] TextFile ${textFileId} no longer exists, deleting orphaned embedding.`);
+      if (existing) {
+        await ctx.db.delete(existing._id);
+      }
+      return;
+    }
+
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        embedding,
+        documentId: textFile.documentId,
+      });
+    } else {
+      await ctx.db.insert("embeddings", {
+        embeddingType: "file",
+        textFileId: textFile._id,
+        documentId: textFile.documentId,
+        embedding,
       });
     }
+
+    await ctx.db.patch(textFileId, {
+      pendingEmbedJobId: null,
+    });
   },
 });
 
@@ -292,11 +329,12 @@ export const saveTextFileEmbedding = internalMutation({
 export const searchBlocks = action({
   args: {
     query: v.string(),
+    documentId: v.optional(v.id("documents")),
     textFileId: v.optional(v.id("text_files")),
     type: v.optional(v.string()),
     limit: v.optional(v.number()),
   },
-  handler: async (ctx, { query, textFileId, type, limit }: { query: string; textFileId?: Id<"text_files">; type?: string; limit?: number }): Promise<Array<{ score: number; block: Record<string, unknown> | null }>> => {
+  handler: async (ctx, { query, documentId, textFileId, type, limit }: { query: string; documentId?: Id<"documents">; textFileId?: Id<"text_files">; type?: string; limit?: number }): Promise<Array<{ score: number; block: Record<string, unknown> | null }>> => {
     const embeddingModelUrl = process.env.EMBEDDING_384_MODEL_URL;
 
     if (!embeddingModelUrl) {
@@ -332,6 +370,7 @@ export const searchBlocks = action({
       limit: limitNum * 5,
       filter: (q) => {
         if (textFileId) return q.eq("textFileId", textFileId);
+        if (documentId) return q.eq("documentId", documentId);
         if (type) return q.eq("blockType", type);
         return q.eq("embeddingType", "block");
       },
@@ -340,6 +379,7 @@ export const searchBlocks = action({
     const populatedResults = await ctx.runQuery(internal.requirements.embeddings.hydrateAndFilterBlocks, {
       results: vectorResults,
       limit: limitNum,
+      documentId,
       textFileId,
       type,
     });
@@ -356,6 +396,7 @@ export const hydrateAndFilterBlocks = internalQuery({
   args: {
     results: v.array(v.object({ _id: v.id("embeddings"), _score: v.number() })),
     limit: v.number(),
+    documentId: v.optional(v.id("documents")),
     textFileId: v.optional(v.id("text_files")),
     type: v.optional(v.string()),
   },
@@ -364,11 +405,13 @@ export const hydrateAndFilterBlocks = internalQuery({
     {
       results,
       limit,
+      documentId,
       textFileId,
       type,
     }: {
       results: Array<{ _id: Id<"embeddings">; _score: number }>;
       limit: number;
+      documentId?: Id<"documents">;
       textFileId?: Id<"text_files">;
       type?: string;
     }
@@ -385,6 +428,7 @@ export const hydrateAndFilterBlocks = internalQuery({
       .flatMap((d) => {
         if (!d) return [];
         if (d.embeddingType !== "block") return [];
+        if (documentId && d.documentId !== documentId) return [];
         if (textFileId && d.textFileId !== textFileId) return [];
         if (type && d.blockType !== type) return [];
         return [d];
@@ -396,7 +440,43 @@ export const hydrateAndFilterBlocks = internalQuery({
         if (!doc.blockId) return null;
         const block = await ctx.db.get(doc.blockId);
         if (!block) return null;
-        return { score: doc._score, block };
+        
+        // Fetch file info
+        const textFile = await ctx.db.get(block.textFileId);
+        const fileName = textFile?.title || "Unknown File";
+        
+        // Fetch Smart Block Parent info
+        let smartBlockTitle = "Unknown Block";
+        let smartBlockId = block._id;
+        let smartBlockExternalId = block.externalId;
+        
+        if (block.type === "smartBlock") {
+          const content = block.content as any[];
+          smartBlockTitle = content?.[0]?.text || "Untitled Smart Block";
+        } else if (block.parentId) {
+          const parent = await ctx.db
+            .query("blocks")
+            .withIndex("by_external_id", (q) => q.eq("externalId", block.parentId!))
+            .unique();
+            
+          if (parent && parent.type === "smartBlock") {
+             const content = parent.content as any[];
+             smartBlockTitle = content?.[0]?.text || "Untitled Smart Block";
+             smartBlockId = parent._id;
+             smartBlockExternalId = parent.externalId;
+          }
+        }
+        
+        return { 
+          score: doc._score, 
+          block: {
+            ...block,
+            fileName,
+            smartBlockTitle,
+            smartBlockId,
+            smartBlockExternalId
+          } 
+        };
       })
     );
 

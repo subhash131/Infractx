@@ -102,6 +102,20 @@ async function buildArchitectureContext(docId: string, sessionToken: string): Pr
             contentStr += parsedContent;
          }
       }
+      
+      // Fetch smart blocks for this document and list them out so the AI can mention them
+      const smartBlocks = await getConvexClient(sessionToken).query(
+        api.requirements.textFileBlocks.getSmartBlocksByDocumentId,
+        { documentId: docId as Id<"documents"> }
+      );
+      
+      if (smartBlocks && smartBlocks.length > 0) {
+        contentStr += `\n\nExisting Smart Blocks (Available for mention):\n`;
+        for (const sb of smartBlocks) {
+          const title = (sb.content && sb.content[0] && sb.content[0].text) || "Untitled Smart Block";
+          contentStr += `- [${sb.fileName}] ${title} (fileId: ${sb.fileId}, blockId: ${sb.externalId})\n`;
+        }
+      }
     }
   }
 
@@ -663,17 +677,20 @@ Output format must strictly be a JSON array of objects:
       { "kind": "paragraph", "text": "A descriptive paragraph. Use \\n for newlines, NEVER use literal hard returns inside strings." },
       { "kind": "heading", "level": 2, "text": "Sub-section heading" },
       { "kind": "bulletList", "items": ["Item 1", "Item 2"] },
-      { "kind": "table", "headers": ["Col 1", "Col 2"], "rows": [["Val 1", "Val 2"]] }
+      { "kind": "table", "headers": ["Col 1", "Col 2"], "rows": [["Val 1", "Val 2"]] },
+      { "kind": "mention", "label": "User Schema", "fileName": "Database Models", "fileId": "j57abc...", "blockId": "uuid-..." }
     ]
   }
 ]
 
 Rules for content items:
-- 'kind' MUST be exactly one of: 'paragraph', 'heading', 'bulletList', 'table'.
+- 'kind' MUST be exactly one of: 'paragraph', 'heading', 'bulletList', 'table', 'mention'.
 - For 'paragraph', provide 'text' (string).
 - For 'heading', provide 'level' (1, 2, or 3) and 'text' (string).
 - For 'bulletList', provide 'items' (array of strings).
 - For 'table', provide 'headers' (array of strings) and 'rows' (2D array of strings).
+- For 'mention', provide 'label' (exact title), 'fileName' (exact title of the file), 'fileId', and 'blockId'. Use the EXACT fileId and blockId provided in the Architecture Context.
+- ALWAYS use 'mention' instead of reproducing content (like tables or code) IF that content already exists in another file according to the Architecture Context.
 - CRITICAL: NO literal newlines inside JSON string values. Use \\n instead.
 
 Create as many Smart Blocks as necessary to fully cover the file's purpose.
@@ -695,6 +712,9 @@ Return ONLY the valid JSON array. No markdown fences, no explanation.
               });
             } else {
               let currentRank = generateKeyBetween(null, null);
+              // Single rolling rank shared across ALL child blocks in this file
+              // so no two blocks in the same file ever get the same rank value
+              let globalChildRank = generateKeyBetween(null, null);
 
               const allBlocks = [];
               for (const sb of smartBlocks) {
@@ -710,25 +730,35 @@ Return ONLY the valid JSON array. No markdown fences, no explanation.
                    approvedByHuman: false,
                 };
                 
-                const childStartRank = generateKeyBetween(null, null);
-                const childBlocks = buildChildBlocks(sb.content, smartBlockId, childStartRank);
+                const childBlocks = buildChildBlocks(sb.content, smartBlockId, globalChildRank);
+                
+                // Advance the global rank past all ranks used by this SmartBlock's children
+                const lastChildRank = childBlocks.at(-1)?.rank ?? globalChildRank;
                 
                 const trailingParagraph = {
                    externalId: uid(),
                    type: "paragraph",
                    props: { textAlign: null },
                    content: [],
-                   rank: generateKeyBetween(childBlocks.at(-1)?.rank ?? childStartRank, null),
+                   rank: generateKeyBetween(lastChildRank, null),
                    parentId: smartBlockId,
                    approvedByHuman: false,
                 };
+                
+                // Next SmartBlock's children start after this one's trailing paragraph
+                globalChildRank = generateKeyBetween(trailingParagraph.rank, null);
                 
                 allBlocks.push(smartBlockRecord, ...childBlocks, trailingParagraph);
                 currentRank = generateKeyBetween(currentRank, null);
               }
               
               if (allBlocks.length > 0) {
-                 console.log("📝 [Phase 4] Inserting Blocks into DB:", JSON.stringify(allBlocks, null, 2));
+                 // ── Debug: print rank structure before inserting ────────────────
+                 console.log(`📝 [Phase 4] Block rank structure for "${op.title}":`);
+                 for (const b of allBlocks) {
+                   console.log(`  [${b.type}] externalId=${b.externalId.slice(0,8)} rank="${b.rank}" parentId=${b.parentId ? b.parentId.slice(0,8) : "null"}`);
+                 }
+                 console.log(`📝 [Phase 4] Inserting ${allBlocks.length} blocks into DB for "${op.title}"`);
                  await client.mutation(api.requirements.textFileBlocks.bulkCreate, {
                     textFileId: newId,
                     blocks: allBlocks,

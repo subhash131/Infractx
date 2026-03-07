@@ -34,15 +34,18 @@ Classify the intent into ONE of these categories based BOTH on the User Message 
    - "Design a system design for a spotify clone"
    - "Create a microservice architecture for e-commerce"
    - "Add a school schema"
-9. **general**: A generic conversational query that doesn't fit other categories.
+9. **mention**: Request to MENTION, REFERENCE, or LINK a specific smartblock or file.
+    - "Mention the user schema block from the auth file"
+    - "Add a smartblock mention to the login flow"
+10. **general**: A generic conversational query that doesn't fit other categories.
     - "try again" (if history does NOT imply a specific category)
-10. **greet**: Simple conversational greetings or questions about the AI (e.g., "Hi", "Hello", "Who are you?", "Thanks").
+11. **greet**: Simple conversational greetings or questions about the AI (e.g., "Hi", "Hello", "Who are you?", "Thanks").
 
 Remember: If the user says something ambiguous like "try again" or "do it", look at the Recent Conversation History. If the history is about generating an architecture, classify as 'architecture'. If it's about explaining a file, classify as 'context'.
 
 Return ONLY valid JSON:
 {
-  "intent": "context" | "table" | "list" | "text" | "delete" | "code" | "file_management" | "architecture" | "general" | "greet",
+  "intent": "context" | "table" | "list" | "text" | "delete" | "code" | "file_management" | "architecture" | "mention" | "general" | "greet",
   "confidence": 0.0-1.0,
   "reasoning": "brief explanation"
 }

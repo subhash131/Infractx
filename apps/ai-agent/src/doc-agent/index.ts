@@ -45,7 +45,7 @@ export const AgentStateAnnotation = Annotation.Root({
   sessionToken:Annotation<string>, // session token
   
   // Processing
-  intent: Annotation<'context' | 'table' | 'list' | 'code' | 'text' | 'general' | 'greet' | 'delete' | 'file_management' | 'architecture' | null>,
+  intent: Annotation<'context' | 'table' | 'list' | 'code' | 'text' | 'general' | 'greet' | 'delete' | 'file_management' | 'architecture' | 'mention' | null>,
   extractedData: Annotation<any>,
   confidence: Annotation<number>,
   targetFileIds: Annotation<string[]>,
@@ -171,6 +171,7 @@ function routeByIntent(state: typeof AgentStateAnnotation.State): string {
     case 'list':
     case 'code':
     case 'text':
+    case 'mention':
       return 'semanticSearch'; // RAG: fetch relevant blocks before generating
     case 'delete':
     case 'general':

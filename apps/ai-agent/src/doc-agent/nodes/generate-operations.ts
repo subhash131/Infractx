@@ -75,7 +75,14 @@ export async function generateOperations(
   else if (state.intent === "list") {
     console.log("📃 Generating markdown list");
 
-    const prompt = `Generate a markdown list for the following request: "${state.userMessage}". Return ONLY the markdown list content.`;
+    const prompt = `Generate a list for the following request: "${state.userMessage}". Return ONLY the list content. Do NOT use markdown formatting (no bolding, no asterisks, no headers). Separate items by simple newlines.
+
+${state.fetchedContext ? `Before generating, look at the Relevant Context below. If a requested component ALREADY EXISTS in the Context, DO NOT recreate it. Instead, you MUST mention it by outputting EXACTLY this format on its own new line:
+[[MENTION: {JSON object copied exactly from MENTION_METADATA}]]
+
+Relevant Context:
+${state.fetchedContext}` : ""}
+`;
 
     console.log("🧾 Prompt:", prompt);
 
@@ -121,7 +128,16 @@ Return ONLY the title text.`;
     console.log("🏷 Generated Title:", title);
 
     const prompt = `Generate the pseudo-code/logic for:
-"${state.userMessage}"`;
+"${state.userMessage}"
+
+IMPORTANT: Do not use any Markdown formatting at all (no bolding, no headers, no code blocks like \`\`\`). Output plain text paragraphs separated by new lines only.
+
+${state.fetchedContext ? `Before generating, look at the Relevant Context below. If a required component (like a model, database action, or logic) ALREADY EXISTS in the Context, DO NOT recreate or write pseudo-code for it. Instead, you MUST mention it by outputting EXACTLY this format on its own new line:
+[[MENTION: {JSON object copied exactly from MENTION_METADATA}]]
+
+Relevant Context:
+${state.fetchedContext}` : ""}
+`;
 
     console.log("🧾 Code Prompt:", prompt);
 
@@ -159,7 +175,16 @@ Return ONLY the title text.`;
 
     const prompt = `You are an AI editor.
 User Request: "${state.userMessage}"
-Selected Text: "${state.selectedText}"`;
+Selected Text: "${state.selectedText}"
+
+IMPORTANT: Do not use any Markdown formatting at all (no bolding, no headers, no code blocks like \`\`\`). Output plain text paragraphs separated by new lines only.
+
+${state.fetchedContext ? `Before editing, look at the Relevant Context below. If a requested component ALREADY EXISTS in the Context, DO NOT recreate it. Instead, you MUST mention it by outputting EXACTLY this format on its own new line:
+[[MENTION: {JSON object copied exactly from MENTION_METADATA}]]
+
+Relevant Context:
+${state.fetchedContext}` : ""}
+`;
 
     console.log("🧾 Text Prompt:", prompt);
 
@@ -179,6 +204,47 @@ Selected Text: "${state.selectedText}"`;
     });
 
     console.log("✅ Text replace operation created");
+  }
+
+  /* =========================
+     MENTION
+  ========================= */
+
+  else if (state.intent === "mention") {
+    console.log("🔗 Generating smart block mention");
+
+    const prompt = `You need to create a smart block mention. The user wants to reference a specific smartblock or file.
+User Request: "${state.userMessage}"
+
+Based on the available context (if any), provide the EXACT title of the smartblock to mention, and optionally the file name it belongs to.
+
+Return ONLY valid JSON:
+{
+  "blockTitle": "Name of the block to mention",
+  "fileName": "Optional name of the file it belongs to (leave null if unknown)"
+}`;
+
+    const txtMessages: ChatMessage[] = [
+      ...historyMessages,
+      { role: "user", content: prompt },
+    ];
+
+    try {
+      const mentionData = await callAI(txtMessages, { returnJson: true, config });
+
+      operations.push({
+        type: "insert_smartblock_mention",
+        position: state.cursorPosition,
+        content: {
+          label: mentionData.blockTitle || "Untitled",
+          fileName: mentionData.fileName || null,
+        },
+      });
+
+      console.log("✅ Mention operation created:", mentionData);
+    } catch (e) {
+      console.error("❌ Failed to generate mention:", e);
+    }
   }
 
   /* =========================

@@ -36,58 +36,53 @@ export function calculateDiff(
       toCreate.push(newBlock);
     } else {
       // --- UPDATE ---
-      // console.log(`\n[CHECKING] Block ${newBlock.id}`);
       const changes: Partial<BlockData> = {};
       let hasChange = false;
 
       // A. Check Structural Changes (Parent/Rank)
-      if (oldBlock.parentId !== newBlock.parentId) {
-        // console.log(`  [DIFF] parentId: "${oldBlock.parentId}" → "${newBlock.parentId}"`);
+      if ((oldBlock.parentId ?? null) !== (newBlock.parentId ?? null)) {
         changes.parentId = newBlock.parentId;
         hasChange = true;
       }
       
       if (oldBlock.rank !== newBlock.rank) {
-        // console.log(`  [DIFF] rank: ${oldBlock.rank} → ${newBlock.rank}`);
-        // console.log(`    Old rank type: ${typeof oldBlock.rank}`);
-        // console.log(`    New rank type: ${typeof newBlock.rank}`);
+        console.log(`[DIFF RANK] Block ${newBlock.id.slice(0, 8)}: DB="${oldBlock.rank}" Tiptap="${newBlock.rank}"`);
         changes.rank = newBlock.rank;
         hasChange = true;
       }
 
       // B. Check Content Changes
-      const contentEqual = deepEquals(oldBlock.content, newBlock.content);
+      // Normalize null/undefined → [] so DB-stored null doesn't false-differ from parser's []
+      const oldContent = oldBlock.content ?? [];
+      const newContent = newBlock.content ?? [];
+      const contentEqual = deepEquals(oldContent, newContent);
       if (!contentEqual) {
-        // console.log(`  [DIFF] content changed`);
-        // console.log(`    Old:`, JSON.stringify(oldBlock.content, null, 2));
-        // console.log(`    New:`, JSON.stringify(newBlock.content, null, 2));
+        console.log(`[DIFF CONTENT] Block ${newBlock.id.slice(0, 8)} content changed`);
         changes.content = newBlock.content;
         hasChange = true;
       }
 
       // C. Check Props/Type Changes
       if (oldBlock.type !== newBlock.type) {
-        // console.log(`  [DIFF] type: "${oldBlock.type}" → "${newBlock.type}"`);
         changes.type = newBlock.type;
         hasChange = true;
       }
       
-      const propsEqual = deepEquals(oldBlock.props, newBlock.props);
+      // Normalize null/undefined → {} so DB-stored null doesn't false-differ from parser's {}
+      const oldProps = oldBlock.props ?? {};
+      const newProps = newBlock.props ?? {};
+      const propsEqual = deepEquals(oldProps, newProps);
       if (!propsEqual) {
-        // console.log(`  [DIFF] props changed`);
-        // console.log(`    Old:`, JSON.stringify(oldBlock.props, null, 2));
-        // console.log(`    New:`, JSON.stringify(newBlock.props, null, 2));
+        console.log(`[DIFF PROPS] Block ${newBlock.id.slice(0, 8)}: DB=${JSON.stringify(oldProps)} Tiptap=${JSON.stringify(newProps)}`);
         changes.props = newBlock.props;
         hasChange = true;
       }
 
       if (hasChange) {
-        // console.log(`  [UPDATE] Queuing update with changes:`, Object.keys(changes));
         toUpdate.push({ id: newBlock.id, ...changes });
-      } else {
-        // console.log(`  [NO CHANGE] Block is identical`);
       }
     }
+
   }
 
   // 3. Detect Deletes
