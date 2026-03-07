@@ -1,7 +1,7 @@
 "use client";
 import dynamic from "next/dynamic";
 import { useParams } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useQueryState } from "nuqs";
 import { DocHeader } from "./components/doc-header";
 import { FileManagementMenu } from "./components/file-management-menu";
@@ -10,6 +10,7 @@ import { NoFileSelected } from "./components/file-management-menu/no-file-select
 import { ChatWindow } from "./components/tiptap-editor/extensions/ai-extension/chat/chat-window";
 import { TOGGLE_POPUP, useChatStore } from "./components/tiptap-editor/store/chat-store";
 import { v4 as uuid } from "uuid";
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@workspace/ui/components/resizable";
 
 const TiptapEditor = dynamic(
   () => import("./components/tiptap-editor/editor"),
@@ -91,23 +92,55 @@ const RequirementsDraftingPage = () => {
     setShowAIPopup(false);
   };
 
+  const [layout, setLayout] = useState<number[] | null>(null);
+
+  useEffect(() => {
+    if (docId) {
+      const savedLayout = localStorage.getItem(`sidebar-layout-${docId}`);
+      if (savedLayout) {
+        try {
+          setLayout(JSON.parse(savedLayout));
+        } catch (e) {
+          setLayout([20, 80]);
+        }
+      } else {
+        setLayout([20, 80]);
+      }
+    }
+  }, [docId]);
+
+  if (!layout) {
+    return null; // Wait for layout to load from local storage
+  }
+
   const effectiveFileId = fileId && fileId !== "root" ? fileId : null;
 
   return (
-    <div className="w-full h-full overflow-hidden hide-scrollbar flex bg-[#1F1F1F]">
-      <FileManagementMenu docId={docId} />
-      {effectiveFileId && <div id="editor-scroll-container" className="w-full h-full overflow-hidden overflow-y-auto hide-scrollbar">
-        <DocHeader />
-        <TiptapEditor textFileId={effectiveFileId as Id<"text_files">} />
-      </div>}
-      {!effectiveFileId && <NoFileSelected docId={docId} />}
+    <ResizablePanelGroup 
+      direction="horizontal" 
+      className="w-full h-full overflow-hidden hide-scrollbar flex bg-[#1F1F1F]"
+      onLayout={(sizes) => {
+        localStorage.setItem(`sidebar-layout-${docId}`, JSON.stringify(sizes));
+      }}
+    >
+      <ResizablePanel defaultSize={layout[0]} minSize={15} maxSize={40} className="h-full border-r">
+        <FileManagementMenu docId={docId} />
+      </ResizablePanel>
+      <ResizableHandle withHandle />
+      <ResizablePanel defaultSize={layout[1]} className="h-full flex flex-col">
+        {effectiveFileId && <div id="editor-scroll-container" className="w-full h-full overflow-hidden overflow-y-auto hide-scrollbar">
+          <DocHeader />
+          <TiptapEditor textFileId={effectiveFileId as Id<"text_files">} />
+        </div>}
+        {!effectiveFileId && <NoFileSelected docId={docId} />}
+      </ResizablePanel>
       {showAIPopup && (
         <ChatWindow
           editor={editor}
           onClose={handleClosePopup}
         />
       )}
-    </div>
+    </ResizablePanelGroup>
   );
 };
 

@@ -3,7 +3,6 @@ import { Clipboard, Copy, Pencil, Scissors, Trash2 } from "lucide-react";
 import { cn } from "@workspace/ui/lib/utils";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { File02Icon, FileAddIcon, Folder01Icon, Folder02Icon, FolderAddIcon } from "@hugeicons/core-free-icons";
-import { truncate } from "@/modules/utils";
 
 export type ClipboardData = {
   itemId: string;
@@ -76,7 +75,7 @@ export function FileItemWithContextMenu({
       }}
       onDoubleClick={(e) => {
         e.stopPropagation();
-        item.startRenaming();
+        onRename(itemId);
       }}
     >
       <div
@@ -86,15 +85,15 @@ export function FileItemWithContextMenu({
           "opacity-50": clipboard?.itemId === itemId && clipboard?.operation === "cut",
         })}
       >
-        <div className="flex items-center gap-2">
-          <span>
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          <span className="shrink-0 flex">
             {item.isFolder() ? (
               <HugeiconsIcon icon={item.isExpanded() ? Folder02Icon : Folder01Icon} size={16} />
             ) : (
               <HugeiconsIcon icon={File02Icon} size={16} />
             )}
           </span>
-          <span>{truncate(item.getItemName(), 12)}</span>
+          <span className="truncate">{item.getItemName()}</span>
         </div>
         
         {/* Show action buttons only for root */}

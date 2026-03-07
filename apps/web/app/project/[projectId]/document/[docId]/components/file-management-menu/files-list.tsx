@@ -32,6 +32,7 @@ export const FilesList = ({ docId }: { docId: Id<"documents"> }) => {
     docId ? { documentId: docId } : "skip"
   );
   const document = useQuery(api.requirements.documents.getDocumentById, docId ? { documentId: docId } : "skip");
+  const updateDocument = useMutation(api.requirements.documents.updateDocument);
   const createFile = useMutation(api.requirements.textFiles.create);
   const updateFile = useMutation(api.requirements.textFiles.updateFile);
   const deleteFile = useMutation(api.requirements.textFiles.deleteFile);
@@ -113,12 +114,19 @@ export const FilesList = ({ docId }: { docId: Id<"documents"> }) => {
     indent: 20,
     onRename: async (item, newName) => {
       const itemId = item.getId();
-      if (itemId !== "root" && itemId !== "__virtual_root__") {
+      if (itemId !== "__virtual_root__") {
         const titleToSave = newName.trim().replace(/\s+/g, "_") || "Untitled";
-        await updateFile({
-          fileId: itemId as Id<"text_files">,
-          title: titleToSave,
-        });
+        if (itemId === "root") {
+          await updateDocument({
+            documentId: docId,
+            title: titleToSave,
+          });
+        } else {
+          await updateFile({
+            fileId: itemId as Id<"text_files">,
+            title: titleToSave,
+          });
+        }
         setState(prev => ({
           ...prev,
           renamingItem: undefined,
@@ -128,7 +136,7 @@ export const FilesList = ({ docId }: { docId: Id<"documents"> }) => {
     },
     canRename: (item) => {
       const itemId = item.getId();
-      return itemId !== "root" && itemId !== "__virtual_root__";
+      return itemId !== "__virtual_root__";
     },
     dataLoader: {
       getItem: (itemId) => {
@@ -275,7 +283,7 @@ export const FilesList = ({ docId }: { docId: Id<"documents"> }) => {
           ...prev,
           renamingItem: newFileId,
           selectedItems: [newFileId],
-          renamingValue:""
+          renamingValue:"Untitled"
         }));
         setSelectedFileId(newFileId);
       }, 100); // Small delay to ensure the item is rendered
@@ -309,20 +317,21 @@ export const FilesList = ({ docId }: { docId: Id<"documents"> }) => {
           expandedItems: [...(prev.expandedItems || []), newFolderId],
           renamingItem: newFolderId,
           selectedItems: [newFolderId],
-          renamingValue:""
+          renamingValue:"New_Folder"
         }));
         setSelectedFileId(newFolderId);
       }, 100); // Small delay to ensure the item is rendered
     }
   };
 
-  // Context menu action handlers
   const handleRename = (itemId: string) => {
-    setState(prev => ({
-      ...prev,
-      renamingItem: itemId,
-      renamingValue: ""
-    }));
+    setTimeout(() => {
+      setState(prev => ({
+        ...prev,
+        renamingItem: itemId,
+        renamingValue: dataStructure[itemId]?.title || ""
+      }));
+    }, 50);
   };
 
   const handleDelete = async (itemId: string) => {
@@ -386,10 +395,11 @@ export const FilesList = ({ docId }: { docId: Id<"documents"> }) => {
 
           return (
             <Fragment key={itemId}>
-              {item.isRenaming() ? (
+              {state.renamingItem === itemId ? (
                 <div
                   className="flex items-center gap-2 px-2 py-1 w-full"
                   style={{ paddingLeft: `${item.getItemMeta().level * 20}px` }}
+                  onClick={(e) => e.stopPropagation()}
                 >
                   <span>
                     {item.isFolder() ? (
@@ -399,35 +409,39 @@ export const FilesList = ({ docId }: { docId: Id<"documents"> }) => {
                     )}
                   </span>
                   <input
-                    {...(() => {
-                      const { onChange, ...rest } = item.getRenameInputProps();
-                      return {
-                        ...rest,
-                        onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
-                          const newValue = e.target.value.replace(/\s/g, "_");
-                          e.target.value = newValue; // Update input value visually
-                          onChange?.({
-                            ...e,
-                            target: {
-                              ...e.target,
-                              value: newValue,
-                            },
-                          } as React.ChangeEvent<HTMLInputElement>);
-                          setState(prev => ({
-                            ...prev,
-                            renamingValue:newValue
-                          }))
-                        }
-                      };
-                    })()}
+                    value={state.renamingValue || ""}
+                    onChange={(e) => {
+                      const newValue = e.target.value.replace(/\s/g, "_");
+                      setState(prev => ({ ...prev, renamingValue: newValue }));
+                    }}
                     className="bg-transparent rounded px-2 text-xs focus:outline-none max-w-fit border min-w-0 "
-                    onKeyDown={(e)=>{
-                      if(e.key === "Enter"){
-                        (e.target as HTMLInputElement).blur()
-                        e.stopPropagation()
+                    onClick={(e) => e.stopPropagation()}
+                    onBlur={async () => {
+                      const newValue = state.renamingValue?.trim() || "Untitled";
+                      if (itemId === "root") {
+                        await updateDocument({ documentId: docId, title: newValue });
+                      } else {
+                        await updateFile({ fileId: itemId as Id<"text_files">, title: newValue });
+                      }
+                      setState(prev => ({ ...prev, renamingItem: undefined, renamingValue: "" }));
+                    }}
+                    onKeyDown={async (e) => {
+                      if (e.key === "Enter") {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        const newValue = state.renamingValue?.trim() || "Untitled";
+                        if (itemId === "root") {
+                          await updateDocument({ documentId: docId, title: newValue });
+                        } else {
+                          await updateFile({ fileId: itemId as Id<"text_files">, title: newValue });
+                        }
+                        setState(prev => ({ ...prev, renamingItem: undefined, renamingValue: "" }));
+                      } else if (e.key === "Escape") {
+                        e.stopPropagation();
+                        setState(prev => ({ ...prev, renamingItem: undefined, renamingValue: "" }));
                       }
                     }}
-                    
+                    autoFocus
                   />
                 </div>
               ) : (
