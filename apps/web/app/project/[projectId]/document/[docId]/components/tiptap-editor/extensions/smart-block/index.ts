@@ -1,4 +1,4 @@
-import { InputRule, Node } from "@tiptap/core";
+import { InputRule, Node, mergeAttributes } from "@tiptap/core";
 
 export const SmartBlock = Node.create({
   name: "smartBlock", 
@@ -7,18 +7,23 @@ export const SmartBlock = Node.create({
   defining: true,
 
   parseHTML() {
-    return [{ tag: `div[data-node-type="${this.name}"]` }];
+    return [
+      { 
+        tag: `div[data-node-type="${this.name}"]`,
+        contentElement: '.bn-content-wrapper'
+      }
+    ];
   },
 
   renderHTML({ HTMLAttributes }) {
     return [
       "div",
-      {
+      mergeAttributes(HTMLAttributes, {
         id: HTMLAttributes["data-id"] || undefined,
         class: "bn-block-outer",
-        "data-node-type": "blockOuter",
+        "data-node-type": this.name,
         style: "display: flex; flex-direction: row; align-items: flex-start;"
-      },
+      }),
       [
         "span",
         {
