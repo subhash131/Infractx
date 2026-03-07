@@ -52,8 +52,7 @@ export function FileItemWithContextMenu({
         const itemData = item.getItemData();
         if (
           itemId !== "root" && 
-          itemId !== "__virtual_root__" && 
-          itemData.type === "FILE"
+          itemId !== "__virtual_root__"
         ) {
           onClickFile(itemId);
         }
@@ -64,11 +63,9 @@ export function FileItemWithContextMenu({
           originalOnClick(e as any);
         }
         
-        const itemData = item.getItemData();
         if (
           itemId !== "root" && 
-          itemId !== "__virtual_root__" && 
-          itemData.type === "FILE"
+          itemId !== "__virtual_root__"
         ) {
           onClickFile(itemId);
         }

@@ -3,6 +3,8 @@ import dynamic from "next/dynamic";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useQueryState } from "nuqs";
+import { useQuery } from "convex/react";
+import { api } from "@workspace/backend/_generated/api";
 import { DocHeader } from "./components/doc-header";
 import { FileManagementMenu } from "./components/file-management-menu";
 import { Id } from "@workspace/backend/_generated/dataModel";
@@ -109,11 +111,13 @@ const RequirementsDraftingPage = () => {
     }
   }, [docId]);
 
+  const effectiveFileId = fileId && fileId !== "root" ? fileId : null;
+
+  const file = useQuery(api.requirements.textFiles.getTextFileById, effectiveFileId ? { fileId: effectiveFileId as Id<"text_files"> } : "skip");
+
   if (!layout) {
     return null; // Wait for layout to load from local storage
   }
-
-  const effectiveFileId = fileId && fileId !== "root" ? fileId : null;
 
   return (
     <ResizablePanelGroup 
@@ -130,7 +134,7 @@ const RequirementsDraftingPage = () => {
       <ResizablePanel defaultSize={layout[1]} className="h-full flex flex-col">
         {effectiveFileId && <div id="editor-scroll-container" className="w-full h-full overflow-hidden overflow-y-auto hide-scrollbar">
           <DocHeader />
-          <TiptapEditor textFileId={effectiveFileId as Id<"text_files">} />
+          {file?.type === "FILE" && <TiptapEditor textFileId={effectiveFileId as Id<"text_files">} />}
         </div>}
         {!effectiveFileId && <NoFileSelected docId={docId} />}
       </ResizablePanel>

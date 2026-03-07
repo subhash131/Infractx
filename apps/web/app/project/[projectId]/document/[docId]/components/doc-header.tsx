@@ -13,17 +13,27 @@ export const DocHeader = () => {
   const file = useQuery(api.requirements.textFiles.getTextFileById, fileId ? { fileId: fileId as Id<"text_files"> } : "skip");
   const updateFile = useMutation(api.requirements.textFiles.updateFile);
 
-  // Local state for immediate UI updates
   const [title, setTitle] = useState(file?.title || "");
   const [description, setDescription] = useState(file?.description || "");
+  
+  const [isTitleFocused, setIsTitleFocused] = useState(false);
+  const [isDescFocused, setIsDescFocused] = useState(false);
+  
+  const prevFileIdRef = useRef<string | null>(null);
 
-  // Sync local state with fetched file data ONLY when file ID changes
+  // Sync local state with fetched file data ONLY when file ID changes or when inputs are not focused
   useEffect(() => {
     if (file) {
-      setTitle(()=>file.title);
-      setDescription(file.description || "");
+      if (file._id !== prevFileIdRef.current) {
+        setTitle(file.title);
+        setDescription(file.description || "");
+        prevFileIdRef.current = file._id;
+      } else {
+        if (!isTitleFocused) setTitle(file.title);
+        if (!isDescFocused) setDescription(file.description || "");
+      }
     }
-  }, [file]);
+  }, [file, isTitleFocused, isDescFocused]);
 
   // Debounced update functions
   const debouncedUpdateTitle = useMemo(
@@ -41,6 +51,14 @@ export const DocHeader = () => {
       }, 500),
     [updateFile]
   );
+  
+  // Clean up debounce on unmount
+  useEffect(() => {
+    return () => {
+      debouncedUpdateTitle.cancel();
+      debouncedUpdateDescription.cancel();
+    };
+  }, [debouncedUpdateTitle, debouncedUpdateDescription]);
 
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const rawTitle = e.target.value;
@@ -75,13 +93,17 @@ export const DocHeader = () => {
         }}
         value={title}
         onChange={handleTitleChange}
+        onFocus={() => setIsTitleFocused(true)}
+        onBlur={() => setIsTitleFocused(false)}
       />
       <Textarea
         className="focus-visible:ring-0 border-0 outline-none ring-0 pl-12 bg-transparent max-h-10 text-sm h-fit hide-scrollbar dark:bg-transparent"
-        placeholder="Description (Eg: This doc describes the technical design of the postgres backend)"
+        placeholder="(optional) Add brief context, tech stack, or goals to help the AI provide more accurate results."
         ref={textareaRef}
         value={description}
         onChange={handleDescriptionChange}
+        onFocus={() => setIsDescFocused(true)}
+        onBlur={() => setIsDescFocused(false)}
         />
     </div>
   );

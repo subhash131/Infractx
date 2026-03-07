@@ -26,7 +26,7 @@ export const createProject = mutation({
     });
     
     await ctx.db.insert("documents", {
-      title: "New Text Document",
+      title: "Text_Document",
       description: "Default text document",
       type: "TEXT",
       projectId: projectId,
