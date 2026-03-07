@@ -8,21 +8,21 @@ export type ArchPhase = "questions" | "tech_plan_approval" | "plan_approval" | "
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
 // ─── upsertSession ─────────────────────────────────────────────────────────────
-// Creates a fresh session for a docId, or replaces an existing one.
+// Creates a fresh session for a conversationId, or replaces an existing one.
 export const upsertSession = mutation({
   args: {
     docId: v.string(),
-    conversationId: v.optional(v.id("conversations")),
+    conversationId: v.id("conversations"),
     userMessage: v.string(),
     sessionToken: v.string(),
     streamKey: v.string(),
     questions: v.array(v.string()),
   },
   handler: async (ctx, args) => {
-    // Delete any stale session for this doc first
+    // Delete any stale session for this conversation first
     const existing = await ctx.db
       .query("architecture_sessions")
-      .withIndex("by_doc", (q) => q.eq("docId", args.docId))
+      .withIndex("by_conversation", (q) => q.eq("conversationId", args.conversationId))
       .first();
     if (existing) await ctx.db.delete(existing._id);
 
@@ -40,11 +40,11 @@ export const upsertSession = mutation({
 
 // ─── getSession ────────────────────────────────────────────────────────────────
 export const getSession = query({
-  args: { docId: v.string() },
+  args: { conversationId: v.id("conversations") },
   handler: async (ctx, args) => {
     return await ctx.db
       .query("architecture_sessions")
-      .withIndex("by_doc", (q) => q.eq("docId", args.docId))
+      .withIndex("by_conversation", (q) => q.eq("conversationId", args.conversationId))
       .first();
   },
 });
@@ -54,15 +54,15 @@ export const getSession = query({
 // Returns { answeredCount, totalQuestions, allAnswered, nextQuestion, nextIndex }
 export const addAnswer = mutation({
   args: {
-    docId: v.string(),
+    conversationId: v.id("conversations"),
     answer: v.string(),
   },
   handler: async (ctx, args) => {
     const session = await ctx.db
       .query("architecture_sessions")
-      .withIndex("by_doc", (q) => q.eq("docId", args.docId))
+      .withIndex("by_conversation", (q) => q.eq("conversationId", args.conversationId))
       .first();
-    if (!session) throw new Error("No active architecture session for doc: " + args.docId);
+    if (!session) throw new Error("No active architecture session for conversation: " + args.conversationId);
 
     // Find the first unanswered question
     const firstUnanswered = session.qa.findIndex((item) => item.answer === undefined);
@@ -97,15 +97,15 @@ export const addAnswer = mutation({
 // Transitions to tech_plan_approval phase, storing the generated technology plan JSON.
 export const setTechPlan = mutation({
   args: {
-    docId: v.string(),
+    conversationId: v.id("conversations"),
     techPlanJson: v.string(),
   },
   handler: async (ctx, args) => {
     const session = await ctx.db
       .query("architecture_sessions")
-      .withIndex("by_doc", (q) => q.eq("docId", args.docId))
+      .withIndex("by_conversation", (q) => q.eq("conversationId", args.conversationId))
       .first();
-    if (!session) throw new Error("No active architecture session for doc: " + args.docId);
+    if (!session) throw new Error("No active architecture session for conversation: " + args.conversationId);
     await ctx.db.patch(session._id, { phase: "tech_plan_approval", techPlan: args.techPlanJson });
   },
 });
@@ -114,15 +114,15 @@ export const setTechPlan = mutation({
 // Transitions to plan_approval phase, storing the generated structure plan JSON.
 export const setPlan = mutation({
   args: {
-    docId: v.string(),
+    conversationId: v.id("conversations"),
     planJson: v.string(),
   },
   handler: async (ctx, args) => {
     const session = await ctx.db
       .query("architecture_sessions")
-      .withIndex("by_doc", (q) => q.eq("docId", args.docId))
+      .withIndex("by_conversation", (q) => q.eq("conversationId", args.conversationId))
       .first();
-    if (!session) throw new Error("No active architecture session for doc: " + args.docId);
+    if (!session) throw new Error("No active architecture session for conversation: " + args.conversationId);
     await ctx.db.patch(session._id, { phase: "plan_approval", plan: args.planJson });
   },
 });
@@ -131,7 +131,7 @@ export const setPlan = mutation({
 // Generic phase transition. When moving to "done", schedules auto-deletion 1 day later.
 export const setPhase = mutation({
   args: {
-    docId: v.string(),
+    conversationId: v.id("conversations"),
     phase: v.union(
       v.literal("questions"),
       v.literal("tech_plan_approval"),
@@ -143,9 +143,9 @@ export const setPhase = mutation({
   handler: async (ctx, args) => {
     const session = await ctx.db
       .query("architecture_sessions")
-      .withIndex("by_doc", (q) => q.eq("docId", args.docId))
+      .withIndex("by_conversation", (q) => q.eq("conversationId", args.conversationId))
       .first();
-    if (!session) throw new Error("No active architecture session for doc: " + args.docId);
+    if (!session) throw new Error("No active architecture session for conversation: " + args.conversationId);
 
     await ctx.db.patch(session._id, { phase: args.phase });
 
@@ -162,11 +162,11 @@ export const setPhase = mutation({
 
 // ─── deleteSession (manual — called on user rejection) ────────────────────────
 export const deleteSession = mutation({
-  args: { docId: v.string() },
+  args: { conversationId: v.id("conversations") },
   handler: async (ctx, args) => {
     const session = await ctx.db
       .query("architecture_sessions")
-      .withIndex("by_doc", (q) => q.eq("docId", args.docId))
+      .withIndex("by_conversation", (q) => q.eq("conversationId", args.conversationId))
       .first();
     if (session) await ctx.db.delete(session._id);
   },

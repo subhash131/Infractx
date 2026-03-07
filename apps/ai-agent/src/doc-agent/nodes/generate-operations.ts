@@ -47,39 +47,10 @@ export async function generateOperations(
   const operations: EditOperation[] = [];
 
   /* =========================
-     SCHEMA
-  ========================= */
-
-  if (state.intent === "schema" && state.extractedData) {
-    console.log("📊 Generating schema smartblock");
-    console.log("Extracted schema:", state.extractedData);
-
-    const { tableName, fields } = state.extractedData;
-
-    operations.push({
-      type: "insert_smartblock",
-      position: state.cursorPosition,
-      content: {
-        title: `Schema: ${tableName.charAt(0).toUpperCase() + tableName.slice(1)}`,
-        table: {
-          headers: ["Field", "Type", "Description (optional)"],
-          rows: fields.map((field: any) => [
-            field.name,
-            field.type,
-            field.description || "",
-          ]),
-        },
-      },
-    });
-
-    console.log("✅ Schema operation created");
-  }
-
-  /* =========================
      TABLE
   ========================= */
 
-  else if (state.intent === "table" && state.extractedData) {
+  if (state.intent === "table" && state.extractedData) {
     console.log("📋 Generating table smartblock");
 
     operations.push({

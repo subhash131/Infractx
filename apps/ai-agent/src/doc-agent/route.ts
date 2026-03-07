@@ -71,7 +71,7 @@ export const docAgentHandler = async (req: Request, res: Response) => {
         await redis.del(streamKey);
         await inngest.send({
             name: "doc/architecture.answered",
-            data: { docId, answer, sessionToken },
+            data: { docId, conversationId, answer, sessionToken },
         });
         pipeRedisToSSE(streamKey, res, req, pushToStream);
         return;
@@ -81,7 +81,7 @@ export const docAgentHandler = async (req: Request, res: Response) => {
         await redis.del(streamKey);
         await inngest.send({
             name: "doc/architecture.structure_requested",
-            data: { docId, sessionToken },
+            data: { docId, conversationId, sessionToken },
         });
         pushToStream({
             type: "response",
@@ -100,7 +100,7 @@ export const docAgentHandler = async (req: Request, res: Response) => {
         await redis.del(streamKey);
         await inngest.send({
             name: "doc/architecture.approved",
-            data: { docId, sessionToken },
+            data: { docId, conversationId, sessionToken },
         });
         pushToStream({
             type: "response",
@@ -121,7 +121,7 @@ export const docAgentHandler = async (req: Request, res: Response) => {
         const client = getConvexClient(sessionToken);
         await client.mutation(
             api.requirements.architectureSessions.deleteSession,
-            { docId }
+            { conversationId }
         );
         pushToStream({
             type: "response",
